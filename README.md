@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Complex Problem Solver (CCPS)
 
-## Getting Started
+An online tool that steps a school (or any organisation) through the 5-stage
+Collaborative Complex Problem Solving (CCPS) process:
 
-First, run the development server:
+1. Problem Identification
+2. Inquire into Causes
+3. Solution Requirements
+4. Solution Strategies
+5. Evaluate Impact
+
+Only **Stage 1: Problem Identification** is built out so far; the other four
+stages are placeholders with the same tab/side-panel structure ready to be
+filled in next.
+
+## Stack
+
+- Next.js 16 (App Router, TypeScript, Tailwind v4)
+- shadcn/ui (Base UI primitives)
+- Tiptap for rich text fields
+- Supabase (Postgres + Auth, Google OAuth)
+
+## Setup
+
+### 1. Create a Supabase project
+
+- Create a new project at [supabase.com](https://supabase.com).
+- In the SQL Editor, run `supabase/migrations/0001_init.sql`, then
+  `supabase/migrations/0002_seed_exemplars.sql`.
+- Under **Authentication → Providers**, enable **Google** and add your OAuth
+  client ID/secret. Add `http://localhost:3000/auth/callback` (and your
+  production URL once deployed) as an authorized redirect URI in the Google
+  Cloud console and in Supabase's provider settings.
+
+### 2. Environment variables
+
+Copy `.env.local.example` to `.env.local` and fill in your project's URL and
+anon key (Project Settings → API):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.local.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Run locally
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Visit [http://localhost:3000](http://localhost:3000) — you'll be redirected
+to `/login`.
 
-## Learn More
+## Deploying
 
-To learn more about Next.js, take a look at the following resources:
+- Push this repo to GitHub, then import it in Vercel.
+- Add the same two environment variables (`NEXT_PUBLIC_SUPABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY`) in the Vercel project settings.
+- Add the deployed URL's `/auth/callback` as an authorized redirect URI in
+  both Google Cloud console and Supabase.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Data model
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+See `supabase/migrations/0001_init.sql`. Key tables:
 
-## Deploy on Vercel
+- `organisations` / `org_members` — every user is auto-enrolled into their
+  own organisation on signup (trigger on `auth.users`); multi-user
+  collaboration within an org is supported by the schema already.
+- `plans` — a problem-solving plan, scoped to an org.
+- `plan_stage_responses` — one row per (plan, stage, field), storing Tiptap
+  JSON. New fields or stages don't require a schema migration.
+- `checklist_items` / `plan_checklist_state` — the "does it meet the success
+  criteria" checklist shown in the side panel, per stage.
+- `exemplars` / `exemplar_fields` — worked examples selectable from the side
+  panel's Exemplar tab.
+- `feedback_comments` — placeholder comment thread per plan/stage.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Row-Level Security scopes everything to the user's organisation.
