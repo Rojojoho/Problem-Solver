@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { JSONContent } from "@tiptap/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { STAGES, STAGE_FIELDS } from "@/lib/ccps/constants";
-import type { CcpsStage } from "@/lib/supabase/database.types";
+import type { CcpsStage, PublishedStatus } from "@/lib/supabase/database.types";
 import type {
   ChecklistItemData,
   ExemplarData,
@@ -13,6 +13,7 @@ import type {
 import { Stage1Form } from "@/components/plan/stage1-form";
 import { StagePlaceholder } from "@/components/plan/stage-placeholder";
 import { SidePanel } from "@/components/plan/side-panel";
+import { PublishButton } from "@/components/plan/publish-button";
 
 interface PlanWorkspaceProps {
   planId: string;
@@ -21,6 +22,7 @@ interface PlanWorkspaceProps {
   checklist: ChecklistItemData[];
   exemplars: ExemplarData[];
   feedback: FeedbackItemData[];
+  publishStatus: PublishedStatus | null;
 }
 
 export function PlanWorkspace({
@@ -30,11 +32,15 @@ export function PlanWorkspace({
   checklist,
   exemplars,
   feedback,
+  publishStatus,
 }: PlanWorkspaceProps) {
   const [stage, setStage] = useState<CcpsStage>(initialStage);
 
   return (
     <Tabs value={stage} onValueChange={(v) => setStage(v as CcpsStage)}>
+      <div className="mb-4 flex justify-end">
+        <PublishButton planId={planId} status={publishStatus} />
+      </div>
       <TabsList className="w-full justify-start overflow-x-auto">
         {STAGES.map((s, i) => (
           <TabsTrigger

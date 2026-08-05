@@ -1,6 +1,10 @@
 import type { JSONContent } from "@tiptap/react";
 import { paragraphDoc } from "@/lib/ccps/constants";
-import type { CcpsStage } from "@/lib/supabase/database.types";
+import type {
+  CcpsStage,
+  PublishedStatus,
+} from "@/lib/supabase/database.types";
+import type { PublishedPlanSummary, TagData } from "@/lib/ccps/types";
 
 export const MOCK_USER_ID = "dev-user";
 export const MOCK_ORG_ID = "dev-org";
@@ -193,4 +197,147 @@ export function mockAddFeedback(
     body,
     created_at: now(),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Publishing + tags
+// ---------------------------------------------------------------------------
+
+interface MockPublishedPlan {
+  id: string;
+  sourcePlanId: string;
+  sourceOrgId: string;
+  publishedBy: string;
+  snapshotName: string;
+  snapshotCurrentStage: CcpsStage;
+  status: PublishedStatus;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+const publishedPlans = new Map<string, MockPublishedPlan>();
+// key: `${publishedPlanId}:${stage}:${fieldKey}`
+const publishedPlanFields = new Map<string, JSONContent>();
+const tags = new Map<string, TagData>();
+// key: publishedPlanId -> Set<tagId>
+const publishedPlanTags = new Map<string, Set<string>>();
+
+export function mockPublishPlan(
+  planId: string,
+  orgId: string,
+  userId: string,
+  name: string,
+  currentStage: CcpsStage,
+  stageFields: { stage: CcpsStage; fields: Record<string, JSONContent> }[],
+  checklistState: Record<string, boolean>
+) {
+  const id = crypto.randomUUID();
+  publishedPlans.set(id, {
+    id,
+    sourcePlanId: planId,
+    sourceOrgId: orgId,
+    publishedBy: userId,
+    snapshotName: name,
+    snapshotCurrentStage: currentStage,
+    status: "pending",
+    reviewedBy: null,
+    reviewNote: null,
+    createdAt: now(),
+  });
+
+  for (const { stage, fields } of stageFields) {
+    for (const [fieldKey, content] of Object.entries(fields)) {
+      publishedPlanFields.set(`${id}:${stage}:${fieldKey}`, content);
+    }
+  }
+  // Checklist state isn't currently surfaced in the admin review UI, but is
+  // captured here to match the real schema's snapshot shape.
+  void checklistState;
+
+  return { id };
+}
+
+export function mockGetLatestPublishedPlanForSource(planId: string) {
+  const matches = Array.from(publishedPlans.values())
+    .filter((p) => p.sourcePlanId === planId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const latest = matches[0];
+  return latest ? { id: latest.id, status: latest.status } : null;
+}
+
+export function mockListPublishedPlansForAdmin(
+  status?: PublishedStatus
+): PublishedPlanSummary[] {
+  return Array.from(publishedPlans.values())
+    .filter((p) => !status || p.status === status)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map((p) => ({
+      id: p.id,
+      sourceOrgName: p.sourceOrgId === MOCK_ORG_ID ? "Dev Organisation (mock)" : null,
+      snapshotName: p.snapshotName,
+      snapshotCurrentStage: p.snapshotCurrentStage,
+      status: p.status,
+      createdAt: p.createdAt,
+      reviewNote: p.reviewNote,
+      tags: Array.from(publishedPlanTags.get(p.id) ?? [])
+        .map((tagId) => tags.get(tagId))
+        .filter((t): t is TagData => Boolean(t)),
+    }));
+}
+
+export function mockSetPublishedPlanStatus(
+  id: string,
+  status: PublishedStatus,
+  adminUserId: string,
+  note: string | null
+) {
+  const plan = publishedPlans.get(id);
+  if (!plan) return;
+  plan.status = status;
+  plan.reviewedBy = adminUserId;
+  plan.reviewNote = note;
+}
+
+export function mockPromoteToExemplar(
+  publishedPlanId: string,
+  name: string,
+  description: string | null
+) {
+  const fields: Partial<Record<CcpsStage, Record<string, JSONContent>>> = {};
+  for (const [key, content] of publishedPlanFields) {
+    const [pId, stage, fieldKey] = key.split(":");
+    if (pId !== publishedPlanId) continue;
+    const s = stage as CcpsStage;
+    fields[s] = { ...(fields[s] ?? {}), [fieldKey]: content };
+  }
+
+  const id = crypto.randomUUID();
+  EXEMPLARS.push({ id, name, description, fields });
+  return { id };
+}
+
+export function mockListTags(): TagData[] {
+  return Array.from(tags.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function mockCreateTag(name: string): TagData {
+  const existing = Array.from(tags.values()).find(
+    (t) => t.name.toLowerCase() === name.toLowerCase()
+  );
+  if (existing) return existing;
+
+  const tag: TagData = { id: crypto.randomUUID(), name };
+  tags.set(tag.id, tag);
+  return tag;
+}
+
+export function mockTagPublishedPlan(publishedPlanId: string, tagId: string) {
+  const set = publishedPlanTags.get(publishedPlanId) ?? new Set<string>();
+  set.add(tagId);
+  publishedPlanTags.set(publishedPlanId, set);
+}
+
+export function mockUntagPublishedPlan(publishedPlanId: string, tagId: string) {
+  publishedPlanTags.get(publishedPlanId)?.delete(tagId);
 }

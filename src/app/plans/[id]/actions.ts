@@ -9,6 +9,8 @@ import {
   addFeedbackRecord,
   renamePlanRecord,
   getCurrentUserId,
+  getCurrentOrg,
+  publishPlanRecord,
 } from "@/lib/db";
 
 export async function saveStageResponse(
@@ -53,4 +55,13 @@ export async function renamePlan(planId: string, name: string) {
   await renamePlanRecord(planId, trimmed);
   revalidatePath(`/plans/${planId}`);
   revalidatePath("/plans");
+}
+
+export async function publishPlan(planId: string) {
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error("Not authenticated.");
+
+  const { orgId } = await getCurrentOrg();
+  await publishPlanRecord(planId, orgId, userId);
+  revalidatePath(`/plans/${planId}`);
 }

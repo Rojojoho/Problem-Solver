@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/react";
-import type { CcpsStage } from "@/lib/supabase/database.types";
+import type { CcpsStage, PublishedStatus } from "@/lib/supabase/database.types";
 
 export interface ChecklistItemData {
   item_key: string;
@@ -20,4 +20,20 @@ export interface ExemplarData {
   name: string;
   description: string | null;
   fields: Record<string, JSONContent>;
+}
+
+export interface TagData {
+  id: string;
+  name: string;
+}
+
+export interface PublishedPlanSummary {
+  id: string;
+  sourceOrgName: string | null;
+  snapshotName: string;
+  snapshotCurrentStage: CcpsStage;
+  status: PublishedStatus;
+  createdAt: string;
+  reviewNote: string | null;
+  tags: TagData[];
 }

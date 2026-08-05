@@ -6,6 +6,7 @@ import {
   getChecklistState,
   getExemplars,
   getFeedback,
+  getLatestPublishedPlanForSource,
 } from "@/lib/db";
 import { PlanWorkspace } from "@/components/plan/plan-workspace";
 
@@ -21,14 +22,21 @@ export default async function PlanPage({
     notFound();
   }
 
-  const [piResponses, checklistItems, checklistState, exemplars, feedback] =
-    await Promise.all([
-      getStageResponses(id, "PI"),
-      getChecklistItems("PI"),
-      getChecklistState(id),
-      getExemplars("PI"),
-      getFeedback(id),
-    ]);
+  const [
+    piResponses,
+    checklistItems,
+    checklistState,
+    exemplars,
+    feedback,
+    latestPublished,
+  ] = await Promise.all([
+    getStageResponses(id, "PI"),
+    getChecklistItems("PI"),
+    getChecklistState(id),
+    getExemplars("PI"),
+    getFeedback(id),
+    getLatestPublishedPlanForSource(id),
+  ]);
 
   const checklist = checklistItems.map((item) => ({
     item_key: item.item_key,
@@ -48,6 +56,7 @@ export default async function PlanPage({
         checklist={checklist}
         exemplars={exemplars}
         feedback={feedback}
+        publishStatus={latestPublished?.status ?? null}
       />
     </div>
   );

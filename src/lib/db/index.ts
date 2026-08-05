@@ -3,8 +3,14 @@ import { redirect } from "next/navigation";
 import type { JSONContent } from "@tiptap/react";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_MOCK } from "@/lib/dev-mode";
-import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { ExemplarData, FeedbackItemData } from "@/lib/ccps/types";
+import type { CcpsStage, PublishedStatus } from "@/lib/supabase/database.types";
+import type {
+  ExemplarData,
+  FeedbackItemData,
+  PublishedPlanSummary,
+  TagData,
+} from "@/lib/ccps/types";
+import { STAGES } from "@/lib/ccps/constants";
 import * as mock from "@/lib/db/mock-store";
 
 /**
@@ -290,5 +296,293 @@ export async function renamePlanRecord(planId: string, name: string) {
     .from("plans")
     .update({ name, updated_at: new Date().toISOString() })
     .eq("id", planId);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Publishing — snapshotting a plan into the shared/central database.
+// ---------------------------------------------------------------------------
+
+export async function publishPlanRecord(
+  planId: string,
+  orgId: string,
+  userId: string
+): Promise<{ id: string }> {
+  const plan = await getPlan(planId);
+  if (!plan) throw new Error("Plan not found.");
+
+  const stageResponsesByStage = await Promise.all(
+    STAGES.map((s) => getStageResponses(planId, s.key))
+  );
+  const checklistState = await getChecklistState(planId);
+
+  if (DEV_MOCK) {
+    return mock.mockPublishPlan(
+      planId,
+      orgId,
+      userId,
+      plan.name,
+      plan.current_stage,
+      STAGES.map((s, i) => ({ stage: s.key, fields: stageResponsesByStage[i] })),
+      checklistState
+    );
+  }
+
+  const supabase = await createClient();
+  const { data: publishedPlan, error } = await supabase
+    .from("published_plans")
+    .insert({
+      source_plan_id: planId,
+      source_org_id: orgId,
+      published_by: userId,
+      snapshot_name: plan.name,
+      snapshot_current_stage: plan.current_stage,
+    })
+    .select("id")
+    .single();
+
+  if (error || !publishedPlan) {
+    throw new Error(error?.message ?? "Failed to publish plan.");
+  }
+
+  const fieldRows = STAGES.flatMap((s, i) =>
+    Object.entries(stageResponsesByStage[i]).map(([fieldKey, content]) => ({
+      published_plan_id: publishedPlan.id,
+      stage: s.key,
+      field_key: fieldKey,
+      content,
+    }))
+  );
+  if (fieldRows.length) {
+    const { error: fieldsError } = await supabase
+      .from("published_plan_fields")
+      .insert(fieldRows);
+    if (fieldsError) throw new Error(fieldsError.message);
+  }
+
+  const checklistRows = Object.entries(checklistState).map(
+    ([itemKey, checked]) => ({
+      published_plan_id: publishedPlan.id,
+      item_key: itemKey,
+      checked,
+    })
+  );
+  if (checklistRows.length) {
+    const { error: checklistError } = await supabase
+      .from("published_plan_checklist_state")
+      .insert(checklistRows);
+    if (checklistError) throw new Error(checklistError.message);
+  }
+
+  return { id: publishedPlan.id };
+}
+
+export async function getLatestPublishedPlanForSource(
+  planId: string
+): Promise<{ id: string; status: PublishedStatus } | null> {
+  if (DEV_MOCK) return mock.mockGetLatestPublishedPlanForSource(planId);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("published_plans")
+    .select("id, status")
+    .eq("source_plan_id", planId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+export async function listPublishedPlansForAdmin(
+  status?: PublishedStatus
+): Promise<PublishedPlanSummary[]> {
+  if (DEV_MOCK) return mock.mockListPublishedPlansForAdmin(status);
+
+  const supabase = await createClient();
+  let query = supabase
+    .from("published_plans")
+    .select(
+      "id, snapshot_name, snapshot_current_stage, status, created_at, review_note, organisations(name)"
+    )
+    .order("created_at", { ascending: false });
+  if (status) query = query.eq("status", status);
+  const { data: rows } = await query;
+
+  const ids = (rows ?? []).map((r) => r.id);
+  const { data: tagRows } = ids.length
+    ? await supabase
+        .from("published_plan_tags")
+        .select("published_plan_id, tags(id, name)")
+        .in("published_plan_id", ids)
+    : { data: [] as { published_plan_id: string; tags: TagData | null }[] };
+
+  return (rows ?? []).map((r) => ({
+    id: r.id,
+    sourceOrgName:
+      (r.organisations as unknown as { name: string } | null)?.name ?? null,
+    snapshotName: r.snapshot_name,
+    snapshotCurrentStage: r.snapshot_current_stage,
+    status: r.status,
+    createdAt: r.created_at,
+    reviewNote: r.review_note,
+    tags: (tagRows ?? [])
+      .filter((t) => t.published_plan_id === r.id)
+      .map((t) => t.tags as unknown as TagData)
+      .filter(Boolean),
+  }));
+}
+
+export async function approvePublishedPlanRecord(
+  id: string,
+  adminUserId: string
+) {
+  if (DEV_MOCK) {
+    mock.mockSetPublishedPlanStatus(id, "approved", adminUserId, null);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("published_plans")
+    .update({
+      status: "approved",
+      reviewed_by: adminUserId,
+      reviewed_at: new Date().toISOString(),
+      review_note: null,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function rejectPublishedPlanRecord(
+  id: string,
+  adminUserId: string,
+  note: string | null
+) {
+  if (DEV_MOCK) {
+    mock.mockSetPublishedPlanStatus(id, "rejected", adminUserId, note);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("published_plans")
+    .update({
+      status: "rejected",
+      reviewed_by: adminUserId,
+      reviewed_at: new Date().toISOString(),
+      review_note: note,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function promoteToExemplarRecord(
+  publishedPlanId: string,
+  name: string,
+  description: string | null
+): Promise<{ id: string }> {
+  if (DEV_MOCK) {
+    return mock.mockPromoteToExemplar(publishedPlanId, name, description);
+  }
+
+  const supabase = await createClient();
+  const { data: fields } = await supabase
+    .from("published_plan_fields")
+    .select("stage, field_key, content")
+    .eq("published_plan_id", publishedPlanId);
+
+  const { data: exemplar, error } = await supabase
+    .from("exemplars")
+    .insert({ name, description })
+    .select("id")
+    .single();
+  if (error || !exemplar) {
+    throw new Error(error?.message ?? "Failed to create exemplar.");
+  }
+
+  const fieldRows = (fields ?? []).map((f) => ({
+    exemplar_id: exemplar.id,
+    stage: f.stage,
+    field_key: f.field_key,
+    content: f.content,
+  }));
+  if (fieldRows.length) {
+    const { error: fieldsError } = await supabase
+      .from("exemplar_fields")
+      .insert(fieldRows);
+    if (fieldsError) throw new Error(fieldsError.message);
+  }
+
+  return { id: exemplar.id };
+}
+
+// ---------------------------------------------------------------------------
+// Tags
+// ---------------------------------------------------------------------------
+
+export async function listTags(): Promise<TagData[]> {
+  if (DEV_MOCK) return mock.mockListTags();
+
+  const supabase = await createClient();
+  const { data } = await supabase.from("tags").select("id, name").order("name");
+  return data ?? [];
+}
+
+export async function createTagRecord(name: string): Promise<TagData> {
+  const trimmed = name.trim();
+  if (DEV_MOCK) return mock.mockCreateTag(trimmed);
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("tags")
+    .select("id, name")
+    .ilike("name", trimmed)
+    .maybeSingle();
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from("tags")
+    .insert({ name: trimmed })
+    .select("id, name")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Failed to create tag.");
+  return data;
+}
+
+export async function tagPublishedPlanRecord(
+  publishedPlanId: string,
+  tagId: string
+) {
+  if (DEV_MOCK) {
+    mock.mockTagPublishedPlan(publishedPlanId, tagId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("published_plan_tags")
+    .upsert(
+      { published_plan_id: publishedPlanId, tag_id: tagId },
+      { onConflict: "published_plan_id,tag_id" }
+    );
+  if (error) throw new Error(error.message);
+}
+
+export async function untagPublishedPlanRecord(
+  publishedPlanId: string,
+  tagId: string
+) {
+  if (DEV_MOCK) {
+    mock.mockUntagPublishedPlan(publishedPlanId, tagId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("published_plan_tags")
+    .delete()
+    .eq("published_plan_id", publishedPlanId)
+    .eq("tag_id", tagId);
   if (error) throw new Error(error.message);
 }
