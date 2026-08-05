@@ -114,6 +114,28 @@ export async function createPlanRecord(
   if (error || !data) {
     throw new Error(error?.message ?? "Failed to create plan.");
   }
+
+  // Snapshot the current checklist template into this plan so later admin
+  // edits to the template never change what an already-created plan shows.
+  const { data: templateItems } = await supabase
+    .from("checklist_items")
+    .select("item_key, stage, label, sort_order");
+
+  if (templateItems && templateItems.length) {
+    const { error: snapshotError } = await supabase
+      .from("plan_checklist_items")
+      .insert(
+        templateItems.map((item) => ({
+          plan_id: data.id,
+          item_key: item.item_key,
+          stage: item.stage,
+          label: item.label,
+          sort_order: item.sort_order,
+        }))
+      );
+    if (snapshotError) throw new Error(snapshotError.message);
+  }
+
   return data;
 }
 
@@ -173,16 +195,89 @@ export async function saveStageResponseRecord(
   if (error) throw new Error(error.message);
 }
 
-export async function getChecklistItems(stage: CcpsStage) {
-  if (DEV_MOCK) return mock.CHECKLIST_ITEMS[stage];
+export async function getChecklistItems(planId: string, stage: CcpsStage) {
+  if (DEV_MOCK) return mock.mockGetPlanChecklistItems(planId, stage);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("plan_checklist_items")
+    .select("item_key, label, sort_order")
+    .eq("plan_id", planId)
+    .eq("stage", stage)
+    .order("sort_order");
+  return data ?? [];
+}
+
+// ---------------------------------------------------------------------------
+// Checklist template — the admin-editable global definition. Only read here
+// at plan-creation time (see createPlanRecord) and by the admin editor below;
+// end users viewing a plan always read the plan's own snapshot instead
+// (getChecklistItems), never this live table.
+// ---------------------------------------------------------------------------
+
+export async function listChecklistTemplateItems(stage: CcpsStage) {
+  if (DEV_MOCK) return mock.mockListChecklistTemplateItems(stage);
 
   const supabase = await createClient();
   const { data } = await supabase
     .from("checklist_items")
-    .select("item_key, label, sort_order")
+    .select("id, item_key, stage, label, sort_order")
     .eq("stage", stage)
     .order("sort_order");
   return data ?? [];
+}
+
+export async function createChecklistTemplateItemRecord(
+  stage: CcpsStage,
+  itemKey: string,
+  label: string,
+  sortOrder: number
+): Promise<{ id: string }> {
+  if (DEV_MOCK) {
+    return mock.mockCreateChecklistTemplateItem(stage, itemKey, label, sortOrder);
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("checklist_items")
+    .insert({ stage, item_key: itemKey, label, sort_order: sortOrder })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create checklist item.");
+  }
+  return data;
+}
+
+export async function updateChecklistTemplateItemRecord(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateChecklistTemplateItem(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("checklist_items")
+    .update({
+      ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteChecklistTemplateItemRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteChecklistTemplateItem(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("checklist_items").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 export async function getChecklistState(

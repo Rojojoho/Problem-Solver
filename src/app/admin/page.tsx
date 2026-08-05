@@ -7,7 +7,7 @@ export default function AdminPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Admin</h1>
         <p className="text-sm text-muted-foreground">
-          Global settings will live here as they&apos;re built out.
+          Manage published-plan review, the knowledge base, and app settings.
         </p>
       </div>
 
@@ -30,6 +30,17 @@ export default function AdminPage() {
               <CardDescription>
                 Write and publish articles shown on the Knowledge Base page
                 and in each plan&apos;s side panel.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/admin/settings">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Settings</CardTitle>
+              <CardDescription>
+                Manage checklist templates and app configuration.
               </CardDescription>
             </CardHeader>
           </Card>

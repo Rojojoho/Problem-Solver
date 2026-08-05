@@ -91,6 +91,26 @@ export interface Database {
         Insert: Partial<Database["public"]["Tables"]["checklist_items"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["checklist_items"]["Row"]>;
       };
+      plan_checklist_items: {
+        Row: {
+          plan_id: string;
+          item_key: string;
+          stage: CcpsStage;
+          label: string;
+          sort_order: number;
+        };
+        Insert: Partial<
+          Database["public"]["Tables"]["plan_checklist_items"]["Row"]
+        > & {
+          plan_id: string;
+          item_key: string;
+          stage: CcpsStage;
+          label: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["plan_checklist_items"]["Row"]
+        >;
+      };
       plan_checklist_state: {
         Row: {
           plan_id: string;

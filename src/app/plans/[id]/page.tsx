@@ -33,7 +33,7 @@ export default async function PlanPage({
     kbArticles,
   ] = await Promise.all([
     getStageResponses(id, "PI"),
-    getChecklistItems("PI"),
+    getChecklistItems(id, "PI"),
     getChecklistState(id),
     getExemplars("PI"),
     getFeedback(id),

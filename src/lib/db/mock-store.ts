@@ -48,30 +48,38 @@ const stageResponses = new Map<string, JSONContent>();
 const checklistState = new Map<string, boolean>();
 const feedback: MockFeedback[] = [];
 
-export const CHECKLIST_ITEMS: Record<
-  CcpsStage,
-  { item_key: string; label: string; sort_order: number }[]
-> = {
-  PI: [
-    { item_key: "pi_who", label: "Specifies the students (who)", sort_order: 1 },
-    {
-      item_key: "pi_what",
-      label:
-        "Specifies the precise aspect of a learning area, a behaviour, or focus of wellbeing which is problematic (what)",
-      sort_order: 2,
-    },
-    { item_key: "pi_gap", label: "Specifies the gap", sort_order: 3 },
-    {
-      item_key: "pi_data_source",
-      label: "Specifies the data source(s)",
-      sort_order: 4,
-    },
-  ],
-  PC: [],
-  SR: [],
-  SS: [],
-  EI: [],
-};
+interface MockChecklistTemplateItem {
+  id: string;
+  item_key: string;
+  stage: CcpsStage;
+  label: string;
+  sort_order: number;
+}
+
+// The mock stand-in for the global, admin-editable `checklist_items` table.
+let checklistTemplate: MockChecklistTemplateItem[] = [
+  { id: crypto.randomUUID(), item_key: "pi_who", stage: "PI", label: "Specifies the students (who)", sort_order: 1 },
+  {
+    id: crypto.randomUUID(),
+    item_key: "pi_what",
+    stage: "PI",
+    label:
+      "Specifies the precise aspect of a learning area, a behaviour, or focus of wellbeing which is problematic (what)",
+    sort_order: 2,
+  },
+  { id: crypto.randomUUID(), item_key: "pi_gap", stage: "PI", label: "Specifies the gap", sort_order: 3 },
+  {
+    id: crypto.randomUUID(),
+    item_key: "pi_data_source",
+    stage: "PI",
+    label: "Specifies the data source(s)",
+    sort_order: 4,
+  },
+];
+
+// The mock stand-in for `plan_checklist_items` — each plan's frozen snapshot
+// of the template, taken at creation time.
+const planChecklistItems = new Map<string, MockChecklistTemplateItem[]>();
 
 export const EXEMPLARS: {
   id: string;
@@ -131,6 +139,8 @@ export function mockCreatePlan(orgId: string, name: string) {
     created_at: timestamp,
     updated_at: timestamp,
   });
+  // Snapshot the current template, same as the real createPlanRecord does.
+  planChecklistItems.set(id, checklistTemplate.map((item) => ({ ...item })));
   return { id };
 }
 
@@ -182,6 +192,47 @@ export function mockToggleChecklistItem(
   checked: boolean
 ) {
   checklistState.set(`${planId}:${itemKey}`, checked);
+}
+
+export function mockGetPlanChecklistItems(planId: string, stage: CcpsStage) {
+  return (planChecklistItems.get(planId) ?? [])
+    .filter((item) => item.stage === stage)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ item_key, label, sort_order }) => ({ item_key, label, sort_order }));
+}
+
+export function mockListChecklistTemplateItems(stage: CcpsStage) {
+  return checklistTemplate
+    .filter((item) => item.stage === stage)
+    .sort((a, b) => a.sort_order - b.sort_order);
+}
+
+export function mockCreateChecklistTemplateItem(
+  stage: CcpsStage,
+  itemKey: string,
+  label: string,
+  sortOrder: number
+) {
+  const id = crypto.randomUUID();
+  checklistTemplate = [
+    ...checklistTemplate,
+    { id, item_key: itemKey, stage, label, sort_order: sortOrder },
+  ];
+  return { id };
+}
+
+export function mockUpdateChecklistTemplateItem(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  const item = checklistTemplate.find((i) => i.id === id);
+  if (!item) return;
+  if (updates.label !== undefined) item.label = updates.label;
+  if (updates.sortOrder !== undefined) item.sort_order = updates.sortOrder;
+}
+
+export function mockDeleteChecklistTemplateItem(id: string) {
+  checklistTemplate = checklistTemplate.filter((i) => i.id !== id);
 }
 
 export function mockGetFeedback(planId: string) {
