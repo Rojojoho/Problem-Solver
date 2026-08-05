@@ -7,21 +7,34 @@ export default function AdminPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Admin</h1>
         <p className="text-sm text-muted-foreground">
-          Global settings and the knowledge base will live here as they&apos;re
-          built out.
+          Global settings will live here as they&apos;re built out.
         </p>
       </div>
 
-      <Link href="/admin/review">
-        <Card className="max-w-sm transition-colors hover:border-foreground/30">
-          <CardHeader>
-            <CardTitle>Review queue</CardTitle>
-            <CardDescription>
-              Approve, reject, tag, or promote plans published by schools.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </Link>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/admin/review">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Review queue</CardTitle>
+              <CardDescription>
+                Approve, reject, tag, or promote plans published by schools.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/admin/kb">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Knowledge base</CardTitle>
+              <CardDescription>
+                Write and publish articles shown on the Knowledge Base page
+                and in each plan&apos;s side panel.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+      </div>
     </div>
   );
 }
