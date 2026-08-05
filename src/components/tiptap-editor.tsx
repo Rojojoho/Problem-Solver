@@ -1,7 +1,8 @@
 "use client";
 
-import { useEditor, EditorContent, type JSONContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { BoldIcon, ListIcon, LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TiptapEditorProps {
@@ -22,7 +23,10 @@ export function TiptapEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: "prose prose-sm max-w-none focus:outline-none min-h-[120px]",
+        class:
+          "prose prose-sm max-w-none min-h-[120px] text-sm focus:outline-none " +
+          "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 " +
+          "[&_a]:text-primary [&_a]:underline [&_strong]:font-semibold",
       },
     },
     onBlur: ({ editor }) => {
@@ -33,11 +37,83 @@ export function TiptapEditor({
   return (
     <div
       className={cn(
-        "rounded-md border bg-background px-3 py-2 focus-within:ring-1 focus-within:ring-ring",
+        "rounded-md border bg-background focus-within:ring-1 focus-within:ring-ring",
         className
       )}
     >
-      <EditorContent editor={editor} />
+      {editor && <Toolbar editor={editor} />}
+      <div className="px-3 py-2">
+        <EditorContent editor={editor} />
+      </div>
     </div>
+  );
+}
+
+function Toolbar({ editor }: { editor: Editor }) {
+  function setLink() {
+    const previousUrl = editor.getAttributes("link").href as string | undefined;
+
+    if (previousUrl) {
+      editor.chain().focus().unsetLink().run();
+      return;
+    }
+
+    const url = window.prompt("Link URL");
+    if (!url) return;
+
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  }
+
+  return (
+    <div className="flex items-center gap-1 border-b px-2 py-1">
+      <ToolbarButton
+        label="Bold"
+        active={editor.isActive("bold")}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      >
+        <BoldIcon className="size-4" />
+      </ToolbarButton>
+      <ToolbarButton
+        label="Bullet list"
+        active={editor.isActive("bulletList")}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+      >
+        <ListIcon className="size-4" />
+      </ToolbarButton>
+      <ToolbarButton
+        label="Link"
+        active={editor.isActive("link")}
+        onClick={setLink}
+      >
+        <LinkIcon className="size-4" />
+      </ToolbarButton>
+    </div>
+  );
+}
+
+function ToolbarButton({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "flex size-7 items-center justify-center rounded hover:bg-muted",
+        active && "bg-primary/10 text-primary"
+      )}
+    >
+      {children}
+    </button>
   );
 }

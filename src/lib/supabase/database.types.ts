@@ -145,6 +145,13 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["feedback_comments"]["Row"]>;
       };
+      admins: {
+        Row: { user_id: string; created_at: string };
+        Insert: Partial<Database["public"]["Tables"]["admins"]["Row"]> & {
+          user_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["admins"]["Row"]>;
+      };
     };
   };
 }

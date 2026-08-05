@@ -37,7 +37,11 @@ export function PlanWorkspace({
     <Tabs value={stage} onValueChange={(v) => setStage(v as CcpsStage)}>
       <TabsList className="w-full justify-start overflow-x-auto">
         {STAGES.map((s, i) => (
-          <TabsTrigger key={s.key} value={s.key} className="whitespace-nowrap">
+          <TabsTrigger
+            key={s.key}
+            value={s.key}
+            className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+          >
             {i + 1}. {s.label}
           </TabsTrigger>
         ))}

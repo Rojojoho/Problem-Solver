@@ -34,14 +34,14 @@ export function ChecklistPanel({ planId, items }: ChecklistPanelProps) {
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-medium">
+    <div>
+      <p className="mb-3 text-sm font-medium">
         Does it meet the success criteria for PI (Problem identification)?
       </p>
       {items.map((item) => (
         <label
           key={item.item_key}
-          className="flex items-start gap-2 text-sm leading-snug"
+          className="flex items-start gap-2 border-b border-border px-1 py-2.5 text-sm leading-snug last:border-b-0 hover:bg-muted/50"
         >
           <Checkbox
             checked={state[item.item_key] ?? false}

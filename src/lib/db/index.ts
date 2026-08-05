@@ -60,6 +60,19 @@ export async function getCurrentUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
+export async function isAdmin(userId: string | null): Promise<boolean> {
+  if (!userId) return false;
+  if (DEV_MOCK) return mock.mockIsAdmin(userId);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("admins")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
 export async function listPlans(orgId: string) {
   if (DEV_MOCK) return mock.mockListPlans(orgId);
 

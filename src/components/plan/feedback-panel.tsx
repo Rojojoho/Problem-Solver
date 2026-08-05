@@ -49,12 +49,15 @@ export function FeedbackPanel({ planId, stage, feedback }: FeedbackPanelProps) {
         </Button>
       </div>
 
-      <div className="space-y-3">
+      <div>
         {stageFeedback.length === 0 ? (
           <p className="text-sm text-muted-foreground">No feedback yet.</p>
         ) : (
           stageFeedback.map((f) => (
-            <div key={f.id} className="rounded-md border p-2 text-sm">
+            <div
+              key={f.id}
+              className="border-b border-border py-3 text-sm last:border-b-0"
+            >
               <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                 <span>{f.author_name}</span>
                 <span>{new Date(f.created_at).toLocaleDateString()}</span>

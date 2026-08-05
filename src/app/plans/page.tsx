@@ -12,7 +12,7 @@ export default async function PlansPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Plans</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Plans</h1>
           <p className="text-sm text-muted-foreground">{orgName}</p>
         </div>
         <NewPlanDialog />
@@ -31,7 +31,10 @@ export default async function PlansPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => (
             <Link key={plan.id} href={`/plans/${plan.id}`}>
-              <Card className="h-full transition-colors hover:border-foreground/30">
+              <Card
+                className="h-full border-l-4 transition-colors hover:border-foreground/30"
+                style={{ borderLeftColor: `var(--chart-${STAGE_ORDER.indexOf(plan.current_stage) + 1})` }}
+              >
                 <CardHeader>
                   <CardTitle>{plan.name}</CardTitle>
                   <CardDescription>
@@ -54,3 +57,5 @@ const STAGE_LABELS: Record<string, string> = {
   SS: "4 · Solution Strategies",
   EI: "5 · Evaluate Impact",
 };
+
+const STAGE_ORDER = ["PI", "PC", "SR", "SS", "EI"];

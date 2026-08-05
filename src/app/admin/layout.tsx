@@ -1,10 +1,13 @@
+import { requireAdmin } from "@/lib/admin";
 import { TopNav } from "@/components/top-nav";
 
-export default function PlansLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireAdmin();
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <TopNav />

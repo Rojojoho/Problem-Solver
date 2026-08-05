@@ -29,7 +29,7 @@ export function Stage1Form({ planId, initialResponses }: Stage1FormProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-xl font-bold tracking-tight">
           Stage 1: Agree the Problem to be Solved (Problem Identification)
         </h2>
         <p className="text-sm text-muted-foreground">

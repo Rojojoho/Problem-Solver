@@ -5,6 +5,14 @@ import type { CcpsStage } from "@/lib/supabase/database.types";
 export const MOCK_USER_ID = "dev-user";
 export const MOCK_ORG_ID = "dev-org";
 
+// The dev-mock user is always an admin so the admin area is click-throughable
+// without needing a second flag.
+const admins = new Set<string>([MOCK_USER_ID]);
+
+export function mockIsAdmin(userId: string) {
+  return admins.has(userId);
+}
+
 interface MockPlan {
   id: string;
   org_id: string;

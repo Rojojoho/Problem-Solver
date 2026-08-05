@@ -33,7 +33,7 @@ export function SidePanel({
     <Card>
       <CardContent className="pt-4">
         <Tabs defaultValue="checklist">
-          <TabsList className="w-full">
+          <TabsList variant="line" className="w-full">
             <TabsTrigger value="checklist" className="flex-1">
               Checklist
             </TabsTrigger>

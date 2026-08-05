@@ -60,7 +60,7 @@ export function ExemplarPanel({ exemplars }: ExemplarPanelProps) {
             if (!paragraphs.length) return null;
             return (
               <div key={field.key} className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">
+                <p className="text-xs font-semibold text-muted-foreground">
                   {field.label}
                 </p>
                 <div className="space-y-1 text-sm">
