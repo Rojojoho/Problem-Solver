@@ -1,10 +1,16 @@
 import type { JSONContent } from "@tiptap/react";
-import { paragraphDoc } from "@/lib/ccps/constants";
+import { paragraphDoc, EMPTY_DOC } from "@/lib/ccps/constants";
 import type {
   CcpsStage,
+  KbStatus,
   PublishedStatus,
 } from "@/lib/supabase/database.types";
-import type { PublishedPlanSummary, TagData } from "@/lib/ccps/types";
+import type {
+  KbArticleData,
+  KbArticleSummary,
+  PublishedPlanSummary,
+  TagData,
+} from "@/lib/ccps/types";
 
 export const MOCK_USER_ID = "dev-user";
 export const MOCK_ORG_ID = "dev-org";
@@ -340,4 +346,69 @@ export function mockTagPublishedPlan(publishedPlanId: string, tagId: string) {
 
 export function mockUntagPublishedPlan(publishedPlanId: string, tagId: string) {
   publishedPlanTags.get(publishedPlanId)?.delete(tagId);
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge base
+// ---------------------------------------------------------------------------
+
+interface MockKbArticle {
+  id: string;
+  title: string;
+  body: JSONContent;
+  stage: CcpsStage | null;
+  status: KbStatus;
+  updatedAt: string;
+}
+
+const kbArticles = new Map<string, MockKbArticle>();
+
+export function mockListKbArticles(publishedOnly: boolean): KbArticleSummary[] {
+  return Array.from(kbArticles.values())
+    .filter((a) => !publishedOnly || a.status === "published")
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map(({ id, title, stage, status, updatedAt }) => ({
+      id,
+      title,
+      stage,
+      status,
+      updatedAt,
+    }));
+}
+
+export function mockGetKbArticle(id: string): KbArticleData | null {
+  const article = kbArticles.get(id);
+  return article ? { ...article } : null;
+}
+
+export function mockCreateKbArticle(title: string, authorId: string | null) {
+  void authorId;
+  const id = crypto.randomUUID();
+  kbArticles.set(id, {
+    id,
+    title,
+    body: EMPTY_DOC,
+    stage: null,
+    status: "draft",
+    updatedAt: now(),
+  });
+  return { id };
+}
+
+export function mockUpdateKbArticle(
+  id: string,
+  updates: {
+    title?: string;
+    body?: JSONContent;
+    stage?: CcpsStage | null;
+    status?: KbStatus;
+  }
+) {
+  const article = kbArticles.get(id);
+  if (!article) return;
+  Object.assign(article, updates, { updatedAt: now() });
+}
+
+export function mockDeleteKbArticle(id: string) {
+  kbArticles.delete(id);
 }

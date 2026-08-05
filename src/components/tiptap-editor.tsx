@@ -7,19 +7,22 @@ import { cn } from "@/lib/utils";
 
 interface TiptapEditorProps {
   content: JSONContent;
-  onBlurSave: (content: JSONContent) => void;
+  onBlurSave?: (content: JSONContent) => void;
   placeholder?: string;
   className?: string;
+  editable?: boolean;
 }
 
 export function TiptapEditor({
   content,
   onBlurSave,
   className,
+  editable = true,
 }: TiptapEditorProps) {
   const editor = useEditor({
     extensions: [StarterKit],
     content,
+    editable,
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -30,9 +33,17 @@ export function TiptapEditor({
       },
     },
     onBlur: ({ editor }) => {
-      onBlurSave(editor.getJSON());
+      onBlurSave?.(editor.getJSON());
     },
   });
+
+  if (!editable) {
+    return (
+      <div className={className}>
+        <EditorContent editor={editor} />
+      </div>
+    );
+  }
 
   return (
     <div

@@ -3,10 +3,16 @@ import { redirect } from "next/navigation";
 import type { JSONContent } from "@tiptap/react";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_MOCK } from "@/lib/dev-mode";
-import type { CcpsStage, PublishedStatus } from "@/lib/supabase/database.types";
+import type {
+  CcpsStage,
+  KbStatus,
+  PublishedStatus,
+} from "@/lib/supabase/database.types";
 import type {
   ExemplarData,
   FeedbackItemData,
+  KbArticleData,
+  KbArticleSummary,
   PublishedPlanSummary,
   TagData,
 } from "@/lib/ccps/types";
@@ -584,5 +590,101 @@ export async function untagPublishedPlanRecord(
     .delete()
     .eq("published_plan_id", publishedPlanId)
     .eq("tag_id", tagId);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge base
+// ---------------------------------------------------------------------------
+
+export async function listKbArticles(
+  publishedOnly = true
+): Promise<KbArticleSummary[]> {
+  if (DEV_MOCK) return mock.mockListKbArticles(publishedOnly);
+
+  const supabase = await createClient();
+  let query = supabase
+    .from("kb_articles")
+    .select("id, title, stage, status, updated_at")
+    .order("sort_order");
+  if (publishedOnly) query = query.eq("status", "published");
+  const { data } = await query;
+
+  return (data ?? []).map((a) => ({
+    id: a.id,
+    title: a.title,
+    stage: a.stage,
+    status: a.status,
+    updatedAt: a.updated_at,
+  }));
+}
+
+export async function getKbArticle(id: string): Promise<KbArticleData | null> {
+  if (DEV_MOCK) return mock.mockGetKbArticle(id);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("kb_articles")
+    .select("id, title, body, stage, status, updated_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    title: data.title,
+    body: data.body as JSONContent,
+    stage: data.stage,
+    status: data.status,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function createKbArticleRecord(
+  title: string,
+  authorId: string | null
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockCreateKbArticle(title, authorId);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("kb_articles")
+    .insert({ title, author_id: authorId })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Failed to create article.");
+  return data;
+}
+
+export async function updateKbArticleRecord(
+  id: string,
+  updates: {
+    title?: string;
+    body?: JSONContent;
+    stage?: CcpsStage | null;
+    status?: KbStatus;
+  }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateKbArticle(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("kb_articles")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteKbArticleRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteKbArticle(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("kb_articles").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }

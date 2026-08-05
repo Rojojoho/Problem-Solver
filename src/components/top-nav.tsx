@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Compass, ListChecks, ShieldCheck } from "lucide-react";
+import { Compass, ListChecks, ShieldCheck, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/sign-out-button";
 import { DEV_MOCK } from "@/lib/dev-mode";
@@ -22,6 +22,10 @@ export async function TopNav() {
             <Link href="/plans" className="flex items-center gap-1.5 hover:text-white">
               <ListChecks className="size-4" />
               Plans
+            </Link>
+            <Link href="/kb" className="flex items-center gap-1.5 hover:text-white">
+              <BookOpen className="size-4" />
+              Knowledge Base
             </Link>
             {admin && (
               <Link href="/admin" className="flex items-center gap-1.5 hover:text-white">

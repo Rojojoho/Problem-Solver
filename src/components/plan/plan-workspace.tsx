@@ -9,6 +9,7 @@ import type {
   ChecklistItemData,
   ExemplarData,
   FeedbackItemData,
+  KbArticleSummary,
 } from "@/lib/ccps/types";
 import { Stage1Form } from "@/components/plan/stage1-form";
 import { StagePlaceholder } from "@/components/plan/stage-placeholder";
@@ -23,6 +24,7 @@ interface PlanWorkspaceProps {
   exemplars: ExemplarData[];
   feedback: FeedbackItemData[];
   publishStatus: PublishedStatus | null;
+  kbArticles: KbArticleSummary[];
 }
 
 export function PlanWorkspace({
@@ -33,6 +35,7 @@ export function PlanWorkspace({
   exemplars,
   feedback,
   publishStatus,
+  kbArticles,
 }: PlanWorkspaceProps) {
   const [stage, setStage] = useState<CcpsStage>(initialStage);
 
@@ -73,6 +76,7 @@ export function PlanWorkspace({
             checklist={checklist}
             exemplars={exemplars}
             feedback={feedback}
+            kbArticles={kbArticles}
           />
         </aside>
       </div>

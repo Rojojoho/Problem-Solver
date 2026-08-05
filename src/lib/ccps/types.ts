@@ -1,5 +1,9 @@
 import type { JSONContent } from "@tiptap/react";
-import type { CcpsStage, PublishedStatus } from "@/lib/supabase/database.types";
+import type {
+  CcpsStage,
+  KbStatus,
+  PublishedStatus,
+} from "@/lib/supabase/database.types";
 
 export interface ChecklistItemData {
   item_key: string;
@@ -36,4 +40,16 @@ export interface PublishedPlanSummary {
   createdAt: string;
   reviewNote: string | null;
   tags: TagData[];
+}
+
+export interface KbArticleSummary {
+  id: string;
+  title: string;
+  stage: CcpsStage | null;
+  status: KbStatus;
+  updatedAt: string;
+}
+
+export interface KbArticleData extends KbArticleSummary {
+  body: JSONContent;
 }

@@ -7,10 +7,12 @@ import type {
   ChecklistItemData,
   ExemplarData,
   FeedbackItemData,
+  KbArticleSummary,
 } from "@/lib/ccps/types";
 import { ChecklistPanel } from "@/components/plan/checklist-panel";
 import { ExemplarPanel } from "@/components/plan/exemplar-panel";
 import { FeedbackPanel } from "@/components/plan/feedback-panel";
+import { KbPanel } from "@/components/plan/kb-panel";
 
 interface SidePanelProps {
   planId: string;
@@ -19,6 +21,7 @@ interface SidePanelProps {
   checklist: ChecklistItemData[];
   exemplars: ExemplarData[];
   feedback: FeedbackItemData[];
+  kbArticles: KbArticleSummary[];
 }
 
 export function SidePanel({
@@ -28,6 +31,7 @@ export function SidePanel({
   checklist,
   exemplars,
   feedback,
+  kbArticles,
 }: SidePanelProps) {
   return (
     <Card>
@@ -42,6 +46,9 @@ export function SidePanel({
             </TabsTrigger>
             <TabsTrigger value="feedback" className="flex-1">
               Feedback
+            </TabsTrigger>
+            <TabsTrigger value="kb" className="flex-1">
+              Knowledge Base
             </TabsTrigger>
           </TabsList>
 
@@ -63,6 +70,10 @@ export function SidePanel({
 
           <TabsContent value="feedback" className="mt-4">
             <FeedbackPanel planId={planId} stage={stage} feedback={feedback} />
+          </TabsContent>
+
+          <TabsContent value="kb" className="mt-4">
+            <KbPanel stage={stage} articles={kbArticles} />
           </TabsContent>
         </Tabs>
       </CardContent>

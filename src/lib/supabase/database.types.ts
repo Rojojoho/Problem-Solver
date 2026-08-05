@@ -5,6 +5,7 @@
 export type CcpsStage = "PI" | "PC" | "SR" | "SS" | "EI";
 export type OrgRole = "owner" | "contributor";
 export type PublishedStatus = "pending" | "approved" | "rejected";
+export type KbStatus = "draft" | "published";
 
 export interface Database {
   public: {
@@ -217,6 +218,23 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["published_plan_tags"]["Row"]
         >;
+      };
+      kb_articles: {
+        Row: {
+          id: string;
+          title: string;
+          body: unknown;
+          stage: CcpsStage | null;
+          status: KbStatus;
+          sort_order: number;
+          author_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["kb_articles"]["Row"]> & {
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["kb_articles"]["Row"]>;
       };
     };
   };
