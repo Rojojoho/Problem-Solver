@@ -8,17 +8,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PI_FIELDS } from "@/lib/ccps/constants";
 import { docToParagraphs } from "@/lib/ccps/doc-to-text";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { ExemplarData } from "@/lib/ccps/types";
+import type { ExemplarData, StageFieldSummary } from "@/lib/ccps/types";
 
 interface ExemplarPanelProps {
   stage: CcpsStage;
   exemplars: ExemplarData[];
+  fields: StageFieldSummary[];
 }
 
-export function ExemplarPanel({ exemplars }: ExemplarPanelProps) {
+export function ExemplarPanel({ exemplars, fields }: ExemplarPanelProps) {
   const [selectedId, setSelectedId] = useState(exemplars[0]?.id ?? "");
   const selected = exemplars.find((e) => e.id === selectedId);
 
@@ -55,13 +55,13 @@ export function ExemplarPanel({ exemplars }: ExemplarPanelProps) {
               {selected.description}
             </p>
           )}
-          {PI_FIELDS.map((field) => {
-            const paragraphs = docToParagraphs(selected.fields[field.key]);
+          {fields.map((field) => {
+            const paragraphs = docToParagraphs(selected.fields[field.field_key]);
             if (!paragraphs.length) return null;
             return (
-              <div key={field.key} className="space-y-1">
+              <div key={field.field_key} className="space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground">
-                  {field.label}
+                  {field.full_prompt}
                 </p>
                 <div className="space-y-1 text-sm">
                   {paragraphs.map((p, i) => (

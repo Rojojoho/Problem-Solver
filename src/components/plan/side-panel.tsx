@@ -8,6 +8,7 @@ import type {
   ExemplarData,
   FeedbackItemData,
   KbArticleData,
+  StageFieldSummary,
 } from "@/lib/ccps/types";
 import { ChecklistPanel } from "@/components/plan/checklist-panel";
 import { ExemplarPanel } from "@/components/plan/exemplar-panel";
@@ -20,6 +21,7 @@ interface SidePanelProps {
   stageHasFields: boolean;
   checklist: ChecklistItemData[];
   exemplars: ExemplarData[];
+  fields: StageFieldSummary[];
   feedback: FeedbackItemData[];
   kbArticles: KbArticleData[];
 }
@@ -30,6 +32,7 @@ export function SidePanel({
   stageHasFields,
   checklist,
   exemplars,
+  fields,
   feedback,
   kbArticles,
 }: SidePanelProps) {
@@ -54,7 +57,7 @@ export function SidePanel({
 
           <TabsContent value="checklist" className="mt-4">
             {stageHasFields ? (
-              <ChecklistPanel planId={planId} items={checklist} />
+              <ChecklistPanel planId={planId} stage={stage} items={checklist} />
             ) : (
               <NotAvailable />
             )}
@@ -62,7 +65,7 @@ export function SidePanel({
 
           <TabsContent value="exemplar" className="mt-4">
             {stageHasFields ? (
-              <ExemplarPanel stage={stage} exemplars={exemplars} />
+              <ExemplarPanel stage={stage} exemplars={exemplars} fields={fields} />
             ) : (
               <NotAvailable />
             )}

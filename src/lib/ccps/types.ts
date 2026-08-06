@@ -27,6 +27,15 @@ export interface ExemplarData {
   fields: Record<string, JSONContent>;
 }
 
+export interface StageFieldSummary {
+  field_key: string;
+  internal_id: string;
+  short_name: string;
+  full_prompt: string;
+  helper_text: string | null;
+  sort_order: number;
+}
+
 export interface TagData {
   id: string;
   name: string;

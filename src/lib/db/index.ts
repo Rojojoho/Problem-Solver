@@ -13,6 +13,7 @@ import type {
   FeedbackItemData,
   KbArticleData,
   PublishedPlanSummary,
+  StageFieldSummary,
   TagData,
 } from "@/lib/ccps/types";
 import { STAGES } from "@/lib/ccps/constants";
@@ -135,6 +136,29 @@ export async function createPlanRecord(
     if (snapshotError) throw new Error(snapshotError.message);
   }
 
+  // Snapshot the current stage-field template too, for the same reason.
+  const { data: fieldTemplate } = await supabase
+    .from("stage_fields")
+    .select("field_key, internal_id, stage, short_name, full_prompt, helper_text, sort_order");
+
+  if (fieldTemplate && fieldTemplate.length) {
+    const { error: fieldSnapshotError } = await supabase
+      .from("plan_stage_fields")
+      .insert(
+        fieldTemplate.map((field) => ({
+          plan_id: data.id,
+          field_key: field.field_key,
+          internal_id: field.internal_id,
+          stage: field.stage,
+          short_name: field.short_name,
+          full_prompt: field.full_prompt,
+          helper_text: field.helper_text,
+          sort_order: field.sort_order,
+        }))
+      );
+    if (fieldSnapshotError) throw new Error(fieldSnapshotError.message);
+  }
+
   return data;
 }
 
@@ -202,6 +226,22 @@ export async function getChecklistItems(planId: string, stage: CcpsStage) {
   const { data } = await supabase
     .from("plan_checklist_items")
     .select("item_key, label, sort_order")
+    .eq("plan_id", planId)
+    .eq("stage", stage)
+    .order("sort_order");
+  return data ?? [];
+}
+
+export async function getStageFields(
+  planId: string,
+  stage: CcpsStage
+): Promise<StageFieldSummary[]> {
+  if (DEV_MOCK) return mock.mockGetPlanStageFields(planId, stage);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("plan_stage_fields")
+    .select("field_key, internal_id, short_name, full_prompt, helper_text, sort_order")
     .eq("plan_id", planId)
     .eq("stage", stage)
     .order("sort_order");
@@ -277,6 +317,108 @@ export async function deleteChecklistTemplateItemRecord(id: string) {
 
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Stage field template — the admin-editable global definition of each
+// stage's input fields. Only read here at plan-creation time (see
+// createPlanRecord) and by the admin editor below; end users viewing a plan
+// always read the plan's own snapshot instead (getStageFields), never this
+// live table.
+// ---------------------------------------------------------------------------
+
+export async function listStageFieldTemplates(stage: CcpsStage) {
+  if (DEV_MOCK) return mock.mockListStageFieldTemplates(stage);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("stage_fields")
+    .select(
+      "id, field_key, internal_id, stage, short_name, full_prompt, helper_text, sort_order"
+    )
+    .eq("stage", stage)
+    .order("sort_order");
+  return data ?? [];
+}
+
+export async function createStageFieldTemplateRecord(
+  stage: CcpsStage,
+  fieldKey: string,
+  internalId: string,
+  shortName: string,
+  fullPrompt: string,
+  helperText: string | null,
+  sortOrder: number
+): Promise<{ id: string }> {
+  if (DEV_MOCK) {
+    return mock.mockCreateStageFieldTemplate(
+      stage,
+      fieldKey,
+      internalId,
+      shortName,
+      fullPrompt,
+      helperText,
+      sortOrder
+    );
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("stage_fields")
+    .insert({
+      stage,
+      field_key: fieldKey,
+      internal_id: internalId,
+      short_name: shortName,
+      full_prompt: fullPrompt,
+      helper_text: helperText,
+      sort_order: sortOrder,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create stage field.");
+  }
+  return data;
+}
+
+export async function updateStageFieldTemplateRecord(
+  id: string,
+  updates: {
+    shortName?: string;
+    fullPrompt?: string;
+    helperText?: string | null;
+    sortOrder?: number;
+  }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateStageFieldTemplate(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("stage_fields")
+    .update({
+      ...(updates.shortName !== undefined ? { short_name: updates.shortName } : {}),
+      ...(updates.fullPrompt !== undefined ? { full_prompt: updates.fullPrompt } : {}),
+      ...(updates.helperText !== undefined ? { helper_text: updates.helperText } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteStageFieldTemplateRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteStageFieldTemplate(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("stage_fields").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

@@ -23,6 +23,18 @@ export default function AdminSettingsPage() {
             </CardHeader>
           </Card>
         </Link>
+
+        <Link href="/admin/settings/fields">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Stage fields</CardTitle>
+              <CardDescription>
+                Manage each stage&apos;s input fields. Edits only apply to plans
+                created after the change.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </div>
   );

@@ -117,6 +117,51 @@ export interface Database {
         Insert: Database["public"]["Tables"]["plan_tags"]["Row"];
         Update: Partial<Database["public"]["Tables"]["plan_tags"]["Row"]>;
       };
+      stage_fields: {
+        Row: {
+          id: string;
+          field_key: string;
+          internal_id: string;
+          stage: CcpsStage;
+          short_name: string;
+          full_prompt: string;
+          helper_text: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["stage_fields"]["Row"]> & {
+          field_key: string;
+          internal_id: string;
+          stage: CcpsStage;
+          short_name: string;
+          full_prompt: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["stage_fields"]["Row"]>;
+      };
+      plan_stage_fields: {
+        Row: {
+          plan_id: string;
+          field_key: string;
+          internal_id: string;
+          stage: CcpsStage;
+          short_name: string;
+          full_prompt: string;
+          helper_text: string | null;
+          sort_order: number;
+        };
+        Insert: Partial<
+          Database["public"]["Tables"]["plan_stage_fields"]["Row"]
+        > & {
+          plan_id: string;
+          field_key: string;
+          internal_id: string;
+          stage: CcpsStage;
+          short_name: string;
+          full_prompt: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["plan_stage_fields"]["Row"]>;
+      };
       plan_checklist_state: {
         Row: {
           plan_id: string;

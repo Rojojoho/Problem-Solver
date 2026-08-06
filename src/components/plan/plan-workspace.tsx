@@ -3,15 +3,16 @@
 import { useState } from "react";
 import type { JSONContent } from "@tiptap/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { STAGES, STAGE_FIELDS } from "@/lib/ccps/constants";
+import { STAGES } from "@/lib/ccps/constants";
 import type { CcpsStage, PublishedStatus } from "@/lib/supabase/database.types";
 import type {
   ChecklistItemData,
   ExemplarData,
   FeedbackItemData,
   KbArticleData,
+  StageFieldSummary,
 } from "@/lib/ccps/types";
-import { Stage1Form } from "@/components/plan/stage1-form";
+import { StageForm } from "@/components/plan/stage-form";
 import { StagePlaceholder } from "@/components/plan/stage-placeholder";
 import { SidePanel } from "@/components/plan/side-panel";
 import { PublishButton } from "@/components/plan/publish-button";
@@ -24,9 +25,10 @@ interface PlanWorkspaceProps {
   initialStage: CcpsStage;
   background: JSONContent;
   tags: string[];
-  piResponses: Record<string, JSONContent>;
-  checklist: ChecklistItemData[];
-  exemplars: ExemplarData[];
+  fieldsByStage: Record<CcpsStage, StageFieldSummary[]>;
+  responsesByStage: Record<CcpsStage, Record<string, JSONContent>>;
+  checklistByStage: Record<CcpsStage, ChecklistItemData[]>;
+  exemplarsByStage: Record<CcpsStage, ExemplarData[]>;
   feedback: FeedbackItemData[];
   publishStatus: PublishedStatus | null;
   kbArticles: KbArticleData[];
@@ -37,9 +39,10 @@ export function PlanWorkspace({
   initialStage,
   background,
   tags,
-  piResponses,
-  checklist,
-  exemplars,
+  fieldsByStage,
+  responsesByStage,
+  checklistByStage,
+  exemplarsByStage,
   feedback,
   publishStatus,
   kbArticles,
@@ -76,12 +79,18 @@ export function PlanWorkspace({
       {stage !== "details" && (
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
           <div>
-            <TabsContent value="PI" className="mt-0">
-              <Stage1Form planId={planId} initialResponses={piResponses} />
-            </TabsContent>
-            {STAGES.filter((s) => s.key !== "PI").map((s) => (
+            {STAGES.map((s) => (
               <TabsContent key={s.key} value={s.key} className="mt-0">
-                <StagePlaceholder label={s.label} />
+                {fieldsByStage[s.key]?.length ? (
+                  <StageForm
+                    planId={planId}
+                    stage={s.key}
+                    fields={fieldsByStage[s.key]}
+                    initialResponses={responsesByStage[s.key] ?? {}}
+                  />
+                ) : (
+                  <StagePlaceholder label={s.label} />
+                )}
               </TabsContent>
             ))}
           </div>
@@ -90,9 +99,10 @@ export function PlanWorkspace({
             <SidePanel
               planId={planId}
               stage={stage}
-              stageHasFields={Boolean(STAGE_FIELDS[stage])}
-              checklist={checklist}
-              exemplars={exemplars}
+              stageHasFields={Boolean(fieldsByStage[stage]?.length)}
+              checklist={checklistByStage[stage] ?? []}
+              exemplars={exemplarsByStage[stage] ?? []}
+              fields={fieldsByStage[stage] ?? []}
               feedback={feedback}
               kbArticles={kbArticles}
             />

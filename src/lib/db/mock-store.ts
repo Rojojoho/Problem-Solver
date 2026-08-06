@@ -82,6 +82,66 @@ let checklistTemplate: MockChecklistTemplateItem[] = [
 // of the template, taken at creation time.
 const planChecklistItems = new Map<string, MockChecklistTemplateItem[]>();
 
+interface MockStageFieldTemplate {
+  id: string;
+  field_key: string;
+  internal_id: string;
+  stage: CcpsStage;
+  short_name: string;
+  full_prompt: string;
+  helper_text: string | null;
+  sort_order: number;
+}
+
+// The mock stand-in for the global, admin-editable `stage_fields` table.
+let stageFieldTemplate: MockStageFieldTemplate[] = [
+  {
+    id: crypto.randomUUID(),
+    field_key: "pi_problem_description",
+    internal_id: "1.1",
+    stage: "PI",
+    short_name: "Problem Description",
+    full_prompt: "Describe the student outcome problem",
+    helper_text: "Be as precise as you can.",
+    sort_order: 1,
+  },
+  {
+    id: crypto.randomUUID(),
+    field_key: "pi_outcome_data",
+    internal_id: "1.2",
+    stage: "PI",
+    short_name: "Student Data",
+    full_prompt: "Insert the student outcome data",
+    helper_text: "The data that tells you that this is a problem.",
+    sort_order: 2,
+  },
+  {
+    id: crypto.randomUUID(),
+    field_key: "pi_educational_argument",
+    internal_id: "1.3",
+    stage: "PI",
+    short_name: "Educational Argument",
+    full_prompt: "Make an educational argument",
+    helper_text: "Why is this problem the priority?",
+    sort_order: 3,
+  },
+  {
+    id: crypto.randomUUID(),
+    field_key: "pi_agreement_script",
+    internal_id: "1.4",
+    stage: "PI",
+    short_name: "Agreement Script",
+    full_prompt:
+      "Describe/script what you might say to check for Stage 1 agreement",
+    helper_text: null,
+    sort_order: 4,
+  },
+];
+
+// The mock stand-in for `plan_stage_fields` — each plan's frozen snapshot of
+// the field template, taken at creation time.
+const planStageFields = new Map<string, MockStageFieldTemplate[]>();
+
 export const EXEMPLARS: {
   id: string;
   name: string;
@@ -141,8 +201,9 @@ export function mockCreatePlan(orgId: string, name: string) {
     created_at: timestamp,
     updated_at: timestamp,
   });
-  // Snapshot the current template, same as the real createPlanRecord does.
+  // Snapshot the current templates, same as the real createPlanRecord does.
   planChecklistItems.set(id, checklistTemplate.map((item) => ({ ...item })));
+  planStageFields.set(id, stageFieldTemplate.map((field) => ({ ...field })));
   return { id };
 }
 
@@ -258,6 +319,75 @@ export function mockUpdateChecklistTemplateItem(
 
 export function mockDeleteChecklistTemplateItem(id: string) {
   checklistTemplate = checklistTemplate.filter((i) => i.id !== id);
+}
+
+export function mockGetPlanStageFields(planId: string, stage: CcpsStage) {
+  return (planStageFields.get(planId) ?? [])
+    .filter((field) => field.stage === stage)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(
+      ({ field_key, internal_id, short_name, full_prompt, helper_text, sort_order }) => ({
+        field_key,
+        internal_id,
+        short_name,
+        full_prompt,
+        helper_text,
+        sort_order,
+      })
+    );
+}
+
+export function mockListStageFieldTemplates(stage: CcpsStage) {
+  return stageFieldTemplate
+    .filter((field) => field.stage === stage)
+    .sort((a, b) => a.sort_order - b.sort_order);
+}
+
+export function mockCreateStageFieldTemplate(
+  stage: CcpsStage,
+  fieldKey: string,
+  internalId: string,
+  shortName: string,
+  fullPrompt: string,
+  helperText: string | null,
+  sortOrder: number
+) {
+  const id = crypto.randomUUID();
+  stageFieldTemplate = [
+    ...stageFieldTemplate,
+    {
+      id,
+      field_key: fieldKey,
+      internal_id: internalId,
+      stage,
+      short_name: shortName,
+      full_prompt: fullPrompt,
+      helper_text: helperText,
+      sort_order: sortOrder,
+    },
+  ];
+  return { id };
+}
+
+export function mockUpdateStageFieldTemplate(
+  id: string,
+  updates: {
+    shortName?: string;
+    fullPrompt?: string;
+    helperText?: string | null;
+    sortOrder?: number;
+  }
+) {
+  const field = stageFieldTemplate.find((f) => f.id === id);
+  if (!field) return;
+  if (updates.shortName !== undefined) field.short_name = updates.shortName;
+  if (updates.fullPrompt !== undefined) field.full_prompt = updates.fullPrompt;
+  if (updates.helperText !== undefined) field.helper_text = updates.helperText;
+  if (updates.sortOrder !== undefined) field.sort_order = updates.sortOrder;
+}
+
+export function mockDeleteStageFieldTemplate(id: string) {
+  stageFieldTemplate = stageFieldTemplate.filter((f) => f.id !== id);
 }
 
 export function mockGetFeedback(planId: string) {
