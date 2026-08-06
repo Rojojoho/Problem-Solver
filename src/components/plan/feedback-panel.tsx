@@ -72,14 +72,17 @@ function FeedbackItem({
   planId: string;
   feedback: FeedbackItemData;
 }) {
+  const [resolved, setResolved] = useState(feedback.resolved);
   const [isPending, startTransition] = useTransition();
 
-  function handleToggle(resolved: boolean) {
+  function handleToggle(next: boolean) {
+    setResolved(next);
     startTransition(async () => {
       try {
-        await toggleFeedbackResolved(planId, feedback.id, resolved);
+        await toggleFeedbackResolved(planId, feedback.id, next);
       } catch {
         toast.error("Couldn't update that comment.");
+        setResolved(!next);
       }
     });
   }
@@ -90,17 +93,17 @@ function FeedbackItem({
         <span>{feedback.author_name}</span>
         <span>{feedback.created_at.slice(0, 10)}</span>
       </div>
-      <p className={cn(feedback.resolved && "text-muted-foreground line-through")}>
+      <p className={cn(resolved && "text-muted-foreground line-through")}>
         {feedback.body}
       </p>
       <label className="mt-2 flex items-center gap-2 text-xs">
         <Checkbox
-          checked={feedback.resolved}
+          checked={resolved}
           onCheckedChange={(checked) => handleToggle(checked === true)}
           disabled={isPending}
         />
         Resolved
-        {feedback.resolved && <Badge variant="success">Resolved</Badge>}
+        {resolved && <Badge variant="success">Resolved</Badge>}
       </label>
     </div>
   );

@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import type { JSONContent } from "@tiptap/react";
+import { STAGES, MEASURES_FIELD_KEY } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { MeasureRow } from "@/lib/ccps/types";
-import { MEASURES_FIELD_KEY } from "@/lib/ccps/constants";
+import type { MeasureRow, StageBundle } from "@/lib/ccps/types";
 import {
   saveStageResponseRecord,
   toggleChecklistItemRecord,
@@ -17,7 +17,19 @@ import {
   getCurrentUserId,
   getCurrentOrg,
   publishPlanRecord,
+  getStageFields,
+  getStageResponses,
+  getChecklistItems,
+  getChecklistState,
+  getExemplars,
 } from "@/lib/db";
+
+// Granular per-field saves don't revalidate the page — the client already
+// reflects the change (either the editor keeps its own content, as with
+// Tiptap, or the component updates its own local state optimistically), so
+// re-fetching the whole page on every keystroke-blur/checkbox-click would
+// just be wasted round trips. See getStageBundle below for how a given
+// stage's data is (re)loaded when it's actually needed.
 
 export async function saveStageResponse(
   planId: string,
@@ -27,7 +39,6 @@ export async function saveStageResponse(
 ) {
   const userId = await getCurrentUserId();
   await saveStageResponseRecord(planId, stage, fieldKey, content, userId);
-  revalidatePath(`/plans/${planId}`);
 }
 
 export async function toggleChecklistItem(
@@ -36,7 +47,6 @@ export async function toggleChecklistItem(
   checked: boolean
 ) {
   await toggleChecklistItemRecord(planId, itemKey, checked);
-  revalidatePath(`/plans/${planId}`);
 }
 
 export async function addFeedback(
@@ -61,7 +71,6 @@ export async function toggleFeedbackResolved(
 ) {
   const userId = await getCurrentUserId();
   await toggleFeedbackResolvedRecord(feedbackId, resolved, userId);
-  revalidatePath(`/plans/${planId}`);
 }
 
 export async function renamePlan(planId: string, name: string) {
@@ -75,7 +84,6 @@ export async function renamePlan(planId: string, name: string) {
 
 export async function saveBackground(planId: string, content: JSONContent) {
   await saveBackgroundRecord(planId, content);
-  revalidatePath(`/plans/${planId}`);
 }
 
 export async function addPlanTag(planId: string, tag: string) {
@@ -83,12 +91,10 @@ export async function addPlanTag(planId: string, tag: string) {
   if (!trimmed) return;
 
   await addPlanTagRecord(planId, trimmed);
-  revalidatePath(`/plans/${planId}`);
 }
 
 export async function removePlanTag(planId: string, tag: string) {
   await removePlanTagRecord(planId, tag);
-  revalidatePath(`/plans/${planId}`);
 }
 
 export async function saveMeasureRows(planId: string, rows: MeasureRow[]) {
@@ -100,7 +106,6 @@ export async function saveMeasureRows(planId: string, rows: MeasureRow[]) {
     rows as unknown as JSONContent,
     userId
   );
-  revalidatePath(`/plans/${planId}`);
 }
 
 export async function publishPlan(planId: string) {
@@ -110,4 +115,36 @@ export async function publishPlan(planId: string) {
   const { orgId } = await getCurrentOrg();
   await publishPlanRecord(planId, orgId, userId);
   revalidatePath(`/plans/${planId}`);
+}
+
+// Bundles everything a single stage tab needs into one call, so switching to
+// a stage that hasn't been loaded yet costs one round trip instead of
+// fetching all 5 stages' worth of data up front (see plan-workspace.tsx).
+export async function getStageBundle(
+  planId: string,
+  stage: CcpsStage
+): Promise<StageBundle> {
+  if (!STAGES.some((s) => s.key === stage)) {
+    throw new Error(`Unknown stage: ${stage}`);
+  }
+
+  const [fields, responses, checklistItems, checklistState, exemplars] =
+    await Promise.all([
+      getStageFields(stage),
+      getStageResponses(planId, stage),
+      getChecklistItems(planId, stage),
+      getChecklistState(planId),
+      getExemplars(stage),
+    ]);
+
+  return {
+    fields,
+    responses,
+    checklist: checklistItems.map((item) => ({
+      item_key: item.item_key,
+      label: item.label,
+      checked: checklistState[item.item_key] ?? false,
+    })),
+    exemplars,
+  };
 }

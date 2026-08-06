@@ -23,31 +23,36 @@ interface PlanDetailsFormProps {
 export function PlanDetailsForm({
   planId,
   background,
-  tags,
+  tags: initialTags,
 }: PlanDetailsFormProps) {
+  const [tags, setTags] = useState(initialTags);
   const [tagInput, setTagInput] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function handleAddTag(e: React.FormEvent) {
     e.preventDefault();
     const tag = tagInput.trim();
-    if (!tag) return;
+    if (!tag || tags.includes(tag)) return;
+    setTags((prev) => [...prev, tag]);
+    setTagInput("");
     startTransition(async () => {
       try {
         await addPlanTag(planId, tag);
-        setTagInput("");
       } catch {
         toast.error("Couldn't add that tag.");
+        setTags((prev) => prev.filter((t) => t !== tag));
       }
     });
   }
 
   function handleRemoveTag(tag: string) {
+    setTags((prev) => prev.filter((t) => t !== tag));
     startTransition(async () => {
       try {
         await removePlanTag(planId, tag);
       } catch {
         toast.error("Couldn't remove that tag.");
+        setTags((prev) => [...prev, tag]);
       }
     });
   }

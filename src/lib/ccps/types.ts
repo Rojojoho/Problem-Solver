@@ -44,6 +44,13 @@ export interface StageFieldSummary {
   sort_order: number;
 }
 
+export interface StageBundle {
+  fields: StageFieldSummary[];
+  responses: Record<string, JSONContent>;
+  checklist: ChecklistItemData[];
+  exemplars: ExemplarData[];
+}
+
 export interface TagData {
   id: string;
   name: string;

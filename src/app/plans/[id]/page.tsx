@@ -11,9 +11,8 @@ import {
   listKbArticles,
   getPlanTags,
 } from "@/lib/db";
-import { EMPTY_DOC, STAGES } from "@/lib/ccps/constants";
-import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { ChecklistItemData } from "@/lib/ccps/types";
+import { EMPTY_DOC } from "@/lib/ccps/constants";
+import type { StageBundle } from "@/lib/ccps/types";
 import { PlanWorkspace } from "@/components/plan/plan-workspace";
 
 export default async function PlanPage({
@@ -28,21 +27,23 @@ export default async function PlanPage({
     notFound();
   }
 
+  const stage = plan.current_stage;
+
   const [
-    fieldsPerStage,
-    responsesPerStage,
-    checklistItemsPerStage,
-    exemplarsPerStage,
+    fields,
+    responses,
+    checklistItems,
+    exemplars,
     checklistState,
     feedback,
     latestPublished,
     kbArticles,
     tags,
   ] = await Promise.all([
-    Promise.all(STAGES.map((s) => getStageFields(s.key))),
-    Promise.all(STAGES.map((s) => getStageResponses(id, s.key))),
-    Promise.all(STAGES.map((s) => getChecklistItems(id, s.key))),
-    Promise.all(STAGES.map((s) => getExemplars(s.key))),
+    getStageFields(stage),
+    getStageResponses(id, stage),
+    getChecklistItems(id, stage),
+    getExemplars(stage),
     getChecklistState(id),
     getFeedback(id),
     getLatestPublishedPlanForSource(id),
@@ -50,30 +51,16 @@ export default async function PlanPage({
     getPlanTags(id),
   ]);
 
-  const fieldsByStage = Object.fromEntries(
-    STAGES.map((s, i) => [s.key, fieldsPerStage[i]])
-  ) as Record<CcpsStage, (typeof fieldsPerStage)[number]>;
-
-  const responsesByStage = Object.fromEntries(
-    STAGES.map((s, i) => [s.key, responsesPerStage[i]])
-  ) as Record<CcpsStage, (typeof responsesPerStage)[number]>;
-
-  const checklistByStage = Object.fromEntries(
-    STAGES.map((s, i) => [
-      s.key,
-      checklistItemsPerStage[i].map(
-        (item): ChecklistItemData => ({
-          item_key: item.item_key,
-          label: item.label,
-          checked: checklistState[item.item_key] ?? false,
-        })
-      ),
-    ])
-  ) as Record<CcpsStage, ChecklistItemData[]>;
-
-  const exemplarsByStage = Object.fromEntries(
-    STAGES.map((s, i) => [s.key, exemplarsPerStage[i]])
-  ) as Record<CcpsStage, (typeof exemplarsPerStage)[number]>;
+  const initialBundle: StageBundle = {
+    fields,
+    responses,
+    checklist: checklistItems.map((item) => ({
+      item_key: item.item_key,
+      label: item.label,
+      checked: checklistState[item.item_key] ?? false,
+    })),
+    exemplars,
+  };
 
   return (
     <div className="space-y-6">
@@ -82,13 +69,10 @@ export default async function PlanPage({
       </div>
       <PlanWorkspace
         planId={plan.id}
-        initialStage={plan.current_stage}
+        initialStage={stage}
+        initialBundle={initialBundle}
         background={plan.background ?? EMPTY_DOC}
         tags={tags}
-        fieldsByStage={fieldsByStage}
-        responsesByStage={responsesByStage}
-        checklistByStage={checklistByStage}
-        exemplarsByStage={exemplarsByStage}
         feedback={feedback}
         publishStatus={latestPublished?.status ?? null}
         kbArticles={kbArticles}
