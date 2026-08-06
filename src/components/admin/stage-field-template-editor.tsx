@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { STAGES } from "@/lib/ccps/constants";
+import { docToParagraphs } from "@/lib/ccps/doc-to-text";
 import { updateStageField } from "@/app/admin/settings/fields/actions";
 import type { StageFieldSummary } from "@/lib/ccps/types";
 
@@ -49,6 +50,9 @@ function StageFieldRow({ field }: { field: TemplateField }) {
   const [shortName, setShortName] = useState(field.short_name);
   const [fullPrompt, setFullPrompt] = useState(field.full_prompt);
   const [helperText, setHelperText] = useState(field.helper_text ?? "");
+  const [defaultContentText, setDefaultContentText] = useState(
+    docToParagraphs(field.default_content ?? undefined).join("\n")
+  );
   const [sortOrder, setSortOrder] = useState(field.sort_order);
   const [isPending, startTransition] = useTransition();
 
@@ -60,6 +64,7 @@ function StageFieldRow({ field }: { field: TemplateField }) {
           shortName,
           fullPrompt,
           helperText,
+          defaultContentText,
           sortOrder
         );
         toast.success("Saved.");
@@ -109,6 +114,17 @@ function StageFieldRow({ field }: { field: TemplateField }) {
         <Input
           value={helperText}
           onChange={(e) => setHelperText(e.target.value)}
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <Label className="text-xs">
+          Default content (pre-filled when a user hasn&apos;t answered yet, one line per paragraph)
+        </Label>
+        <Textarea
+          value={defaultContentText}
+          onChange={(e) => setDefaultContentText(e.target.value)}
+          rows={4}
           className="mt-1"
         />
       </div>

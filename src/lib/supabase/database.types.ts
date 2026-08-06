@@ -125,6 +125,7 @@ export interface Database {
           short_name: string;
           full_prompt: string;
           helper_text: string | null;
+          default_content: unknown | null;
           sort_order: number;
           updated_at: string;
         };

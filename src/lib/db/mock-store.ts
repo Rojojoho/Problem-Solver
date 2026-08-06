@@ -89,6 +89,7 @@ interface MockStageField {
   short_name: string;
   full_prompt: string;
   helper_text: string | null;
+  default_content: JSONContent | null;
   sort_order: number;
 }
 
@@ -103,6 +104,7 @@ const stageFields: MockStageField[] = [
     short_name: "Problem Description",
     full_prompt: "Describe the student outcome problem",
     helper_text: "Be as precise as you can.",
+    default_content: null,
     sort_order: 1,
   },
   {
@@ -112,6 +114,7 @@ const stageFields: MockStageField[] = [
     short_name: "Student Data",
     full_prompt: "Insert the student outcome data",
     helper_text: "The data that tells you that this is a problem.",
+    default_content: null,
     sort_order: 2,
   },
   {
@@ -121,6 +124,7 @@ const stageFields: MockStageField[] = [
     short_name: "Educational Argument",
     full_prompt: "Make an educational argument",
     helper_text: "Why is this problem the priority?",
+    default_content: null,
     sort_order: 3,
   },
   {
@@ -131,6 +135,13 @@ const stageFields: MockStageField[] = [
     full_prompt:
       "Describe/script what you might say to check for Stage 1 agreement",
     helper_text: null,
+    default_content: paragraphDoc(
+      "1. State the purpose of the meeting as seeking agreement about the problem or challenge to be addressed",
+      "2. Present your own priority, supported by evidence and an educational argument (as outlined above)",
+      "3. Inquire for staff reaction to your suggested priority and inquire about any alternatives.",
+      "4. Check for agreement about the priority.",
+      "5. Signal the next steps in the process."
+    ),
     sort_order: 4,
   },
 ];
@@ -333,14 +344,25 @@ export function mockGetStageFields(stage: CcpsStage) {
   return stageFields
     .filter((field) => field.stage === stage)
     .sort((a, b) => a.sort_order - b.sort_order)
-    .map(({ field_key, internal_id, short_name, full_prompt, helper_text, sort_order }) => ({
-      field_key,
-      internal_id,
-      short_name,
-      full_prompt,
-      helper_text,
-      sort_order,
-    }));
+    .map(
+      ({
+        field_key,
+        internal_id,
+        short_name,
+        full_prompt,
+        helper_text,
+        default_content,
+        sort_order,
+      }) => ({
+        field_key,
+        internal_id,
+        short_name,
+        full_prompt,
+        helper_text,
+        default_content,
+        sort_order,
+      })
+    );
 }
 
 export function mockUpdateStageField(
@@ -349,6 +371,7 @@ export function mockUpdateStageField(
     shortName?: string;
     fullPrompt?: string;
     helperText?: string | null;
+    defaultContent?: JSONContent | null;
     sortOrder?: number;
   }
 ) {
@@ -357,6 +380,7 @@ export function mockUpdateStageField(
   if (updates.shortName !== undefined) field.short_name = updates.shortName;
   if (updates.fullPrompt !== undefined) field.full_prompt = updates.fullPrompt;
   if (updates.helperText !== undefined) field.helper_text = updates.helperText;
+  if (updates.defaultContent !== undefined) field.default_content = updates.defaultContent;
   if (updates.sortOrder !== undefined) field.sort_order = updates.sortOrder;
 }
 

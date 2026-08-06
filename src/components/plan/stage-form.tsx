@@ -63,7 +63,9 @@ export function StageForm({
               <p className="text-xs text-muted-foreground">{field.helper_text}</p>
             )}
             <TiptapEditor
-              content={initialResponses[field.field_key] ?? EMPTY_DOC}
+              content={
+                initialResponses[field.field_key] ?? field.default_content ?? EMPTY_DOC
+              }
               onBlurSave={(content) => handleSave(field.field_key, content)}
             />
             {field.field_key === "pi_outcome_data" && (

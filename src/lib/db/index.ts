@@ -222,10 +222,15 @@ export async function getStageFields(
   const supabase = await createClient();
   const { data } = await supabase
     .from("stage_fields")
-    .select("field_key, internal_id, short_name, full_prompt, helper_text, sort_order")
+    .select(
+      "field_key, internal_id, short_name, full_prompt, helper_text, default_content, sort_order"
+    )
     .eq("stage", stage)
     .order("sort_order");
-  return data ?? [];
+  return (data ?? []).map((f) => ({
+    ...f,
+    default_content: f.default_content as JSONContent | null,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -308,6 +313,7 @@ export async function updateStageFieldRecord(
     shortName?: string;
     fullPrompt?: string;
     helperText?: string | null;
+    defaultContent?: JSONContent | null;
     sortOrder?: number;
   }
 ) {
@@ -323,6 +329,9 @@ export async function updateStageFieldRecord(
       ...(updates.shortName !== undefined ? { short_name: updates.shortName } : {}),
       ...(updates.fullPrompt !== undefined ? { full_prompt: updates.fullPrompt } : {}),
       ...(updates.helperText !== undefined ? { helper_text: updates.helperText } : {}),
+      ...(updates.defaultContent !== undefined
+        ? { default_content: updates.defaultContent }
+        : {}),
       ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
       updated_at: new Date().toISOString(),
     })

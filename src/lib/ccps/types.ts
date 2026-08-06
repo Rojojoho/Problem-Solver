@@ -40,6 +40,7 @@ export interface StageFieldSummary {
   short_name: string;
   full_prompt: string;
   helper_text: string | null;
+  default_content: JSONContent | null;
   sort_order: number;
 }
 
