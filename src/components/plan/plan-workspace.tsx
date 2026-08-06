@@ -106,6 +106,7 @@ export function PlanWorkspace({
                         stage={s.key}
                         fields={bundle.fields}
                         initialResponses={bundle.responses}
+                        validationOptions={bundle.validationOptions}
                       />
                     ) : (
                       <StagePlaceholder label={s.label} />

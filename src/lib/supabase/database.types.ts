@@ -92,6 +92,20 @@ export interface Database {
         Insert: Partial<Database["public"]["Tables"]["checklist_items"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["checklist_items"]["Row"]>;
       };
+      validation_options: {
+        Row: {
+          id: string;
+          label: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Partial<
+          Database["public"]["Tables"]["validation_options"]["Row"]
+        > & {
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["validation_options"]["Row"]>;
+      };
       plan_checklist_items: {
         Row: {
           plan_id: string;

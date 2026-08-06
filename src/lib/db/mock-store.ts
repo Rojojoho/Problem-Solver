@@ -144,6 +144,40 @@ const stageFields: MockStageField[] = [
     ),
     sort_order: 4,
   },
+  {
+    field_key: "pc_meeting_plan",
+    internal_id: "2.1",
+    stage: "PC",
+    short_name: "Meeting Plan",
+    full_prompt:
+      "Plan the meetings that will be required in order to inquire into causal hypotheses",
+    helper_text: null,
+    default_content: null,
+    sort_order: 1,
+  },
+  {
+    field_key: "pc_causal_hypotheses",
+    internal_id: "2.2",
+    stage: "PC",
+    short_name: "Causal Hypotheses",
+    full_prompt: "Add Causal hypothesis gathered",
+    helper_text:
+      'List all causal hypotheses gathered. Use the sentence stem "A possible cause of [the student outcome problem] is …"',
+    default_content: null,
+    sort_order: 2,
+  },
+];
+
+interface MockValidationOption {
+  id: string;
+  label: string;
+  sort_order: number;
+}
+
+// The mock stand-in for the global, admin-editable `validation_options` table.
+let validationOptions: MockValidationOption[] = [
+  { id: crypto.randomUUID(), label: "Possible", sort_order: 1 },
+  { id: crypto.randomUUID(), label: "Parked", sort_order: 2 },
 ];
 
 export const EXEMPLARS: {
@@ -382,6 +416,36 @@ export function mockUpdateStageField(
   if (updates.helperText !== undefined) field.helper_text = updates.helperText;
   if (updates.defaultContent !== undefined) field.default_content = updates.defaultContent;
   if (updates.sortOrder !== undefined) field.sort_order = updates.sortOrder;
+}
+
+export function mockListValidationOptions() {
+  return validationOptions
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ id, label, sort_order }) => ({ id, label, sort_order }));
+}
+
+export function mockCreateValidationOption(label: string, sortOrder: number) {
+  const id = crypto.randomUUID();
+  validationOptions = [
+    ...validationOptions,
+    { id, label, sort_order: sortOrder },
+  ];
+  return { id };
+}
+
+export function mockUpdateValidationOption(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  const option = validationOptions.find((o) => o.id === id);
+  if (!option) return;
+  if (updates.label !== undefined) option.label = updates.label;
+  if (updates.sortOrder !== undefined) option.sort_order = updates.sortOrder;
+}
+
+export function mockDeleteValidationOption(id: string) {
+  validationOptions = validationOptions.filter((o) => o.id !== id);
 }
 
 export function mockGetFeedback(planId: string) {

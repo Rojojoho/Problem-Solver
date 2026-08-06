@@ -15,6 +15,7 @@ import type {
   PublishedPlanSummary,
   StageFieldSummary,
   TagData,
+  ValidationOption,
 } from "@/lib/ccps/types";
 import { STAGES } from "@/lib/ccps/constants";
 import * as mock from "@/lib/db/mock-store";
@@ -336,6 +337,71 @@ export async function updateStageFieldRecord(
       updated_at: new Date().toISOString(),
     })
     .eq("field_key", fieldKey);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Validation options — global, admin-editable statuses selectable per
+// causal hypothesis on Stage 2. Same shape/pattern as checklist_items.
+// ---------------------------------------------------------------------------
+
+export async function listValidationOptions(): Promise<ValidationOption[]> {
+  if (DEV_MOCK) return mock.mockListValidationOptions();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("validation_options")
+    .select("id, label, sort_order")
+    .order("sort_order");
+  return data ?? [];
+}
+
+export async function createValidationOptionRecord(
+  label: string,
+  sortOrder: number
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockCreateValidationOption(label, sortOrder);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("validation_options")
+    .insert({ label, sort_order: sortOrder })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create validation option.");
+  }
+  return data;
+}
+
+export async function updateValidationOptionRecord(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateValidationOption(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("validation_options")
+    .update({
+      ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteValidationOptionRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteValidationOption(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("validation_options").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

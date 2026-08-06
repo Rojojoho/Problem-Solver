@@ -10,6 +10,7 @@ import {
   getLatestPublishedPlanForSource,
   listKbArticles,
   getPlanTags,
+  listValidationOptions,
 } from "@/lib/db";
 import { EMPTY_DOC } from "@/lib/ccps/constants";
 import type { StageBundle } from "@/lib/ccps/types";
@@ -39,6 +40,7 @@ export default async function PlanPage({
     latestPublished,
     kbArticles,
     tags,
+    validationOptions,
   ] = await Promise.all([
     getStageFields(stage),
     getStageResponses(id, stage),
@@ -49,6 +51,7 @@ export default async function PlanPage({
     getLatestPublishedPlanForSource(id),
     listKbArticles(true),
     getPlanTags(id),
+    stage === "PC" ? listValidationOptions() : Promise.resolve([]),
   ]);
 
   const initialBundle: StageBundle = {
@@ -60,6 +63,7 @@ export default async function PlanPage({
       checked: checklistState[item.item_key] ?? false,
     })),
     exemplars,
+    validationOptions,
   };
 
   return (

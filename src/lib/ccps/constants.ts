@@ -30,3 +30,10 @@ export const EMPTY_DOC: JSONContent = { type: "doc", content: [{ type: "paragrap
 // plan_stage_responses row-per-field storage as every other stage field, just
 // with a JSON array of rows instead of Tiptap doc content.
 export const MEASURES_FIELD_KEY = "pi_outcome_data_measures";
+
+// The "Causal Hypotheses" field (2.2) renders a structured table instead of
+// a Tiptap editor (see stage-form.tsx) — its rows and the per-plan category
+// list are stored the same way, as JSON under synthetic field_keys.
+export const CAUSAL_HYPOTHESES_FIELD_KEY = "pc_causal_hypotheses";
+export const CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY =
+  "pc_causal_hypotheses_categories";

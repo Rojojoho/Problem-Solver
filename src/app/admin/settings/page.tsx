@@ -35,6 +35,18 @@ export default function AdminSettingsPage() {
             </CardHeader>
           </Card>
         </Link>
+
+        <Link href="/admin/settings/validation-options">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Validation options</CardTitle>
+              <CardDescription>
+                Manage the statuses selectable per causal hypothesis on Stage
+                2. Changes apply immediately across all plans.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </div>
   );

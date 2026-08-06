@@ -2,9 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import type { JSONContent } from "@tiptap/react";
-import { STAGES, MEASURES_FIELD_KEY } from "@/lib/ccps/constants";
+import {
+  STAGES,
+  MEASURES_FIELD_KEY,
+  CAUSAL_HYPOTHESES_FIELD_KEY,
+  CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
+} from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { MeasureRow, StageBundle } from "@/lib/ccps/types";
+import type { HypothesisRow, MeasureRow, StageBundle } from "@/lib/ccps/types";
 import {
   saveStageResponseRecord,
   toggleChecklistItemRecord,
@@ -22,6 +27,7 @@ import {
   getChecklistItems,
   getChecklistState,
   getExemplars,
+  listValidationOptions,
 } from "@/lib/db";
 
 // Granular per-field saves don't revalidate the page — the client already
@@ -108,6 +114,34 @@ export async function saveMeasureRows(planId: string, rows: MeasureRow[]) {
   );
 }
 
+export async function saveCausalHypothesisRows(
+  planId: string,
+  rows: HypothesisRow[]
+) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "PC",
+    CAUSAL_HYPOTHESES_FIELD_KEY,
+    rows as unknown as JSONContent,
+    userId
+  );
+}
+
+export async function saveCausalHypothesisCategories(
+  planId: string,
+  categories: string[]
+) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "PC",
+    CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
+    categories as unknown as JSONContent,
+    userId
+  );
+}
+
 export async function publishPlan(planId: string) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("Not authenticated.");
@@ -128,13 +162,14 @@ export async function getStageBundle(
     throw new Error(`Unknown stage: ${stage}`);
   }
 
-  const [fields, responses, checklistItems, checklistState, exemplars] =
+  const [fields, responses, checklistItems, checklistState, exemplars, validationOptions] =
     await Promise.all([
       getStageFields(stage),
       getStageResponses(planId, stage),
       getChecklistItems(planId, stage),
       getChecklistState(planId),
       getExemplars(stage),
+      stage === "PC" ? listValidationOptions() : Promise.resolve([]),
     ]);
 
   return {
@@ -146,5 +181,6 @@ export async function getStageBundle(
       checked: checklistState[item.item_key] ?? false,
     })),
     exemplars,
+    validationOptions,
   };
 }

@@ -44,11 +44,26 @@ export interface StageFieldSummary {
   sort_order: number;
 }
 
+export interface ValidationOption {
+  id: string;
+  label: string;
+  sort_order: number;
+}
+
+export interface HypothesisRow {
+  id: string;
+  text: string;
+  category: string | null;
+  validation: string | null;
+  struck: boolean;
+}
+
 export interface StageBundle {
   fields: StageFieldSummary[];
   responses: Record<string, JSONContent>;
   checklist: ChecklistItemData[];
   exemplars: ExemplarData[];
+  validationOptions: ValidationOption[];
 }
 
 export interface TagData {

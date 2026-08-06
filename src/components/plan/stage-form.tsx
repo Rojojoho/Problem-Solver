@@ -6,9 +6,21 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { TiptapEditor } from "@/components/tiptap-editor";
 import { MeasuresTable } from "@/components/plan/measures-table";
-import { EMPTY_DOC, MEASURES_FIELD_KEY, STAGES } from "@/lib/ccps/constants";
+import { HypothesesTable } from "@/components/plan/hypotheses-table";
+import {
+  CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
+  CAUSAL_HYPOTHESES_FIELD_KEY,
+  EMPTY_DOC,
+  MEASURES_FIELD_KEY,
+  STAGES,
+} from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { MeasureRow, StageFieldSummary } from "@/lib/ccps/types";
+import type {
+  HypothesisRow,
+  MeasureRow,
+  StageFieldSummary,
+  ValidationOption,
+} from "@/lib/ccps/types";
 import { saveStageResponse } from "@/app/plans/[id]/actions";
 
 interface StageFormProps {
@@ -16,6 +28,7 @@ interface StageFormProps {
   stage: CcpsStage;
   fields: StageFieldSummary[];
   initialResponses: Record<string, JSONContent>;
+  validationOptions: ValidationOption[];
 }
 
 export function StageForm({
@@ -23,6 +36,7 @@ export function StageForm({
   stage,
   fields,
   initialResponses,
+  validationOptions,
 }: StageFormProps) {
   const [isPending, startTransition] = useTransition();
   const stageNumber = STAGES.findIndex((s) => s.key === stage) + 1;
@@ -62,12 +76,29 @@ export function StageForm({
             {field.helper_text && (
               <p className="text-xs text-muted-foreground">{field.helper_text}</p>
             )}
-            <TiptapEditor
-              content={
-                initialResponses[field.field_key] ?? field.default_content ?? EMPTY_DOC
-              }
-              onBlurSave={(content) => handleSave(field.field_key, content)}
-            />
+            {field.field_key === CAUSAL_HYPOTHESES_FIELD_KEY ? (
+              <HypothesesTable
+                planId={planId}
+                initialRows={
+                  (initialResponses[
+                    CAUSAL_HYPOTHESES_FIELD_KEY
+                  ] as unknown as HypothesisRow[]) ?? []
+                }
+                initialCategories={
+                  (initialResponses[
+                    CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY
+                  ] as unknown as string[]) ?? []
+                }
+                validationOptions={validationOptions}
+              />
+            ) : (
+              <TiptapEditor
+                content={
+                  initialResponses[field.field_key] ?? field.default_content ?? EMPTY_DOC
+                }
+                onBlurSave={(content) => handleSave(field.field_key, content)}
+              />
+            )}
             {field.field_key === "pi_outcome_data" && (
               <MeasuresTable
                 planId={planId}
