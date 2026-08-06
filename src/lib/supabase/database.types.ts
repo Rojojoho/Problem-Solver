@@ -49,6 +49,7 @@ export interface Database {
           name: string;
           created_by: string;
           current_stage: CcpsStage;
+          background: unknown | null;
           created_at: string;
           updated_at: string;
         };
@@ -110,6 +111,11 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["plan_checklist_items"]["Row"]
         >;
+      };
+      plan_tags: {
+        Row: { plan_id: string; tag: string };
+        Insert: Database["public"]["Tables"]["plan_tags"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["plan_tags"]["Row"]>;
       };
       plan_checklist_state: {
         Row: {

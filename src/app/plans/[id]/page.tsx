@@ -8,7 +8,9 @@ import {
   getFeedback,
   getLatestPublishedPlanForSource,
   listKbArticles,
+  getPlanTags,
 } from "@/lib/db";
+import { EMPTY_DOC } from "@/lib/ccps/constants";
 import { PlanWorkspace } from "@/components/plan/plan-workspace";
 
 export default async function PlanPage({
@@ -31,6 +33,7 @@ export default async function PlanPage({
     feedback,
     latestPublished,
     kbArticles,
+    tags,
   ] = await Promise.all([
     getStageResponses(id, "PI"),
     getChecklistItems(id, "PI"),
@@ -39,6 +42,7 @@ export default async function PlanPage({
     getFeedback(id),
     getLatestPublishedPlanForSource(id),
     listKbArticles(true),
+    getPlanTags(id),
   ]);
 
   const checklist = checklistItems.map((item) => ({
@@ -55,6 +59,8 @@ export default async function PlanPage({
       <PlanWorkspace
         planId={plan.id}
         initialStage={plan.current_stage}
+        background={plan.background ?? EMPTY_DOC}
+        tags={tags}
         piResponses={piResponses}
         checklist={checklist}
         exemplars={exemplars}

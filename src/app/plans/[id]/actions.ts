@@ -9,6 +9,9 @@ import {
   addFeedbackRecord,
   toggleFeedbackResolvedRecord,
   renamePlanRecord,
+  saveBackgroundRecord,
+  addPlanTagRecord,
+  removePlanTagRecord,
   getCurrentUserId,
   getCurrentOrg,
   publishPlanRecord,
@@ -66,6 +69,24 @@ export async function renamePlan(planId: string, name: string) {
   await renamePlanRecord(planId, trimmed);
   revalidatePath(`/plans/${planId}`);
   revalidatePath("/plans");
+}
+
+export async function saveBackground(planId: string, content: JSONContent) {
+  await saveBackgroundRecord(planId, content);
+  revalidatePath(`/plans/${planId}`);
+}
+
+export async function addPlanTag(planId: string, tag: string) {
+  const trimmed = tag.trim();
+  if (!trimmed) return;
+
+  await addPlanTagRecord(planId, trimmed);
+  revalidatePath(`/plans/${planId}`);
+}
+
+export async function removePlanTag(planId: string, tag: string) {
+  await removePlanTagRecord(planId, tag);
+  revalidatePath(`/plans/${planId}`);
 }
 
 export async function publishPlan(planId: string) {

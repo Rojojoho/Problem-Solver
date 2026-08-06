@@ -27,6 +27,7 @@ interface MockPlan {
   org_id: string;
   name: string;
   current_stage: CcpsStage;
+  background: JSONContent | null;
   created_at: string;
   updated_at: string;
 }
@@ -136,6 +137,7 @@ export function mockCreatePlan(orgId: string, name: string) {
     org_id: orgId,
     name,
     current_stage: "PI",
+    background: null,
     created_at: timestamp,
     updated_at: timestamp,
   });
@@ -153,6 +155,29 @@ export function mockRenamePlan(id: string, name: string) {
   if (!plan) return;
   plan.name = name;
   plan.updated_at = now();
+}
+
+export function mockSaveBackground(id: string, content: JSONContent) {
+  const plan = plans.get(id);
+  if (!plan) return;
+  plan.background = content;
+  plan.updated_at = now();
+}
+
+const planTags = new Map<string, Set<string>>();
+
+export function mockGetPlanTags(planId: string): string[] {
+  return Array.from(planTags.get(planId) ?? []);
+}
+
+export function mockAddPlanTag(planId: string, tag: string) {
+  const set = planTags.get(planId) ?? new Set<string>();
+  set.add(tag);
+  planTags.set(planId, set);
+}
+
+export function mockRemovePlanTag(planId: string, tag: string) {
+  planTags.get(planId)?.delete(tag);
 }
 
 export function mockGetStageResponses(planId: string, stage: CcpsStage) {

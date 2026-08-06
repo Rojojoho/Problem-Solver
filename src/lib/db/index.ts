@@ -144,10 +144,11 @@ export async function getPlan(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("plans")
-    .select("id, name, current_stage")
+    .select("id, name, current_stage, background")
     .eq("id", id)
     .single();
-  return data;
+  if (!data) return null;
+  return { ...data, background: data.background as JSONContent | null };
 }
 
 export async function getStageResponses(
@@ -419,6 +420,62 @@ export async function renamePlanRecord(planId: string, name: string) {
     .from("plans")
     .update({ name, updated_at: new Date().toISOString() })
     .eq("id", planId);
+  if (error) throw new Error(error.message);
+}
+
+export async function saveBackgroundRecord(
+  planId: string,
+  content: JSONContent
+) {
+  if (DEV_MOCK) {
+    mock.mockSaveBackground(planId, content);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("plans")
+    .update({ background: content, updated_at: new Date().toISOString() })
+    .eq("id", planId);
+  if (error) throw new Error(error.message);
+}
+
+export async function getPlanTags(planId: string): Promise<string[]> {
+  if (DEV_MOCK) return mock.mockGetPlanTags(planId);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("plan_tags")
+    .select("tag")
+    .eq("plan_id", planId);
+  return (data ?? []).map((t) => t.tag);
+}
+
+export async function addPlanTagRecord(planId: string, tag: string) {
+  if (DEV_MOCK) {
+    mock.mockAddPlanTag(planId, tag);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("plan_tags")
+    .upsert({ plan_id: planId, tag }, { onConflict: "plan_id,tag" });
+  if (error) throw new Error(error.message);
+}
+
+export async function removePlanTagRecord(planId: string, tag: string) {
+  if (DEV_MOCK) {
+    mock.mockRemovePlanTag(planId, tag);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("plan_tags")
+    .delete()
+    .eq("plan_id", planId)
+    .eq("tag", tag);
   if (error) throw new Error(error.message);
 }
 
