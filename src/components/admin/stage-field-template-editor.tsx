@@ -8,23 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { STAGES } from "@/lib/ccps/constants";
-import type { CcpsStage } from "@/lib/supabase/database.types";
-import { NewStageFieldDialog } from "@/components/admin/new-stage-field-dialog";
-import {
-  updateStageFieldTemplate,
-  deleteStageFieldTemplate,
-} from "@/app/admin/settings/fields/actions";
+import { updateStageField } from "@/app/admin/settings/fields/actions";
+import type { StageFieldSummary } from "@/lib/ccps/types";
 
-interface TemplateField {
-  id: string;
-  field_key: string;
-  internal_id: string;
-  stage: CcpsStage;
-  short_name: string;
-  full_prompt: string;
-  helper_text: string | null;
-  sort_order: number;
-}
+type TemplateField = StageFieldSummary;
 
 export function StageFieldTemplateEditor({
   fieldsByStage,
@@ -49,10 +36,9 @@ export function StageFieldTemplateEditor({
             </p>
           ) : (
             (fieldsByStage[s.key] ?? []).map((field) => (
-              <StageFieldRow key={field.id} field={field} />
+              <StageFieldRow key={field.field_key} field={field} />
             ))
           )}
-          <NewStageFieldDialog stage={s.key} />
         </TabsContent>
       ))}
     </Tabs>
@@ -69,8 +55,8 @@ function StageFieldRow({ field }: { field: TemplateField }) {
   function handleSave() {
     startTransition(async () => {
       try {
-        await updateStageFieldTemplate(
-          field.id,
+        await updateStageField(
+          field.field_key,
           shortName,
           fullPrompt,
           helperText,
@@ -79,18 +65,6 @@ function StageFieldRow({ field }: { field: TemplateField }) {
         toast.success("Saved.");
       } catch {
         toast.error("Couldn't save that field.");
-      }
-    });
-  }
-
-  function handleDelete() {
-    if (!window.confirm(`Delete "${field.short_name}"?`)) return;
-    startTransition(async () => {
-      try {
-        await deleteStageFieldTemplate(field.id);
-        toast.success("Deleted.");
-      } catch {
-        toast.error("Couldn't delete that field.");
       }
     });
   }
@@ -138,17 +112,9 @@ function StageFieldRow({ field }: { field: TemplateField }) {
           className="mt-1"
         />
       </div>
-      <div className="flex gap-2">
+      <div>
         <Button size="sm" variant="outline" onClick={handleSave} disabled={isPending}>
           Save
-        </Button>
-        <Button
-          size="sm"
-          variant="outline-destructive"
-          onClick={handleDelete}
-          disabled={isPending}
-        >
-          Delete
         </Button>
       </div>
     </div>

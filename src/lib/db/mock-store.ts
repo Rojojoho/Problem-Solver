@@ -82,8 +82,7 @@ let checklistTemplate: MockChecklistTemplateItem[] = [
 // of the template, taken at creation time.
 const planChecklistItems = new Map<string, MockChecklistTemplateItem[]>();
 
-interface MockStageFieldTemplate {
-  id: string;
+interface MockStageField {
   field_key: string;
   internal_id: string;
   stage: CcpsStage;
@@ -93,10 +92,11 @@ interface MockStageFieldTemplate {
   sort_order: number;
 }
 
-// The mock stand-in for the global, admin-editable `stage_fields` table.
-let stageFieldTemplate: MockStageFieldTemplate[] = [
+// The mock stand-in for the global `stage_fields` reference table — a fixed
+// set of fields (matching the real migration seed), with admin-editable
+// display text. Not a per-plan snapshot.
+const stageFields: MockStageField[] = [
   {
-    id: crypto.randomUUID(),
     field_key: "pi_problem_description",
     internal_id: "1.1",
     stage: "PI",
@@ -106,7 +106,6 @@ let stageFieldTemplate: MockStageFieldTemplate[] = [
     sort_order: 1,
   },
   {
-    id: crypto.randomUUID(),
     field_key: "pi_outcome_data",
     internal_id: "1.2",
     stage: "PI",
@@ -116,7 +115,6 @@ let stageFieldTemplate: MockStageFieldTemplate[] = [
     sort_order: 2,
   },
   {
-    id: crypto.randomUUID(),
     field_key: "pi_educational_argument",
     internal_id: "1.3",
     stage: "PI",
@@ -126,7 +124,6 @@ let stageFieldTemplate: MockStageFieldTemplate[] = [
     sort_order: 3,
   },
   {
-    id: crypto.randomUUID(),
     field_key: "pi_agreement_script",
     internal_id: "1.4",
     stage: "PI",
@@ -137,10 +134,6 @@ let stageFieldTemplate: MockStageFieldTemplate[] = [
     sort_order: 4,
   },
 ];
-
-// The mock stand-in for `plan_stage_fields` — each plan's frozen snapshot of
-// the field template, taken at creation time.
-const planStageFields = new Map<string, MockStageFieldTemplate[]>();
 
 export const EXEMPLARS: {
   id: string;
@@ -201,9 +194,8 @@ export function mockCreatePlan(orgId: string, name: string) {
     created_at: timestamp,
     updated_at: timestamp,
   });
-  // Snapshot the current templates, same as the real createPlanRecord does.
+  // Snapshot the current checklist template, same as the real createPlanRecord does.
   planChecklistItems.set(id, checklistTemplate.map((item) => ({ ...item })));
-  planStageFields.set(id, stageFieldTemplate.map((field) => ({ ...field })));
   return { id };
 }
 
@@ -321,56 +313,22 @@ export function mockDeleteChecklistTemplateItem(id: string) {
   checklistTemplate = checklistTemplate.filter((i) => i.id !== id);
 }
 
-export function mockGetPlanStageFields(planId: string, stage: CcpsStage) {
-  return (planStageFields.get(planId) ?? [])
+export function mockGetStageFields(stage: CcpsStage) {
+  return stageFields
     .filter((field) => field.stage === stage)
     .sort((a, b) => a.sort_order - b.sort_order)
-    .map(
-      ({ field_key, internal_id, short_name, full_prompt, helper_text, sort_order }) => ({
-        field_key,
-        internal_id,
-        short_name,
-        full_prompt,
-        helper_text,
-        sort_order,
-      })
-    );
+    .map(({ field_key, internal_id, short_name, full_prompt, helper_text, sort_order }) => ({
+      field_key,
+      internal_id,
+      short_name,
+      full_prompt,
+      helper_text,
+      sort_order,
+    }));
 }
 
-export function mockListStageFieldTemplates(stage: CcpsStage) {
-  return stageFieldTemplate
-    .filter((field) => field.stage === stage)
-    .sort((a, b) => a.sort_order - b.sort_order);
-}
-
-export function mockCreateStageFieldTemplate(
-  stage: CcpsStage,
+export function mockUpdateStageField(
   fieldKey: string,
-  internalId: string,
-  shortName: string,
-  fullPrompt: string,
-  helperText: string | null,
-  sortOrder: number
-) {
-  const id = crypto.randomUUID();
-  stageFieldTemplate = [
-    ...stageFieldTemplate,
-    {
-      id,
-      field_key: fieldKey,
-      internal_id: internalId,
-      stage,
-      short_name: shortName,
-      full_prompt: fullPrompt,
-      helper_text: helperText,
-      sort_order: sortOrder,
-    },
-  ];
-  return { id };
-}
-
-export function mockUpdateStageFieldTemplate(
-  id: string,
   updates: {
     shortName?: string;
     fullPrompt?: string;
@@ -378,16 +336,12 @@ export function mockUpdateStageFieldTemplate(
     sortOrder?: number;
   }
 ) {
-  const field = stageFieldTemplate.find((f) => f.id === id);
+  const field = stageFields.find((f) => f.field_key === fieldKey);
   if (!field) return;
   if (updates.shortName !== undefined) field.short_name = updates.shortName;
   if (updates.fullPrompt !== undefined) field.full_prompt = updates.fullPrompt;
   if (updates.helperText !== undefined) field.helper_text = updates.helperText;
   if (updates.sortOrder !== undefined) field.sort_order = updates.sortOrder;
-}
-
-export function mockDeleteStageFieldTemplate(id: string) {
-  stageFieldTemplate = stageFieldTemplate.filter((f) => f.id !== id);
 }
 
 export function mockGetFeedback(planId: string) {

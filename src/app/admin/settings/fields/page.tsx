@@ -1,11 +1,11 @@
-import { listStageFieldTemplates } from "@/lib/db";
+import { getStageFields } from "@/lib/db";
 import { STAGES } from "@/lib/ccps/constants";
 import { StageFieldTemplateEditor } from "@/components/admin/stage-field-template-editor";
 
 export default async function AdminStageFieldsPage() {
   const fieldsByStage = Object.fromEntries(
     await Promise.all(
-      STAGES.map(async (s) => [s.key, await listStageFieldTemplates(s.key)] as const)
+      STAGES.map(async (s) => [s.key, await getStageFields(s.key)] as const)
     )
   );
 
@@ -14,10 +14,10 @@ export default async function AdminStageFieldsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Stage fields</h1>
         <p className="text-sm text-muted-foreground">
-          The input fields shown on each stage. Changes here only apply to
-          plans created from now on — plans already in progress keep the
-          fields they started with. A stage with no fields shows &quot;Coming
-          soon&quot; to users.
+          Reference IDs and editable titles for each stage&apos;s input
+          fields. The fields themselves are fixed (they stay aligned with
+          exemplars and existing plan data) — only the Short Name, Full
+          Prompt, Helper Text, and order shown to users can be edited here.
         </p>
       </div>
 

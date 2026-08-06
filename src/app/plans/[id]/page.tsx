@@ -39,7 +39,7 @@ export default async function PlanPage({
     kbArticles,
     tags,
   ] = await Promise.all([
-    Promise.all(STAGES.map((s) => getStageFields(id, s.key))),
+    Promise.all(STAGES.map((s) => getStageFields(s.key))),
     Promise.all(STAGES.map((s) => getStageResponses(id, s.key))),
     Promise.all(STAGES.map((s) => getChecklistItems(id, s.key))),
     Promise.all(STAGES.map((s) => getExemplars(s.key))),
