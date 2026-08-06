@@ -24,3 +24,9 @@ export function paragraphDoc(...lines: string[]): JSONContent {
 }
 
 export const EMPTY_DOC: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
+
+// Synthetic field_key storing the Measure/Baseline/Target/Notes table
+// attached to the "Student Data" (pi_outcome_data) field — reuses the same
+// plan_stage_responses row-per-field storage as every other stage field, just
+// with a JSON array of rows instead of Tiptap doc content.
+export const MEASURES_FIELD_KEY = "pi_outcome_data_measures";

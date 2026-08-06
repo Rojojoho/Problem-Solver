@@ -473,6 +473,17 @@ export async function renamePlanRecord(planId: string, name: string) {
   if (error) throw new Error(error.message);
 }
 
+export async function deletePlanRecord(planId: string) {
+  if (DEV_MOCK) {
+    mock.mockDeletePlan(planId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("plans").delete().eq("id", planId);
+  if (error) throw new Error(error.message);
+}
+
 export async function saveBackgroundRecord(
   planId: string,
   content: JSONContent

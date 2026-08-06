@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { NewPlanDialog } from "@/components/plan/new-plan-dialog";
+import { DeletePlanButton } from "@/components/plan/delete-plan-button";
 import { getCurrentOrg } from "@/lib/org";
 import { listPlans } from "@/lib/db";
 
@@ -30,19 +31,26 @@ export default async function PlansPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => (
-            <Link key={plan.id} href={`/plans/${plan.id}`}>
-              <Card
-                className="h-full border-l-4 transition-colors hover:border-foreground/30"
-                style={{ borderLeftColor: `var(--chart-${STAGE_ORDER.indexOf(plan.current_stage) + 1})` }}
-              >
-                <CardHeader>
-                  <CardTitle>{plan.name}</CardTitle>
-                  <CardDescription>
-                    Stage: {STAGE_LABELS[plan.current_stage]}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            </Link>
+            <div key={plan.id} className="relative h-full">
+              <Link href={`/plans/${plan.id}`}>
+                <Card
+                  className="h-full border-l-4 transition-colors hover:border-foreground/30"
+                  style={{ borderLeftColor: `var(--chart-${STAGE_ORDER.indexOf(plan.current_stage) + 1})` }}
+                >
+                  <CardHeader>
+                    <CardTitle className="pr-8">{plan.name}</CardTitle>
+                    <CardDescription>
+                      Stage: {STAGE_LABELS[plan.current_stage]}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+              <DeletePlanButton
+                planId={plan.id}
+                planName={plan.name}
+                className="absolute top-4 right-4"
+              />
+            </div>
           ))}
         </div>
       )}

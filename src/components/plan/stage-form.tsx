@@ -5,9 +5,10 @@ import type { JSONContent } from "@tiptap/react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { TiptapEditor } from "@/components/tiptap-editor";
-import { EMPTY_DOC, STAGES } from "@/lib/ccps/constants";
+import { MeasuresTable } from "@/components/plan/measures-table";
+import { EMPTY_DOC, MEASURES_FIELD_KEY, STAGES } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { StageFieldSummary } from "@/lib/ccps/types";
+import type { MeasureRow, StageFieldSummary } from "@/lib/ccps/types";
 import { saveStageResponse } from "@/app/plans/[id]/actions";
 
 interface StageFormProps {
@@ -65,6 +66,14 @@ export function StageForm({
               content={initialResponses[field.field_key] ?? EMPTY_DOC}
               onBlurSave={(content) => handleSave(field.field_key, content)}
             />
+            {field.field_key === "pi_outcome_data" && (
+              <MeasuresTable
+                planId={planId}
+                initialRows={
+                  (initialResponses[MEASURES_FIELD_KEY] as unknown as MeasureRow[]) ?? []
+                }
+              />
+            )}
           </div>
         ))}
     </div>

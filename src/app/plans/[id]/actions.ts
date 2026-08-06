@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import type { JSONContent } from "@tiptap/react";
 import type { CcpsStage } from "@/lib/supabase/database.types";
+import type { MeasureRow } from "@/lib/ccps/types";
+import { MEASURES_FIELD_KEY } from "@/lib/ccps/constants";
 import {
   saveStageResponseRecord,
   toggleChecklistItemRecord,
@@ -86,6 +88,18 @@ export async function addPlanTag(planId: string, tag: string) {
 
 export async function removePlanTag(planId: string, tag: string) {
   await removePlanTagRecord(planId, tag);
+  revalidatePath(`/plans/${planId}`);
+}
+
+export async function saveMeasureRows(planId: string, rows: MeasureRow[]) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "PI",
+    MEASURES_FIELD_KEY,
+    rows as unknown as JSONContent,
+    userId
+  );
   revalidatePath(`/plans/${planId}`);
 }
 

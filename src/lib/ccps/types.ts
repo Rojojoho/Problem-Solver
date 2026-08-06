@@ -27,6 +27,13 @@ export interface ExemplarData {
   fields: Record<string, JSONContent>;
 }
 
+export interface MeasureRow {
+  measure: string;
+  baseline: string;
+  target: string;
+  notes: string;
+}
+
 export interface StageFieldSummary {
   field_key: string;
   internal_id: string;

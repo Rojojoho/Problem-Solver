@@ -210,6 +210,22 @@ export function mockRenamePlan(id: string, name: string) {
   plan.updated_at = now();
 }
 
+export function mockDeletePlan(id: string) {
+  plans.delete(id);
+  planChecklistItems.delete(id);
+  planTags.delete(id);
+
+  for (const key of stageResponses.keys()) {
+    if (key.startsWith(`${id}:`)) stageResponses.delete(key);
+  }
+  for (const key of checklistState.keys()) {
+    if (key.startsWith(`${id}:`)) checklistState.delete(key);
+  }
+  for (let i = feedback.length - 1; i >= 0; i--) {
+    if (feedback[i].plan_id === id) feedback.splice(i, 1);
+  }
+}
+
 export function mockSaveBackground(id: string, content: JSONContent) {
   const plan = plans.get(id);
   if (!plan) return;

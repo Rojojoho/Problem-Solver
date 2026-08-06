@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentOrg } from "@/lib/org";
-import { createPlanRecord } from "@/lib/db";
+import { createPlanRecord, deletePlanRecord } from "@/lib/db";
 
 export async function createPlan(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -16,4 +16,9 @@ export async function createPlan(formData: FormData) {
 
   revalidatePath("/plans");
   redirect(`/plans/${id}`);
+}
+
+export async function deletePlan(planId: string) {
+  await deletePlanRecord(planId);
+  revalidatePath("/plans");
 }
