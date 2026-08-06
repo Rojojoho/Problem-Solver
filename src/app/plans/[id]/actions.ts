@@ -7,6 +7,7 @@ import {
   saveStageResponseRecord,
   toggleChecklistItemRecord,
   addFeedbackRecord,
+  toggleFeedbackResolvedRecord,
   renamePlanRecord,
   getCurrentUserId,
   getCurrentOrg,
@@ -45,6 +46,16 @@ export async function addFeedback(
   if (!userId) throw new Error("Not authenticated.");
 
   await addFeedbackRecord(planId, stage, trimmed, userId);
+  revalidatePath(`/plans/${planId}`);
+}
+
+export async function toggleFeedbackResolved(
+  planId: string,
+  feedbackId: string,
+  resolved: boolean
+) {
+  const userId = await getCurrentUserId();
+  await toggleFeedbackResolvedRecord(feedbackId, resolved, userId);
   revalidatePath(`/plans/${planId}`);
 }
 

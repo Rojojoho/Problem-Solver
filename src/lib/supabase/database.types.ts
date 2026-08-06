@@ -156,6 +156,9 @@ export interface Database {
           author_id: string;
           body: string;
           created_at: string;
+          resolved: boolean;
+          resolved_by: string | null;
+          resolved_at: string | null;
         };
         Insert: Partial<
           Database["public"]["Tables"]["feedback_comments"]["Row"]

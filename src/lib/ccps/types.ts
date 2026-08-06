@@ -17,6 +17,7 @@ export interface FeedbackItemData {
   author_name: string;
   body: string;
   created_at: string;
+  resolved: boolean;
 }
 
 export interface ExemplarData {

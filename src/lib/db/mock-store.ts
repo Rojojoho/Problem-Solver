@@ -7,7 +7,6 @@ import type {
 } from "@/lib/supabase/database.types";
 import type {
   KbArticleData,
-  KbArticleSummary,
   PublishedPlanSummary,
   TagData,
 } from "@/lib/ccps/types";
@@ -39,6 +38,7 @@ interface MockFeedback {
   author_name: string;
   body: string;
   created_at: string;
+  resolved: boolean;
 }
 
 const plans = new Map<string, MockPlan>();
@@ -253,7 +253,18 @@ export function mockAddFeedback(
     author_name: "Dev User (mock)",
     body,
     created_at: now(),
+    resolved: false,
   });
+}
+
+export function mockToggleFeedbackResolved(
+  feedbackId: string,
+  resolved: boolean,
+  userId: string | null
+) {
+  void userId;
+  const item = feedback.find((f) => f.id === feedbackId);
+  if (item) item.resolved = resolved;
 }
 
 // ---------------------------------------------------------------------------
@@ -414,17 +425,11 @@ interface MockKbArticle {
 
 const kbArticles = new Map<string, MockKbArticle>();
 
-export function mockListKbArticles(publishedOnly: boolean): KbArticleSummary[] {
+export function mockListKbArticles(publishedOnly: boolean): KbArticleData[] {
   return Array.from(kbArticles.values())
     .filter((a) => !publishedOnly || a.status === "published")
     .sort((a, b) => a.title.localeCompare(b.title))
-    .map(({ id, title, stage, status, updatedAt }) => ({
-      id,
-      title,
-      stage,
-      status,
-      updatedAt,
-    }));
+    .map((a) => ({ ...a }));
 }
 
 export function mockGetKbArticle(id: string): KbArticleData | null {

@@ -9,7 +9,7 @@ import type {
   ChecklistItemData,
   ExemplarData,
   FeedbackItemData,
-  KbArticleSummary,
+  KbArticleData,
 } from "@/lib/ccps/types";
 import { Stage1Form } from "@/components/plan/stage1-form";
 import { StagePlaceholder } from "@/components/plan/stage-placeholder";
@@ -24,7 +24,7 @@ interface PlanWorkspaceProps {
   exemplars: ExemplarData[];
   feedback: FeedbackItemData[];
   publishStatus: PublishedStatus | null;
-  kbArticles: KbArticleSummary[];
+  kbArticles: KbArticleData[];
 }
 
 export function PlanWorkspace({

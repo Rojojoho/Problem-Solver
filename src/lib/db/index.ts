@@ -12,7 +12,6 @@ import type {
   ExemplarData,
   FeedbackItemData,
   KbArticleData,
-  KbArticleSummary,
   PublishedPlanSummary,
   TagData,
 } from "@/lib/ccps/types";
@@ -353,7 +352,7 @@ export async function getFeedback(planId: string): Promise<FeedbackItemData[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("feedback_comments")
-    .select("id, stage, body, created_at, profiles(full_name)")
+    .select("id, stage, body, created_at, resolved, profiles(full_name)")
     .eq("plan_id", planId)
     .order("created_at", { ascending: false });
 
@@ -365,7 +364,30 @@ export async function getFeedback(planId: string): Promise<FeedbackItemData[]> {
         ?.full_name ?? "Unknown",
     body: f.body,
     created_at: f.created_at,
+    resolved: f.resolved,
   }));
+}
+
+export async function toggleFeedbackResolvedRecord(
+  feedbackId: string,
+  resolved: boolean,
+  userId: string | null
+) {
+  if (DEV_MOCK) {
+    mock.mockToggleFeedbackResolved(feedbackId, resolved, userId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("feedback_comments")
+    .update({
+      resolved,
+      resolved_by: resolved ? userId : null,
+      resolved_at: resolved ? new Date().toISOString() : null,
+    })
+    .eq("id", feedbackId);
+  if (error) throw new Error(error.message);
 }
 
 export async function addFeedbackRecord(
@@ -694,13 +716,13 @@ export async function untagPublishedPlanRecord(
 
 export async function listKbArticles(
   publishedOnly = true
-): Promise<KbArticleSummary[]> {
+): Promise<KbArticleData[]> {
   if (DEV_MOCK) return mock.mockListKbArticles(publishedOnly);
 
   const supabase = await createClient();
   let query = supabase
     .from("kb_articles")
-    .select("id, title, stage, status, updated_at")
+    .select("id, title, body, stage, status, updated_at")
     .order("sort_order");
   if (publishedOnly) query = query.eq("status", "published");
   const { data } = await query;
@@ -708,6 +730,7 @@ export async function listKbArticles(
   return (data ?? []).map((a) => ({
     id: a.id,
     title: a.title,
+    body: a.body as JSONContent,
     stage: a.stage,
     status: a.status,
     updatedAt: a.updated_at,

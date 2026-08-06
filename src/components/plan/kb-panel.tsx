@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { KbArticleSummary } from "@/lib/ccps/types";
+import type { KbArticleData } from "@/lib/ccps/types";
+import { TiptapEditor } from "@/components/tiptap-editor";
 
 interface KbPanelProps {
   stage: CcpsStage;
-  articles: KbArticleSummary[];
+  articles: KbArticleData[];
 }
 
 export function KbPanel({ stage, articles }: KbPanelProps) {
@@ -21,18 +22,24 @@ export function KbPanel({ stage, articles }: KbPanelProps) {
   }
 
   return (
-    <ul className="space-y-1">
+    <div className="space-y-2">
       {relevant.map((article) => (
-        <li key={article.id}>
-          <Link
-            href={`/kb/${article.id}`}
-            target="_blank"
-            className="text-sm text-primary hover:underline"
-          >
+        <details key={article.id} className="rounded-md border border-border">
+          <summary className="cursor-pointer px-3 py-2 text-sm font-medium hover:bg-muted/50">
             {article.title}
-          </Link>
-        </li>
+          </summary>
+          <div className="border-t border-border px-3 py-2">
+            <TiptapEditor content={article.body} editable={false} />
+            <Link
+              href={`/kb/${article.id}`}
+              target="_blank"
+              className="mt-2 inline-block text-xs text-primary hover:underline"
+            >
+              Open full page
+            </Link>
+          </div>
+        </details>
       ))}
-    </ul>
+    </div>
   );
 }

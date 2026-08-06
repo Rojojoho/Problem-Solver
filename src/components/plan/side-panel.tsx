@@ -7,7 +7,7 @@ import type {
   ChecklistItemData,
   ExemplarData,
   FeedbackItemData,
-  KbArticleSummary,
+  KbArticleData,
 } from "@/lib/ccps/types";
 import { ChecklistPanel } from "@/components/plan/checklist-panel";
 import { ExemplarPanel } from "@/components/plan/exemplar-panel";
@@ -21,7 +21,7 @@ interface SidePanelProps {
   checklist: ChecklistItemData[];
   exemplars: ExemplarData[];
   feedback: FeedbackItemData[];
-  kbArticles: KbArticleSummary[];
+  kbArticles: KbArticleData[];
 }
 
 export function SidePanel({
