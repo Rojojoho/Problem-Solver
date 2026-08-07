@@ -25,8 +25,10 @@ const PANEL_WIDTH_KEY = "ccps:side-panel-width";
 const DEFAULT_PANEL_WIDTH = 380;
 const MIN_PANEL_WIDTH = 300;
 const MAX_PANEL_WIDTH = 680;
+const HANDLE_WIDTH = 8;
 
 interface PlanWorkspaceProps {
+  planName: string;
   planId: string;
   stages: StageData[];
   initialStage: CcpsStage;
@@ -39,6 +41,7 @@ interface PlanWorkspaceProps {
 }
 
 export function PlanWorkspace({
+  planName,
   planId,
   stages,
   initialStage,
@@ -120,90 +123,105 @@ export function PlanWorkspace({
     }
   }
 
+  const showPanel = stage !== "details";
+
   return (
-    <Tabs value={stage} onValueChange={handleStageChange}>
-      <div className="mb-4 flex justify-end">
-        <PublishButton planId={planId} status={publishStatus} />
-      </div>
-      <TabsList className="w-full justify-start overflow-x-auto">
-        <TabsTrigger
-          value="details"
-          className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
-        >
-          Plan Details
-        </TabsTrigger>
-        {stages.map((s) => (
-          <TabsTrigger
-            key={s.key}
-            value={s.key}
-            className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
-          >
-            {s.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-
-      <TabsContent value="details" className="mt-6">
-        <PlanDetailsForm planId={planId} background={background} tags={tags} />
-      </TabsContent>
-
-      {stage !== "details" && (
-        <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-0">
-          <div className="min-w-0 flex-1 lg:pr-6">
-            {stages.map((s) => {
-              const bundle = bundles[s.key];
-              return (
-                <TabsContent key={s.key} value={s.key} className="mt-0">
-                  {bundle ? (
-                    bundle.fields.length ? (
-                      <StageForm
-                        planId={planId}
-                        stage={s.key}
-                        stageLabel={s.label}
-                        fields={bundle.fields}
-                        initialResponses={bundle.responses}
-                        validationOptions={bundle.validationOptions}
-                      />
-                    ) : (
-                      <StagePlaceholder label={s.label} />
-                    )
-                  ) : loadingStage === s.key ? (
-                    <p className="text-sm text-muted-foreground">Loading…</p>
-                  ) : null}
-                </TabsContent>
-              );
-            })}
+    <div className="relative">
+      <div
+        style={
+          showPanel
+            ? { ["--panel-total" as string]: `${panelWidth + HANDLE_WIDTH}px` }
+            : undefined
+        }
+        className={cn("min-w-0", showPanel && "lg:mr-[var(--panel-total)]")}
+      >
+        <Tabs value={stage} onValueChange={handleStageChange}>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-semibold">{planName}</h1>
+            <PublishButton planId={planId} status={publishStatus} />
           </div>
+          <TabsList className="w-full justify-start overflow-x-auto">
+            <TabsTrigger
+              value="details"
+              className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+            >
+              Plan Details
+            </TabsTrigger>
+            {stages.map((s) => (
+              <TabsTrigger
+                key={s.key}
+                value={s.key}
+                className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+              >
+                {s.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
+          <TabsContent value="details" className="mt-6">
+            <PlanDetailsForm planId={planId} background={background} tags={tags} />
+          </TabsContent>
+
+          {stages.map((s) => {
+            const bundle = bundles[s.key];
+            return (
+              <TabsContent key={s.key} value={s.key} className="mt-6">
+                {bundle ? (
+                  bundle.fields.length ? (
+                    <StageForm
+                      planId={planId}
+                      stage={s.key}
+                      stageLabel={s.label}
+                      fields={bundle.fields}
+                      initialResponses={bundle.responses}
+                      validationOptions={bundle.validationOptions}
+                    />
+                  ) : (
+                    <StagePlaceholder label={s.label} />
+                  )
+                ) : loadingStage === s.key ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : null}
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      </div>
+
+      {showPanel && (
+        <>
           <div
             onPointerDown={handleResizeStart}
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize side panel"
+            style={{ right: panelWidth }}
             className={cn(
-              "hidden w-2 shrink-0 cursor-col-resize touch-none self-stretch rounded-full transition-colors lg:block",
+              "fixed top-14 bottom-0 z-30 hidden w-2 cursor-col-resize touch-none transition-colors lg:block",
               isDragging ? "bg-border" : "bg-transparent hover:bg-border"
             )}
           />
 
           <aside
             style={{ ["--panel-width" as string]: `${panelWidth}px` }}
-            className="w-full shrink-0 lg:w-[var(--panel-width)]"
+            className="static mt-6 w-full border-t border-sidebar-border bg-sidebar lg:fixed lg:top-14 lg:right-0 lg:bottom-0 lg:z-20 lg:mt-0 lg:w-[var(--panel-width)] lg:overflow-y-auto lg:border-t-0 lg:border-l"
           >
-            <SidePanel
-              planId={planId}
-              stage={stage}
-              stageLabel={stages.find((s) => s.key === stage)?.label ?? stage}
-              stageHasFields={Boolean(bundles[stage]?.fields.length)}
-              checklist={bundles[stage]?.checklist ?? []}
-              exemplars={bundles[stage]?.exemplars ?? []}
-              fields={bundles[stage]?.fields ?? []}
-              feedback={feedback}
-              kbArticles={kbArticles}
-            />
+            <div className="p-4 lg:p-6">
+              <SidePanel
+                planId={planId}
+                stage={stage}
+                stageLabel={stages.find((s) => s.key === stage)?.label ?? stage}
+                stageHasFields={Boolean(bundles[stage]?.fields.length)}
+                checklist={bundles[stage]?.checklist ?? []}
+                exemplars={bundles[stage]?.exemplars ?? []}
+                fields={bundles[stage]?.fields ?? []}
+                feedback={feedback}
+                kbArticles={kbArticles}
+              />
+            </div>
           </aside>
-        </div>
+        </>
       )}
-    </Tabs>
+    </div>
   );
 }

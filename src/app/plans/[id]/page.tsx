@@ -70,21 +70,17 @@ export default async function PlanPage({
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">{plan.name}</h1>
-      </div>
-      <PlanWorkspace
-        planId={plan.id}
-        stages={stages}
-        initialStage={stage}
-        initialBundle={initialBundle}
-        background={plan.background ?? EMPTY_DOC}
-        tags={tags}
-        feedback={feedback}
-        publishStatus={latestPublished?.status ?? null}
-        kbArticles={kbArticles}
-      />
-    </div>
+    <PlanWorkspace
+      planName={plan.name}
+      planId={plan.id}
+      stages={stages}
+      initialStage={stage}
+      initialBundle={initialBundle}
+      background={plan.background ?? EMPTY_DOC}
+      tags={tags}
+      feedback={feedback}
+      publishStatus={latestPublished?.status ?? null}
+      kbArticles={kbArticles}
+    />
   );
 }
