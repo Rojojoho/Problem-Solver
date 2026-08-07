@@ -18,6 +18,7 @@ import { KbPanel } from "@/components/plan/kb-panel";
 interface SidePanelProps {
   planId: string;
   stage: CcpsStage;
+  stageLabel: string;
   stageHasFields: boolean;
   checklist: ChecklistItemData[];
   exemplars: ExemplarData[];
@@ -29,6 +30,7 @@ interface SidePanelProps {
 export function SidePanel({
   planId,
   stage,
+  stageLabel,
   stageHasFields,
   checklist,
   exemplars,
@@ -57,7 +59,11 @@ export function SidePanel({
 
           <TabsContent value="checklist" className="mt-4">
             {stageHasFields ? (
-              <ChecklistPanel planId={planId} stage={stage} items={checklist} />
+              <ChecklistPanel
+                planId={planId}
+                stageLabel={stageLabel}
+                items={checklist}
+              />
             ) : (
               <NotAvailable />
             )}

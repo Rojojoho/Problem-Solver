@@ -1,11 +1,11 @@
-import { getStageFields } from "@/lib/db";
-import { STAGES } from "@/lib/ccps/constants";
+import { getStageFields, listStages } from "@/lib/db";
 import { StageFieldTemplateEditor } from "@/components/admin/stage-field-template-editor";
 
 export default async function AdminStageFieldsPage() {
+  const stages = await listStages();
   const fieldsByStage = Object.fromEntries(
     await Promise.all(
-      STAGES.map(async (s) => [s.key, await getStageFields(s.key)] as const)
+      stages.map(async (s) => [s.key, await getStageFields(s.key)] as const)
     )
   );
 
@@ -21,7 +21,7 @@ export default async function AdminStageFieldsPage() {
         </p>
       </div>
 
-      <StageFieldTemplateEditor fieldsByStage={fieldsByStage} />
+      <StageFieldTemplateEditor stages={stages} fieldsByStage={fieldsByStage} />
     </div>
   );
 }

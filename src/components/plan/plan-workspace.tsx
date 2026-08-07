@@ -4,9 +4,13 @@ import { useEffect, useState, useTransition } from "react";
 import type { JSONContent } from "@tiptap/react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { STAGES } from "@/lib/ccps/constants";
 import type { CcpsStage, PublishedStatus } from "@/lib/supabase/database.types";
-import type { FeedbackItemData, KbArticleData, StageBundle } from "@/lib/ccps/types";
+import type {
+  FeedbackItemData,
+  KbArticleData,
+  StageBundle,
+  StageData,
+} from "@/lib/ccps/types";
 import { StageForm } from "@/components/plan/stage-form";
 import { StagePlaceholder } from "@/components/plan/stage-placeholder";
 import { SidePanel } from "@/components/plan/side-panel";
@@ -24,6 +28,7 @@ const MAX_PANEL_WIDTH = 680;
 
 interface PlanWorkspaceProps {
   planId: string;
+  stages: StageData[];
   initialStage: CcpsStage;
   initialBundle: StageBundle;
   background: JSONContent;
@@ -35,6 +40,7 @@ interface PlanWorkspaceProps {
 
 export function PlanWorkspace({
   planId,
+  stages,
   initialStage,
   initialBundle,
   background,
@@ -126,13 +132,13 @@ export function PlanWorkspace({
         >
           Plan Details
         </TabsTrigger>
-        {STAGES.map((s, i) => (
+        {stages.map((s) => (
           <TabsTrigger
             key={s.key}
             value={s.key}
             className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
           >
-            {i + 1}. {s.label}
+            {s.label}
           </TabsTrigger>
         ))}
       </TabsList>
@@ -144,7 +150,7 @@ export function PlanWorkspace({
       {stage !== "details" && (
         <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-0">
           <div className="min-w-0 flex-1 lg:pr-6">
-            {STAGES.map((s) => {
+            {stages.map((s) => {
               const bundle = bundles[s.key];
               return (
                 <TabsContent key={s.key} value={s.key} className="mt-0">
@@ -153,6 +159,7 @@ export function PlanWorkspace({
                       <StageForm
                         planId={planId}
                         stage={s.key}
+                        stageLabel={s.label}
                         fields={bundle.fields}
                         initialResponses={bundle.responses}
                         validationOptions={bundle.validationOptions}
@@ -186,6 +193,7 @@ export function PlanWorkspace({
             <SidePanel
               planId={planId}
               stage={stage}
+              stageLabel={stages.find((s) => s.key === stage)?.label ?? stage}
               stageHasFields={Boolean(bundles[stage]?.fields.length)}
               checklist={bundles[stage]?.checklist ?? []}
               exemplars={bundles[stage]?.exemplars ?? []}

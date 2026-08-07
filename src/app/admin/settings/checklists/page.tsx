@@ -1,11 +1,11 @@
-import { listChecklistTemplateItems } from "@/lib/db";
-import { STAGES } from "@/lib/ccps/constants";
+import { listChecklistTemplateItems, listStages } from "@/lib/db";
 import { ChecklistTemplateEditor } from "@/components/admin/checklist-template-editor";
 
 export default async function AdminChecklistTemplatesPage() {
+  const stages = await listStages();
   const itemsByStage = Object.fromEntries(
     await Promise.all(
-      STAGES.map(async (s) => [s.key, await listChecklistTemplateItems(s.key)] as const)
+      stages.map(async (s) => [s.key, await listChecklistTemplateItems(s.key)] as const)
     )
   );
 
@@ -21,7 +21,7 @@ export default async function AdminChecklistTemplatesPage() {
         </p>
       </div>
 
-      <ChecklistTemplateEditor itemsByStage={itemsByStage} />
+      <ChecklistTemplateEditor stages={stages} itemsByStage={itemsByStage} />
     </div>
   );
 }

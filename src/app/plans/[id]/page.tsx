@@ -11,6 +11,7 @@ import {
   listKbArticles,
   getPlanTags,
   listValidationOptions,
+  listStages,
 } from "@/lib/db";
 import { EMPTY_DOC } from "@/lib/ccps/constants";
 import type { StageBundle } from "@/lib/ccps/types";
@@ -41,6 +42,7 @@ export default async function PlanPage({
     kbArticles,
     tags,
     validationOptions,
+    stages,
   ] = await Promise.all([
     getStageFields(stage),
     getStageResponses(id, stage),
@@ -52,6 +54,7 @@ export default async function PlanPage({
     listKbArticles(true),
     getPlanTags(id),
     stage === "PC" ? listValidationOptions() : Promise.resolve([]),
+    listStages(),
   ]);
 
   const initialBundle: StageBundle = {
@@ -73,6 +76,7 @@ export default async function PlanPage({
       </div>
       <PlanWorkspace
         planId={plan.id}
+        stages={stages}
         initialStage={stage}
         initialBundle={initialBundle}
         background={plan.background ?? EMPTY_DOC}

@@ -1,11 +1,14 @@
-import { listPublishedPlansForAdmin, listTags } from "@/lib/db";
+import { listPublishedPlansForAdmin, listTags, listStages } from "@/lib/db";
+import { stageLabelMap } from "@/lib/ccps/constants";
 import { ReviewQueue } from "@/components/admin/review-queue";
 
 export default async function AdminReviewPage() {
-  const [submissions, availableTags] = await Promise.all([
+  const [submissions, availableTags, stages] = await Promise.all([
     listPublishedPlansForAdmin(),
     listTags(),
+    listStages(),
   ]);
+  const stageLabels = stageLabelMap(stages);
 
   return (
     <div className="space-y-6">
@@ -17,7 +20,11 @@ export default async function AdminReviewPage() {
           it to a featured exemplar.
         </p>
       </div>
-      <ReviewQueue submissions={submissions} availableTags={availableTags} />
+      <ReviewQueue
+        submissions={submissions}
+        availableTags={availableTags}
+        stageLabels={stageLabels}
+      />
     </div>
   );
 }

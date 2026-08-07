@@ -13,11 +13,11 @@ import type {
   FeedbackItemData,
   KbArticleData,
   PublishedPlanSummary,
+  StageData,
   StageFieldSummary,
   TagData,
   ValidationOption,
 } from "@/lib/ccps/types";
-import { STAGES } from "@/lib/ccps/constants";
 import * as mock from "@/lib/db/mock-store";
 
 /**
@@ -341,6 +341,62 @@ export async function updateStageFieldRecord(
 }
 
 // ---------------------------------------------------------------------------
+// Stages — global, admin-editable, orderable list of stage identities.
+// Replaces the old fixed ccps_stage enum so stages can be renamed/reordered/
+// added from admin settings without a schema migration.
+// ---------------------------------------------------------------------------
+
+export async function listStages(): Promise<StageData[]> {
+  if (DEV_MOCK) return mock.mockListStages();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("stages")
+    .select("key, label, sort_order")
+    .order("sort_order");
+  return data ?? [];
+}
+
+export async function createStageRecord(
+  key: string,
+  label: string,
+  sortOrder: number
+): Promise<{ key: string }> {
+  if (DEV_MOCK) return mock.mockCreateStage(key, label, sortOrder);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("stages")
+    .insert({ key, label, sort_order: sortOrder })
+    .select("key")
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create stage.");
+  }
+  return data;
+}
+
+export async function updateStageRecord(
+  key: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateStage(key, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("stages")
+    .update({
+      ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+    })
+    .eq("key", key);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
 // Validation options — global, admin-editable statuses selectable per
 // causal hypothesis on Stage 2. Same shape/pattern as checklist_items.
 // ---------------------------------------------------------------------------
@@ -627,8 +683,9 @@ export async function publishPlanRecord(
   const plan = await getPlan(planId);
   if (!plan) throw new Error("Plan not found.");
 
+  const stages = await listStages();
   const stageResponsesByStage = await Promise.all(
-    STAGES.map((s) => getStageResponses(planId, s.key))
+    stages.map((s) => getStageResponses(planId, s.key))
   );
   const checklistState = await getChecklistState(planId);
 
@@ -639,7 +696,7 @@ export async function publishPlanRecord(
       userId,
       plan.name,
       plan.current_stage,
-      STAGES.map((s, i) => ({ stage: s.key, fields: stageResponsesByStage[i] })),
+      stages.map((s, i) => ({ stage: s.key, fields: stageResponsesByStage[i] })),
       checklistState
     );
   }
@@ -661,7 +718,7 @@ export async function publishPlanRecord(
     throw new Error(error?.message ?? "Failed to publish plan.");
   }
 
-  const fieldRows = STAGES.flatMap((s, i) =>
+  const fieldRows = stages.flatMap((s, i) =>
     Object.entries(stageResponsesByStage[i]).map(([fieldKey, content]) => ({
       published_plan_id: publishedPlan.id,
       stage: s.key,

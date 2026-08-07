@@ -7,29 +7,30 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { STAGES } from "@/lib/ccps/constants";
 import { docToParagraphs } from "@/lib/ccps/doc-to-text";
 import { updateStageField } from "@/app/admin/settings/fields/actions";
-import type { StageFieldSummary } from "@/lib/ccps/types";
+import type { StageData, StageFieldSummary } from "@/lib/ccps/types";
 
 type TemplateField = StageFieldSummary;
 
 export function StageFieldTemplateEditor({
+  stages,
   fieldsByStage,
 }: {
+  stages: StageData[];
   fieldsByStage: Record<string, TemplateField[]>;
 }) {
   return (
-    <Tabs defaultValue={STAGES[0].key}>
+    <Tabs defaultValue={stages[0]?.key}>
       <TabsList className="w-full justify-start overflow-x-auto">
-        {STAGES.map((s) => (
+        {stages.map((s) => (
           <TabsTrigger key={s.key} value={s.key} className="whitespace-nowrap">
             {s.label}
           </TabsTrigger>
         ))}
       </TabsList>
 
-      {STAGES.map((s) => (
+      {stages.map((s) => (
         <TabsContent key={s.key} value={s.key} className="mt-4 space-y-3">
           {(fieldsByStage[s.key] ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">

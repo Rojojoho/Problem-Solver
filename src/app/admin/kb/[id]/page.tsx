@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getKbArticle } from "@/lib/db";
+import { getKbArticle, listStages } from "@/lib/db";
 import { KbArticleEditor } from "@/components/admin/kb-article-editor";
 
 export default async function AdminKbArticlePage({
@@ -8,12 +8,12 @@ export default async function AdminKbArticlePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const article = await getKbArticle(id);
+  const [article, stages] = await Promise.all([getKbArticle(id), listStages()]);
   if (!article) notFound();
 
   return (
     <div className="space-y-6">
-      <KbArticleEditor article={article} />
+      <KbArticleEditor article={article} stages={stages} />
     </div>
   );
 }

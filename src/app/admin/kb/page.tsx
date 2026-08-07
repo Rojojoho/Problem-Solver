@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { listKbArticles } from "@/lib/db";
-import { STAGE_LABELS } from "@/lib/ccps/constants";
+import { listKbArticles, listStages } from "@/lib/db";
+import { stageLabelMap } from "@/lib/ccps/constants";
 import { NewKbArticleDialog } from "@/components/admin/new-kb-article-dialog";
 
 export default async function AdminKbPage() {
-  const articles = await listKbArticles(false);
+  const [articles, stages] = await Promise.all([
+    listKbArticles(false),
+    listStages(),
+  ]);
+  const stageLabels = stageLabelMap(stages);
 
   return (
     <div className="space-y-6">
@@ -43,7 +47,7 @@ export default async function AdminKbPage() {
                     </Badge>
                   </div>
                   <CardDescription>
-                    {article.stage ? STAGE_LABELS[article.stage] : "General"}
+                    {article.stage ? stageLabels[article.stage] : "General"}
                   </CardDescription>
                 </CardHeader>
               </Card>

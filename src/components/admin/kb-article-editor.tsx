@@ -15,9 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TiptapEditor } from "@/components/tiptap-editor";
-import { STAGES } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { KbArticleData } from "@/lib/ccps/types";
+import type { KbArticleData, StageData } from "@/lib/ccps/types";
 import {
   updateKbArticleBody,
   updateKbArticleMeta,
@@ -27,7 +26,13 @@ import {
 
 const GENERAL = "general";
 
-export function KbArticleEditor({ article }: { article: KbArticleData }) {
+export function KbArticleEditor({
+  article,
+  stages,
+}: {
+  article: KbArticleData;
+  stages: StageData[];
+}) {
   const router = useRouter();
   const [title, setTitle] = useState(article.title);
   const [stage, setStage] = useState<string>(article.stage ?? GENERAL);
@@ -119,7 +124,7 @@ export function KbArticleEditor({ article }: { article: KbArticleData }) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={GENERAL}>General (all stages)</SelectItem>
-              {STAGES.map((s) => (
+              {stages.map((s) => (
                 <SelectItem key={s.key} value={s.key}>
                   {s.label}
                 </SelectItem>

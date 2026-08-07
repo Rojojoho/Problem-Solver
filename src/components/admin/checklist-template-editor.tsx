@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { STAGES } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
+import type { StageData } from "@/lib/ccps/types";
 import { NewChecklistItemDialog } from "@/components/admin/new-checklist-item-dialog";
 import {
   updateChecklistTemplateItem,
@@ -22,21 +22,23 @@ interface TemplateItem {
 }
 
 export function ChecklistTemplateEditor({
+  stages,
   itemsByStage,
 }: {
+  stages: StageData[];
   itemsByStage: Record<string, TemplateItem[]>;
 }) {
   return (
-    <Tabs defaultValue={STAGES[0].key}>
+    <Tabs defaultValue={stages[0]?.key}>
       <TabsList className="w-full justify-start overflow-x-auto">
-        {STAGES.map((s) => (
+        {stages.map((s) => (
           <TabsTrigger key={s.key} value={s.key} className="whitespace-nowrap">
             {s.label}
           </TabsTrigger>
         ))}
       </TabsList>
 
-      {STAGES.map((s) => (
+      {stages.map((s) => (
         <TabsContent key={s.key} value={s.key} className="mt-4 space-y-3">
           {(itemsByStage[s.key] ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">

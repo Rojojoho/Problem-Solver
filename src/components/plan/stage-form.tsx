@@ -7,15 +7,17 @@ import { Label } from "@/components/ui/label";
 import { TiptapEditor } from "@/components/tiptap-editor";
 import { MeasuresTable } from "@/components/plan/measures-table";
 import { HypothesesTable } from "@/components/plan/hypotheses-table";
+import { ConsolidatedHypothesesTable } from "@/components/plan/consolidated-hypotheses-table";
 import {
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
   CAUSAL_HYPOTHESES_FIELD_KEY,
+  CONSOLIDATED_HYPOTHESES_FIELD_KEY,
   EMPTY_DOC,
   MEASURES_FIELD_KEY,
-  STAGES,
 } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
+  ConsolidatedHypothesisRow,
   HypothesisRow,
   MeasureRow,
   StageFieldSummary,
@@ -26,6 +28,7 @@ import { saveStageResponse } from "@/app/plans/[id]/actions";
 interface StageFormProps {
   planId: string;
   stage: CcpsStage;
+  stageLabel: string;
   fields: StageFieldSummary[];
   initialResponses: Record<string, JSONContent>;
   validationOptions: ValidationOption[];
@@ -34,13 +37,12 @@ interface StageFormProps {
 export function StageForm({
   planId,
   stage,
+  stageLabel,
   fields,
   initialResponses,
   validationOptions,
 }: StageFormProps) {
   const [isPending, startTransition] = useTransition();
-  const stageNumber = STAGES.findIndex((s) => s.key === stage) + 1;
-  const stageLabel = STAGES.find((s) => s.key === stage)?.label ?? stage;
 
   function handleSave(fieldKey: string, content: JSONContent) {
     startTransition(async () => {
@@ -55,9 +57,7 @@ export function StageForm({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold tracking-tight">
-          {stageNumber}. {stageLabel}
-        </h2>
+        <h2 className="text-xl font-bold tracking-tight">{stageLabel}</h2>
         <p className="text-sm text-muted-foreground">
           {isPending ? "Saving…" : "Changes save automatically when you click away from a field."}
         </p>
@@ -90,6 +90,15 @@ export function StageForm({
                   ] as unknown as string[]) ?? []
                 }
                 validationOptions={validationOptions}
+              />
+            ) : field.field_key === CONSOLIDATED_HYPOTHESES_FIELD_KEY ? (
+              <ConsolidatedHypothesesTable
+                planId={planId}
+                initialRows={
+                  (initialResponses[
+                    CONSOLIDATED_HYPOTHESES_FIELD_KEY
+                  ] as unknown as ConsolidatedHypothesisRow[]) ?? []
+                }
               />
             ) : (
               <TiptapEditor

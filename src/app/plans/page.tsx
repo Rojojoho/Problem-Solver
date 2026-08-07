@@ -3,11 +3,14 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { NewPlanDialog } from "@/components/plan/new-plan-dialog";
 import { DeletePlanButton } from "@/components/plan/delete-plan-button";
 import { getCurrentOrg } from "@/lib/org";
-import { listPlans } from "@/lib/db";
+import { listPlans, listStages } from "@/lib/db";
+import { stageLabelMap } from "@/lib/ccps/constants";
 
 export default async function PlansPage() {
   const { orgId, orgName } = await getCurrentOrg();
-  const plans = await listPlans(orgId);
+  const [plans, stages] = await Promise.all([listPlans(orgId), listStages()]);
+  const stageLabels = stageLabelMap(stages);
+  const stageOrder = stages.map((s) => s.key);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -35,12 +38,14 @@ export default async function PlansPage() {
               <Link href={`/plans/${plan.id}`}>
                 <Card
                   className="h-full border-l-4 transition-colors hover:border-foreground/30"
-                  style={{ borderLeftColor: `var(--chart-${STAGE_ORDER.indexOf(plan.current_stage) + 1})` }}
+                  style={{
+                    borderLeftColor: `var(--chart-${(stageOrder.indexOf(plan.current_stage) % 5) + 1})`,
+                  }}
                 >
                   <CardHeader>
                     <CardTitle className="pr-8">{plan.name}</CardTitle>
                     <CardDescription>
-                      Stage: {STAGE_LABELS[plan.current_stage]}
+                      Stage: {stageLabels[plan.current_stage]}
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -57,13 +62,3 @@ export default async function PlansPage() {
     </div>
   );
 }
-
-const STAGE_LABELS: Record<string, string> = {
-  PI: "1 · Problem Identification",
-  PC: "2 · Inquire into Causes",
-  SR: "3 · Solution Requirements",
-  SS: "4 · Solution Strategies",
-  EI: "5 · Evaluate Impact",
-};
-
-const STAGE_ORDER = ["PI", "PC", "SR", "SS", "EI"];

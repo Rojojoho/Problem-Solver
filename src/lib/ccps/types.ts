@@ -44,6 +44,20 @@ export interface StageFieldSummary {
   sort_order: number;
 }
 
+export interface StageData {
+  key: string;
+  label: string;
+  sort_order: number;
+}
+
+export interface ConsolidatedHypothesisRow {
+  id: string;
+  hypothesis: string;
+  validityTest: string;
+  confirmed: boolean | null;
+  notes: string;
+}
+
 export interface ValidationOption {
   id: string;
   label: string;

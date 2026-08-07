@@ -3,13 +3,18 @@
 import { revalidatePath } from "next/cache";
 import type { JSONContent } from "@tiptap/react";
 import {
-  STAGES,
   MEASURES_FIELD_KEY,
   CAUSAL_HYPOTHESES_FIELD_KEY,
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
+  CONSOLIDATED_HYPOTHESES_FIELD_KEY,
 } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { HypothesisRow, MeasureRow, StageBundle } from "@/lib/ccps/types";
+import type {
+  ConsolidatedHypothesisRow,
+  HypothesisRow,
+  MeasureRow,
+  StageBundle,
+} from "@/lib/ccps/types";
 import {
   saveStageResponseRecord,
   toggleChecklistItemRecord,
@@ -28,6 +33,7 @@ import {
   getChecklistState,
   getExemplars,
   listValidationOptions,
+  listStages,
 } from "@/lib/db";
 
 // Granular per-field saves don't revalidate the page — the client already
@@ -142,6 +148,20 @@ export async function saveCausalHypothesisCategories(
   );
 }
 
+export async function saveConsolidatedHypothesisRows(
+  planId: string,
+  rows: ConsolidatedHypothesisRow[]
+) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "CV",
+    CONSOLIDATED_HYPOTHESES_FIELD_KEY,
+    rows as unknown as JSONContent,
+    userId
+  );
+}
+
 export async function publishPlan(planId: string) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("Not authenticated.");
@@ -158,7 +178,8 @@ export async function getStageBundle(
   planId: string,
   stage: CcpsStage
 ): Promise<StageBundle> {
-  if (!STAGES.some((s) => s.key === stage)) {
+  const stages = await listStages();
+  if (!stages.some((s) => s.key === stage)) {
     throw new Error(`Unknown stage: ${stage}`);
   }
 

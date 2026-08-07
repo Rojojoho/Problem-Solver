@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { listKbArticles } from "@/lib/db";
-import { STAGE_LABELS } from "@/lib/ccps/constants";
+import { listKbArticles, listStages } from "@/lib/db";
+import { stageLabelMap } from "@/lib/ccps/constants";
 
 export default async function KbPage() {
-  const articles = await listKbArticles(true);
+  const [articles, stages] = await Promise.all([
+    listKbArticles(true),
+    listStages(),
+  ]);
+  const stageLabels = stageLabelMap(stages);
 
   return (
     <div className="space-y-6">
@@ -33,7 +37,7 @@ export default async function KbPage() {
                 <CardHeader>
                   <CardTitle>{article.title}</CardTitle>
                   <CardDescription>
-                    {article.stage ? STAGE_LABELS[article.stage] : "General"}
+                    {article.stage ? stageLabels[article.stage] : "General"}
                   </CardDescription>
                 </CardHeader>
               </Card>

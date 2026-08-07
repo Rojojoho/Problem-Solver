@@ -2,7 +2,10 @@
 // Once the project is connected, regenerate with:
 //   npx supabase gen types typescript --project-id <id> > src/lib/supabase/database.types.ts
 
-export type CcpsStage = "PI" | "PC" | "SR" | "SS" | "EI";
+// Stage identity is data-driven (see the `stages` table) rather than a
+// compile-time union, so new stages can be added/renamed/reordered from
+// admin settings without a code change.
+export type CcpsStage = string;
 export type OrgRole = "owner" | "contributor";
 export type PublishedStatus = "pending" | "approved" | "rejected";
 export type KbStatus = "draft" | "published";
@@ -91,6 +94,19 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["checklist_items"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["checklist_items"]["Row"]>;
+      };
+      stages: {
+        Row: {
+          key: string;
+          label: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["stages"]["Row"]> & {
+          key: string;
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["stages"]["Row"]>;
       };
       validation_options: {
         Row: {

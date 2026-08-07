@@ -12,6 +12,17 @@ export default function AdminSettingsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/admin/settings/stages">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Stages</CardTitle>
+              <CardDescription>
+                Rename, reorder, or add the tabs shown on every plan.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
         <Link href="/admin/settings/checklists">
           <Card className="h-full transition-colors hover:border-foreground/30">
             <CardHeader>

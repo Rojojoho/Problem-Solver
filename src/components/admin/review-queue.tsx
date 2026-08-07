@@ -17,7 +17,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { STAGE_LABELS } from "@/lib/ccps/constants";
 import type { PublishedPlanSummary, TagData } from "@/lib/ccps/types";
 import {
   approvePublishedPlan,
@@ -43,9 +42,11 @@ const STATUS_BADGE = {
 export function ReviewQueue({
   submissions,
   availableTags,
+  stageLabels,
 }: {
   submissions: PublishedPlanSummary[];
   availableTags: TagData[];
+  stageLabels: Record<string, string>;
 }) {
   if (!submissions.length) {
     return (
@@ -66,6 +67,7 @@ export function ReviewQueue({
           key={submission.id}
           submission={submission}
           availableTags={availableTags}
+          stageLabels={stageLabels}
         />
       ))}
     </div>
@@ -75,9 +77,11 @@ export function ReviewQueue({
 function SubmissionRow({
   submission,
   availableTags,
+  stageLabels,
 }: {
   submission: PublishedPlanSummary;
   availableTags: TagData[];
+  stageLabels: Record<string, string>;
 }) {
   const [isPending, startTransition] = useTransition();
   const [isRejecting, setIsRejecting] = useState(false);
@@ -144,7 +148,7 @@ function SubmissionRow({
           </div>
           <p className="text-sm text-muted-foreground">
             {submission.sourceOrgName ?? "Unknown org"} · Stage:{" "}
-            {STAGE_LABELS[submission.snapshotCurrentStage]} · Submitted{" "}
+            {stageLabels[submission.snapshotCurrentStage]} · Submitted{" "}
             {formatDate(submission.createdAt)}
           </p>
           {submission.reviewNote && (

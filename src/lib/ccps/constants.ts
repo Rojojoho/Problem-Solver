@@ -1,17 +1,12 @@
-import type { CcpsStage } from "@/lib/supabase/database.types";
 import type { JSONContent } from "@tiptap/react";
+import type { StageData } from "@/lib/ccps/types";
 
-export const STAGES: { key: CcpsStage; label: string }[] = [
-  { key: "PI", label: "Problem Identification" },
-  { key: "PC", label: "Inquire into Causes" },
-  { key: "SR", label: "Solution Requirements" },
-  { key: "SS", label: "Solution Strategies" },
-  { key: "EI", label: "Evaluate Impact" },
-];
-
-export const STAGE_LABELS: Record<CcpsStage, string> = Object.fromEntries(
-  STAGES.map((s) => [s.key, s.label])
-) as Record<CcpsStage, string>;
+// Stage identity/order/labels are data-driven (see the `stages` table,
+// fetched via `listStages()`) rather than a static constant, so stages can
+// be renamed/reordered/added from admin settings without a code change.
+export function stageLabelMap(stages: StageData[]): Record<string, string> {
+  return Object.fromEntries(stages.map((s) => [s.key, s.label]));
+}
 
 export function paragraphDoc(...lines: string[]): JSONContent {
   return {
@@ -37,3 +32,7 @@ export const MEASURES_FIELD_KEY = "pi_outcome_data_measures";
 export const CAUSAL_HYPOTHESES_FIELD_KEY = "pc_causal_hypotheses";
 export const CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY =
   "pc_causal_hypotheses_categories";
+
+// Stage 2B (2.3): also a structured table rendered instead of a Tiptap
+// editor — see stage-form.tsx.
+export const CONSOLIDATED_HYPOTHESES_FIELD_KEY = "cv_consolidated_hypotheses";

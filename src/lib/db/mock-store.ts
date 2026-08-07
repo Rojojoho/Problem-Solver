@@ -166,7 +166,65 @@ const stageFields: MockStageField[] = [
     default_content: null,
     sort_order: 2,
   },
+  {
+    field_key: "cv_consolidated_hypotheses",
+    internal_id: "2.3",
+    stage: "CV",
+    short_name: "Consolidated Hypotheses",
+    full_prompt:
+      "Consolidate and reduce your causal hypotheses to capture the main themes in your original list.",
+    helper_text: null,
+    default_content: null,
+    sort_order: 1,
+  },
+  {
+    field_key: "cv_validated_causal_story",
+    internal_id: "2.4",
+    stage: "CV",
+    short_name: "Validated Causal Story",
+    full_prompt:
+      "Use your validated causal hypotheses to write a causal story that explains your PI.",
+    helper_text: "The problem of…is explained by…and…and…",
+    default_content: null,
+    sort_order: 2,
+  },
 ];
+
+interface MockStage {
+  key: string;
+  label: string;
+  sort_order: number;
+}
+
+// The mock stand-in for the global, admin-editable `stages` table.
+let stages: MockStage[] = [
+  { key: "PI", label: "1 Improvement", sort_order: 1 },
+  { key: "PC", label: "2A Causes", sort_order: 2 },
+  { key: "CV", label: "2B Validated Causes", sort_order: 3 },
+  { key: "SR", label: "3A Requirements", sort_order: 4 },
+  { key: "SS", label: "3B Solutions", sort_order: 5 },
+  { key: "IM", label: "4 Implement", sort_order: 6 },
+  { key: "EI", label: "5 Impact", sort_order: 7 },
+];
+
+export function mockListStages() {
+  return stages.slice().sort((a, b) => a.sort_order - b.sort_order);
+}
+
+export function mockCreateStage(key: string, label: string, sortOrder: number) {
+  stages = [...stages, { key, label, sort_order: sortOrder }];
+  return { key };
+}
+
+export function mockUpdateStage(
+  key: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  const stage = stages.find((s) => s.key === key);
+  if (!stage) return;
+  if (updates.label !== undefined) stage.label = updates.label;
+  if (updates.sortOrder !== undefined) stage.sort_order = updates.sortOrder;
+}
 
 interface MockValidationOption {
   id: string;
