@@ -72,12 +72,28 @@ export interface HypothesisRow {
   struck: boolean;
 }
 
+// Same shape as ValidationOption — reused for the requirement-type and
+// MoSCoW option lists rather than duplicating the interface.
+export type LabeledOption = ValidationOption;
+
+export interface SolutionRequirementRow {
+  id: string;
+  moscow: string | null;
+  requirement: string;
+  links: string[];
+  type: string | null;
+}
+
 export interface StageBundle {
   fields: StageFieldSummary[];
   responses: Record<string, JSONContent>;
   checklist: ChecklistItemData[];
   exemplars: ExemplarData[];
   validationOptions: ValidationOption[];
+  requirementTypes: LabeledOption[];
+  moscowOptions: LabeledOption[];
+  causeSuggestions: string[];
+  measureSuggestions: string[];
 }
 
 export interface TagData {

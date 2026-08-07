@@ -12,6 +12,7 @@ import type {
   ExemplarData,
   FeedbackItemData,
   KbArticleData,
+  LabeledOption,
   PublishedPlanSummary,
   StageData,
   StageFieldSummary,
@@ -458,6 +459,136 @@ export async function deleteValidationOptionRecord(id: string) {
 
   const supabase = await createClient();
   const { error } = await supabase.from("validation_options").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Requirement types — global, admin-editable "Type" options selectable per
+// solution requirement on Stage 3A. Same shape/pattern as validation_options.
+// ---------------------------------------------------------------------------
+
+export async function listRequirementTypes(): Promise<LabeledOption[]> {
+  if (DEV_MOCK) return mock.mockListRequirementTypes();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("requirement_types")
+    .select("id, label, sort_order")
+    .order("sort_order");
+  return data ?? [];
+}
+
+export async function createRequirementTypeRecord(
+  label: string,
+  sortOrder: number
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockCreateRequirementType(label, sortOrder);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("requirement_types")
+    .insert({ label, sort_order: sortOrder })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create requirement type.");
+  }
+  return data;
+}
+
+export async function updateRequirementTypeRecord(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateRequirementType(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("requirement_types")
+    .update({
+      ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteRequirementTypeRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteRequirementType(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("requirement_types").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// MoSCoW options — global, admin-editable "A solution…" options selectable
+// per solution requirement on Stage 3A. Same shape/pattern as validation_options.
+// ---------------------------------------------------------------------------
+
+export async function listMoscowOptions(): Promise<LabeledOption[]> {
+  if (DEV_MOCK) return mock.mockListMoscowOptions();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("moscow_options")
+    .select("id, label, sort_order")
+    .order("sort_order");
+  return data ?? [];
+}
+
+export async function createMoscowOptionRecord(
+  label: string,
+  sortOrder: number
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockCreateMoscowOption(label, sortOrder);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("moscow_options")
+    .insert({ label, sort_order: sortOrder })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create MoSCoW option.");
+  }
+  return data;
+}
+
+export async function updateMoscowOptionRecord(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateMoscowOption(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("moscow_options")
+    .update({
+      ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteMoscowOptionRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteMoscowOption(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("moscow_options").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

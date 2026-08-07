@@ -188,6 +188,17 @@ const stageFields: MockStageField[] = [
     default_content: null,
     sort_order: 2,
   },
+  {
+    field_key: "sr_solution_requirements",
+    internal_id: "3.1",
+    stage: "SR",
+    short_name: "Solution Requirements",
+    full_prompt:
+      "Solution requirements are an interacting set of conditions your solution strategies must satisfy.",
+    helper_text: null,
+    default_content: null,
+    sort_order: 1,
+  },
 ];
 
 interface MockStage {
@@ -504,6 +515,81 @@ export function mockUpdateValidationOption(
 
 export function mockDeleteValidationOption(id: string) {
   validationOptions = validationOptions.filter((o) => o.id !== id);
+}
+
+interface MockLabeledOption {
+  id: string;
+  label: string;
+  sort_order: number;
+}
+
+// The mock stand-in for the global, admin-editable `requirement_types` table.
+let requirementTypes: MockLabeledOption[] = [
+  { id: crypto.randomUUID(), label: "Resource", sort_order: 1 },
+  { id: crypto.randomUUID(), label: "Improvement", sort_order: 2 },
+  { id: crypto.randomUUID(), label: "Learning", sort_order: 3 },
+];
+
+export function mockListRequirementTypes() {
+  return requirementTypes
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ id, label, sort_order }) => ({ id, label, sort_order }));
+}
+
+export function mockCreateRequirementType(label: string, sortOrder: number) {
+  const id = crypto.randomUUID();
+  requirementTypes = [...requirementTypes, { id, label, sort_order: sortOrder }];
+  return { id };
+}
+
+export function mockUpdateRequirementType(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  const option = requirementTypes.find((o) => o.id === id);
+  if (!option) return;
+  if (updates.label !== undefined) option.label = updates.label;
+  if (updates.sortOrder !== undefined) option.sort_order = updates.sortOrder;
+}
+
+export function mockDeleteRequirementType(id: string) {
+  requirementTypes = requirementTypes.filter((o) => o.id !== id);
+}
+
+// The mock stand-in for the global, admin-editable `moscow_options` table.
+let moscowOptions: MockLabeledOption[] = [
+  { id: crypto.randomUUID(), label: "Must", sort_order: 1 },
+  { id: crypto.randomUUID(), label: "Should", sort_order: 2 },
+  { id: crypto.randomUUID(), label: "Could", sort_order: 3 },
+  { id: crypto.randomUUID(), label: "Will not", sort_order: 4 },
+];
+
+export function mockListMoscowOptions() {
+  return moscowOptions
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ id, label, sort_order }) => ({ id, label, sort_order }));
+}
+
+export function mockCreateMoscowOption(label: string, sortOrder: number) {
+  const id = crypto.randomUUID();
+  moscowOptions = [...moscowOptions, { id, label, sort_order: sortOrder }];
+  return { id };
+}
+
+export function mockUpdateMoscowOption(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  const option = moscowOptions.find((o) => o.id === id);
+  if (!option) return;
+  if (updates.label !== undefined) option.label = updates.label;
+  if (updates.sortOrder !== undefined) option.sort_order = updates.sortOrder;
+}
+
+export function mockDeleteMoscowOption(id: string) {
+  moscowOptions = moscowOptions.filter((o) => o.id !== id);
 }
 
 export function mockGetFeedback(planId: string) {

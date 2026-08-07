@@ -175,6 +175,10 @@ export function PlanWorkspace({
                       fields={bundle.fields}
                       initialResponses={bundle.responses}
                       validationOptions={bundle.validationOptions}
+                      requirementTypes={bundle.requirementTypes}
+                      moscowOptions={bundle.moscowOptions}
+                      causeSuggestions={bundle.causeSuggestions}
+                      measureSuggestions={bundle.measureSuggestions}
                     />
                   ) : (
                     <StagePlaceholder label={s.label} />

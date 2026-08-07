@@ -8,18 +8,22 @@ import { TiptapEditor } from "@/components/tiptap-editor";
 import { MeasuresTable } from "@/components/plan/measures-table";
 import { HypothesesTable } from "@/components/plan/hypotheses-table";
 import { ConsolidatedHypothesesTable } from "@/components/plan/consolidated-hypotheses-table";
+import { SolutionRequirementsTable } from "@/components/plan/solution-requirements-table";
 import {
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
   CAUSAL_HYPOTHESES_FIELD_KEY,
   CONSOLIDATED_HYPOTHESES_FIELD_KEY,
   EMPTY_DOC,
   MEASURES_FIELD_KEY,
+  SOLUTION_REQUIREMENTS_FIELD_KEY,
 } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
   ConsolidatedHypothesisRow,
   HypothesisRow,
+  LabeledOption,
   MeasureRow,
+  SolutionRequirementRow,
   StageFieldSummary,
   ValidationOption,
 } from "@/lib/ccps/types";
@@ -32,6 +36,10 @@ interface StageFormProps {
   fields: StageFieldSummary[];
   initialResponses: Record<string, JSONContent>;
   validationOptions: ValidationOption[];
+  requirementTypes: LabeledOption[];
+  moscowOptions: LabeledOption[];
+  causeSuggestions: string[];
+  measureSuggestions: string[];
 }
 
 export function StageForm({
@@ -41,6 +49,10 @@ export function StageForm({
   fields,
   initialResponses,
   validationOptions,
+  requirementTypes,
+  moscowOptions,
+  causeSuggestions,
+  measureSuggestions,
 }: StageFormProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -99,6 +111,19 @@ export function StageForm({
                     CONSOLIDATED_HYPOTHESES_FIELD_KEY
                   ] as unknown as ConsolidatedHypothesisRow[]) ?? []
                 }
+              />
+            ) : field.field_key === SOLUTION_REQUIREMENTS_FIELD_KEY ? (
+              <SolutionRequirementsTable
+                planId={planId}
+                initialRows={
+                  (initialResponses[
+                    SOLUTION_REQUIREMENTS_FIELD_KEY
+                  ] as unknown as SolutionRequirementRow[]) ?? []
+                }
+                moscowOptions={moscowOptions}
+                requirementTypes={requirementTypes}
+                causeSuggestions={causeSuggestions}
+                measureSuggestions={measureSuggestions}
               />
             ) : (
               <TiptapEditor

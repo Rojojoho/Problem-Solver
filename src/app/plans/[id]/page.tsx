@@ -11,11 +11,14 @@ import {
   listKbArticles,
   getPlanTags,
   listValidationOptions,
+  listRequirementTypes,
+  listMoscowOptions,
   listStages,
 } from "@/lib/db";
 import { EMPTY_DOC } from "@/lib/ccps/constants";
 import type { StageBundle } from "@/lib/ccps/types";
 import { PlanWorkspace } from "@/components/plan/plan-workspace";
+import { getSolutionRequirementSuggestions } from "@/app/plans/[id]/actions";
 
 export default async function PlanPage({
   params,
@@ -42,6 +45,9 @@ export default async function PlanPage({
     kbArticles,
     tags,
     validationOptions,
+    requirementTypes,
+    moscowOptions,
+    suggestions,
     stages,
   ] = await Promise.all([
     getStageFields(stage),
@@ -54,6 +60,11 @@ export default async function PlanPage({
     listKbArticles(true),
     getPlanTags(id),
     stage === "PC" ? listValidationOptions() : Promise.resolve([]),
+    stage === "SR" ? listRequirementTypes() : Promise.resolve([]),
+    stage === "SR" ? listMoscowOptions() : Promise.resolve([]),
+    stage === "SR"
+      ? getSolutionRequirementSuggestions(id)
+      : Promise.resolve({ causeSuggestions: [], measureSuggestions: [] }),
     listStages(),
   ]);
 
@@ -67,6 +78,10 @@ export default async function PlanPage({
     })),
     exemplars,
     validationOptions,
+    requirementTypes,
+    moscowOptions,
+    causeSuggestions: suggestions.causeSuggestions,
+    measureSuggestions: suggestions.measureSuggestions,
   };
 
   return (

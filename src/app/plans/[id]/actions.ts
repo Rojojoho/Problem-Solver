@@ -7,12 +7,14 @@ import {
   CAUSAL_HYPOTHESES_FIELD_KEY,
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
   CONSOLIDATED_HYPOTHESES_FIELD_KEY,
+  SOLUTION_REQUIREMENTS_FIELD_KEY,
 } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
   ConsolidatedHypothesisRow,
   HypothesisRow,
   MeasureRow,
+  SolutionRequirementRow,
   StageBundle,
 } from "@/lib/ccps/types";
 import {
@@ -33,8 +35,36 @@ import {
   getChecklistState,
   getExemplars,
   listValidationOptions,
+  listRequirementTypes,
+  listMoscowOptions,
   listStages,
 } from "@/lib/db";
+
+// Stage 3A's Link column offers the plan's confirmed 2.3 causes and 1.2
+// measures as one-click suggestions — shared by getStageBundle (below) and
+// plans/[id]/page.tsx's initial-load equivalent.
+export async function getSolutionRequirementSuggestions(planId: string) {
+  const [cvResponses, piResponses] = await Promise.all([
+    getStageResponses(planId, "CV"),
+    getStageResponses(planId, "PI"),
+  ]);
+
+  const causeRows =
+    (cvResponses[CONSOLIDATED_HYPOTHESES_FIELD_KEY] as unknown as
+      | ConsolidatedHypothesisRow[]
+      | undefined) ?? [];
+  const measureRows =
+    (piResponses[MEASURES_FIELD_KEY] as unknown as MeasureRow[] | undefined) ??
+    [];
+
+  return {
+    causeSuggestions: causeRows
+      .filter((row) => row.confirmed === true)
+      .map((row) => row.hypothesis)
+      .filter(Boolean),
+    measureSuggestions: measureRows.map((row) => row.measure).filter(Boolean),
+  };
+}
 
 // Granular per-field saves don't revalidate the page — the client already
 // reflects the change (either the editor keeps its own content, as with
@@ -162,6 +192,20 @@ export async function saveConsolidatedHypothesisRows(
   );
 }
 
+export async function saveSolutionRequirementRows(
+  planId: string,
+  rows: SolutionRequirementRow[]
+) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "SR",
+    SOLUTION_REQUIREMENTS_FIELD_KEY,
+    rows as unknown as JSONContent,
+    userId
+  );
+}
+
 export async function publishPlan(planId: string) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("Not authenticated.");
@@ -183,15 +227,29 @@ export async function getStageBundle(
     throw new Error(`Unknown stage: ${stage}`);
   }
 
-  const [fields, responses, checklistItems, checklistState, exemplars, validationOptions] =
-    await Promise.all([
-      getStageFields(stage),
-      getStageResponses(planId, stage),
-      getChecklistItems(planId, stage),
-      getChecklistState(planId),
-      getExemplars(stage),
-      stage === "PC" ? listValidationOptions() : Promise.resolve([]),
-    ]);
+  const [
+    fields,
+    responses,
+    checklistItems,
+    checklistState,
+    exemplars,
+    validationOptions,
+    requirementTypes,
+    moscowOptions,
+    suggestions,
+  ] = await Promise.all([
+    getStageFields(stage),
+    getStageResponses(planId, stage),
+    getChecklistItems(planId, stage),
+    getChecklistState(planId),
+    getExemplars(stage),
+    stage === "PC" ? listValidationOptions() : Promise.resolve([]),
+    stage === "SR" ? listRequirementTypes() : Promise.resolve([]),
+    stage === "SR" ? listMoscowOptions() : Promise.resolve([]),
+    stage === "SR"
+      ? getSolutionRequirementSuggestions(planId)
+      : Promise.resolve({ causeSuggestions: [], measureSuggestions: [] }),
+  ]);
 
   return {
     fields,
@@ -203,5 +261,9 @@ export async function getStageBundle(
     })),
     exemplars,
     validationOptions,
+    requirementTypes,
+    moscowOptions,
+    causeSuggestions: suggestions.causeSuggestions,
+    measureSuggestions: suggestions.measureSuggestions,
   };
 }

@@ -108,6 +108,32 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["stages"]["Row"]>;
       };
+      requirement_types: {
+        Row: {
+          id: string;
+          label: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Partial<
+          Database["public"]["Tables"]["requirement_types"]["Row"]
+        > & {
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["requirement_types"]["Row"]>;
+      };
+      moscow_options: {
+        Row: {
+          id: string;
+          label: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["moscow_options"]["Row"]> & {
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["moscow_options"]["Row"]>;
+      };
       validation_options: {
         Row: {
           id: string;

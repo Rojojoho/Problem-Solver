@@ -58,6 +58,31 @@ export default function AdminSettingsPage() {
             </CardHeader>
           </Card>
         </Link>
+
+        <Link href="/admin/settings/requirement-types">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Requirement types</CardTitle>
+              <CardDescription>
+                Manage the types selectable per solution requirement on
+                Stage 3A. Changes apply immediately across all plans.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/admin/settings/moscow-options">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>MoSCoW options</CardTitle>
+              <CardDescription>
+                Manage the &quot;A solution…&quot; options selectable per
+                solution requirement on Stage 3A. Changes apply immediately
+                across all plans.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </div>
   );
