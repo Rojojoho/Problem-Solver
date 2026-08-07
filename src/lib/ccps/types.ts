@@ -93,7 +93,15 @@ export interface SolutionStrategyRow {
 }
 
 export interface ImplementationRow {
-  strategyId: string;
+  id: string;
+  // Links this row to a live Stage 3B strategy by id — the Strategy/
+  // Description columns are then read from that 3B row (refreshed via the
+  // "Refresh strategies" button) rather than stored here. `null` means this
+  // is a standalone row added directly on Stage 4, with its own editable
+  // `strategy`/`description`.
+  strategyId: string | null;
+  strategy: string;
+  description: string;
   lead: string;
   timeframe: string;
   implementationIndicators: string;

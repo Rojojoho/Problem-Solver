@@ -139,7 +139,7 @@ export function StageForm({
             ) : field.field_key === IMPLEMENTATION_MONITORING_FIELD_KEY ? (
               <ImplementationMonitoringTable
                 planId={planId}
-                strategyRows={asRowArray<SolutionStrategyRow>(strategyRows)}
+                initialStrategyRows={asRowArray<SolutionStrategyRow>(strategyRows)}
                 initialRows={asRowArray<ImplementationRow>(
                   initialResponses[IMPLEMENTATION_MONITORING_FIELD_KEY]
                 )}
