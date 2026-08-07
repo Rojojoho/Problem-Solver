@@ -179,6 +179,7 @@ export function PlanWorkspace({
                       moscowOptions={bundle.moscowOptions}
                       causeSuggestions={bundle.causeSuggestions}
                       measureSuggestions={bundle.measureSuggestions}
+                      strategyStatuses={bundle.strategyStatuses}
                     />
                   ) : (
                     <StagePlaceholder label={s.label} />

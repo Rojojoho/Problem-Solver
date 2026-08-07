@@ -8,6 +8,7 @@ import {
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
   CONSOLIDATED_HYPOTHESES_FIELD_KEY,
   SOLUTION_REQUIREMENTS_FIELD_KEY,
+  SOLUTION_STRATEGIES_FIELD_KEY,
 } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
@@ -15,6 +16,7 @@ import type {
   HypothesisRow,
   MeasureRow,
   SolutionRequirementRow,
+  SolutionStrategyRow,
   StageBundle,
 } from "@/lib/ccps/types";
 import {
@@ -37,6 +39,7 @@ import {
   listValidationOptions,
   listRequirementTypes,
   listMoscowOptions,
+  listSolutionStrategyStatuses,
   listStages,
 } from "@/lib/db";
 
@@ -206,6 +209,20 @@ export async function saveSolutionRequirementRows(
   );
 }
 
+export async function saveSolutionStrategyRows(
+  planId: string,
+  rows: SolutionStrategyRow[]
+) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "SS",
+    SOLUTION_STRATEGIES_FIELD_KEY,
+    rows as unknown as JSONContent,
+    userId
+  );
+}
+
 export async function publishPlan(planId: string) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("Not authenticated.");
@@ -237,6 +254,7 @@ export async function getStageBundle(
     requirementTypes,
     moscowOptions,
     suggestions,
+    strategyStatuses,
   ] = await Promise.all([
     getStageFields(stage),
     getStageResponses(planId, stage),
@@ -249,6 +267,7 @@ export async function getStageBundle(
     stage === "SR"
       ? getSolutionRequirementSuggestions(planId)
       : Promise.resolve({ causeSuggestions: [], measureSuggestions: [] }),
+    stage === "SS" ? listSolutionStrategyStatuses() : Promise.resolve([]),
   ]);
 
   return {
@@ -265,5 +284,6 @@ export async function getStageBundle(
     moscowOptions,
     causeSuggestions: suggestions.causeSuggestions,
     measureSuggestions: suggestions.measureSuggestions,
+    strategyStatuses,
   };
 }

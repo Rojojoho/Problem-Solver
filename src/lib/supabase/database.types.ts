@@ -122,6 +122,22 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["requirement_types"]["Row"]>;
       };
+      solution_strategy_statuses: {
+        Row: {
+          id: string;
+          label: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Partial<
+          Database["public"]["Tables"]["solution_strategy_statuses"]["Row"]
+        > & {
+          label: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["solution_strategy_statuses"]["Row"]
+        >;
+      };
       moscow_options: {
         Row: {
           id: string;

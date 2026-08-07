@@ -13,6 +13,7 @@ import {
   listValidationOptions,
   listRequirementTypes,
   listMoscowOptions,
+  listSolutionStrategyStatuses,
   listStages,
 } from "@/lib/db";
 import { EMPTY_DOC } from "@/lib/ccps/constants";
@@ -48,6 +49,7 @@ export default async function PlanPage({
     requirementTypes,
     moscowOptions,
     suggestions,
+    strategyStatuses,
     stages,
   ] = await Promise.all([
     getStageFields(stage),
@@ -65,6 +67,7 @@ export default async function PlanPage({
     stage === "SR"
       ? getSolutionRequirementSuggestions(id)
       : Promise.resolve({ causeSuggestions: [], measureSuggestions: [] }),
+    stage === "SS" ? listSolutionStrategyStatuses() : Promise.resolve([]),
     listStages(),
   ]);
 
@@ -82,6 +85,7 @@ export default async function PlanPage({
     moscowOptions,
     causeSuggestions: suggestions.causeSuggestions,
     measureSuggestions: suggestions.measureSuggestions,
+    strategyStatuses,
   };
 
   return (

@@ -592,6 +592,75 @@ export async function deleteMoscowOptionRecord(id: string) {
   if (error) throw new Error(error.message);
 }
 
+// ---------------------------------------------------------------------------
+// Solution strategy statuses — global, admin-editable "Status" options
+// selectable per solution strategy on Stage 3B. Same shape/pattern as
+// validation_options.
+// ---------------------------------------------------------------------------
+
+export async function listSolutionStrategyStatuses(): Promise<LabeledOption[]> {
+  if (DEV_MOCK) return mock.mockListSolutionStrategyStatuses();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("solution_strategy_statuses")
+    .select("id, label, sort_order")
+    .order("sort_order");
+  return data ?? [];
+}
+
+export async function createSolutionStrategyStatusRecord(
+  label: string,
+  sortOrder: number
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockCreateSolutionStrategyStatus(label, sortOrder);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("solution_strategy_statuses")
+    .insert({ label, sort_order: sortOrder })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create solution strategy status.");
+  }
+  return data;
+}
+
+export async function updateSolutionStrategyStatusRecord(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateSolutionStrategyStatus(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("solution_strategy_statuses")
+    .update({
+      ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteSolutionStrategyStatusRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteSolutionStrategyStatus(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("solution_strategy_statuses")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function getChecklistState(
   planId: string
 ): Promise<Record<string, boolean>> {

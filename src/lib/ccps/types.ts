@@ -84,6 +84,14 @@ export interface SolutionRequirementRow {
   type: string | null;
 }
 
+export interface SolutionStrategyRow {
+  id: string;
+  strategy: string;
+  description: string;
+  theoryOfAction: string;
+  status: string | null;
+}
+
 export interface StageBundle {
   fields: StageFieldSummary[];
   responses: Record<string, JSONContent>;
@@ -94,6 +102,7 @@ export interface StageBundle {
   moscowOptions: LabeledOption[];
   causeSuggestions: string[];
   measureSuggestions: string[];
+  strategyStatuses: LabeledOption[];
 }
 
 export interface TagData {

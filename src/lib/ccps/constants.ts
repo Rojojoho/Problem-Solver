@@ -40,3 +40,7 @@ export const CONSOLIDATED_HYPOTHESES_FIELD_KEY = "cv_consolidated_hypotheses";
 // Stage 3A (3.1): also a structured table rendered instead of a Tiptap
 // editor — see stage-form.tsx.
 export const SOLUTION_REQUIREMENTS_FIELD_KEY = "sr_solution_requirements";
+
+// Stage 3B (3.2): also a structured table rendered instead of a Tiptap
+// editor — see stage-form.tsx.
+export const SOLUTION_STRATEGIES_FIELD_KEY = "ss_solution_strategies";

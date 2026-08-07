@@ -9,6 +9,7 @@ import { MeasuresTable } from "@/components/plan/measures-table";
 import { HypothesesTable } from "@/components/plan/hypotheses-table";
 import { ConsolidatedHypothesesTable } from "@/components/plan/consolidated-hypotheses-table";
 import { SolutionRequirementsTable } from "@/components/plan/solution-requirements-table";
+import { SolutionStrategiesTable } from "@/components/plan/solution-strategies-table";
 import {
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
   CAUSAL_HYPOTHESES_FIELD_KEY,
@@ -16,6 +17,7 @@ import {
   EMPTY_DOC,
   MEASURES_FIELD_KEY,
   SOLUTION_REQUIREMENTS_FIELD_KEY,
+  SOLUTION_STRATEGIES_FIELD_KEY,
 } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
@@ -24,6 +26,7 @@ import type {
   LabeledOption,
   MeasureRow,
   SolutionRequirementRow,
+  SolutionStrategyRow,
   StageFieldSummary,
   ValidationOption,
 } from "@/lib/ccps/types";
@@ -40,6 +43,7 @@ interface StageFormProps {
   moscowOptions: LabeledOption[];
   causeSuggestions: string[];
   measureSuggestions: string[];
+  strategyStatuses: LabeledOption[];
 }
 
 export function StageForm({
@@ -53,6 +57,7 @@ export function StageForm({
   moscowOptions,
   causeSuggestions,
   measureSuggestions,
+  strategyStatuses,
 }: StageFormProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -124,6 +129,16 @@ export function StageForm({
                 requirementTypes={requirementTypes}
                 causeSuggestions={causeSuggestions}
                 measureSuggestions={measureSuggestions}
+              />
+            ) : field.field_key === SOLUTION_STRATEGIES_FIELD_KEY ? (
+              <SolutionStrategiesTable
+                planId={planId}
+                initialRows={
+                  (initialResponses[
+                    SOLUTION_STRATEGIES_FIELD_KEY
+                  ] as unknown as SolutionStrategyRow[]) ?? []
+                }
+                strategyStatuses={strategyStatuses}
               />
             ) : (
               <TiptapEditor

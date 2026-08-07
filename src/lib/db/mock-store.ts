@@ -199,6 +199,17 @@ const stageFields: MockStageField[] = [
     default_content: null,
     sort_order: 1,
   },
+  {
+    field_key: "ss_solution_strategies",
+    internal_id: "3.2",
+    stage: "SS",
+    short_name: "Solution Strategies",
+    full_prompt:
+      "Identify possible solution strategies (initiatives) to meet your agreed solution requirements.",
+    helper_text: null,
+    default_content: null,
+    sort_order: 1,
+  },
 ];
 
 interface MockStage {
@@ -590,6 +601,43 @@ export function mockUpdateMoscowOption(
 
 export function mockDeleteMoscowOption(id: string) {
   moscowOptions = moscowOptions.filter((o) => o.id !== id);
+}
+
+// The mock stand-in for the global, admin-editable
+// `solution_strategy_statuses` table.
+let solutionStrategyStatuses: MockLabeledOption[] = [
+  { id: crypto.randomUUID(), label: "Agreed", sort_order: 1 },
+  { id: crypto.randomUUID(), label: "Hold", sort_order: 2 },
+];
+
+export function mockListSolutionStrategyStatuses() {
+  return solutionStrategyStatuses
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ id, label, sort_order }) => ({ id, label, sort_order }));
+}
+
+export function mockCreateSolutionStrategyStatus(label: string, sortOrder: number) {
+  const id = crypto.randomUUID();
+  solutionStrategyStatuses = [
+    ...solutionStrategyStatuses,
+    { id, label, sort_order: sortOrder },
+  ];
+  return { id };
+}
+
+export function mockUpdateSolutionStrategyStatus(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  const option = solutionStrategyStatuses.find((o) => o.id === id);
+  if (!option) return;
+  if (updates.label !== undefined) option.label = updates.label;
+  if (updates.sortOrder !== undefined) option.sort_order = updates.sortOrder;
+}
+
+export function mockDeleteSolutionStrategyStatus(id: string) {
+  solutionStrategyStatuses = solutionStrategyStatuses.filter((o) => o.id !== id);
 }
 
 export function mockGetFeedback(planId: string) {
