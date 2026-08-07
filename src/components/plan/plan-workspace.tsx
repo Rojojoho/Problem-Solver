@@ -158,14 +158,14 @@ export function PlanWorkspace({
             ))}
           </TabsList>
 
-          <TabsContent value="details" className="mt-6">
+          <TabsContent value="details" className="mt-6" keepMounted>
             <PlanDetailsForm planId={planId} background={background} tags={tags} />
           </TabsContent>
 
           {stages.map((s) => {
             const bundle = bundles[s.key];
             return (
-              <TabsContent key={s.key} value={s.key} className="mt-6">
+              <TabsContent key={s.key} value={s.key} className="mt-6" keepMounted>
                 {bundle ? (
                   bundle.fields.length ? (
                     <StageForm
@@ -180,6 +180,7 @@ export function PlanWorkspace({
                       causeSuggestions={bundle.causeSuggestions}
                       measureSuggestions={bundle.measureSuggestions}
                       strategyStatuses={bundle.strategyStatuses}
+                      strategyRows={bundle.strategyRows}
                     />
                   ) : (
                     <StagePlaceholder label={s.label} />

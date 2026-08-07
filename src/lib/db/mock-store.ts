@@ -210,6 +210,37 @@ const stageFields: MockStageField[] = [
     default_content: null,
     sort_order: 1,
   },
+  {
+    field_key: "im_implementation_monitoring",
+    internal_id: "4.1",
+    stage: "IM",
+    short_name: "Implement & Monitor",
+    full_prompt: "Implement and monitor your solution strategies.",
+    helper_text: null,
+    default_content: null,
+    sort_order: 1,
+  },
+  {
+    field_key: "im_reflections",
+    internal_id: "4.2",
+    stage: "IM",
+    short_name: "Reflections",
+    full_prompt:
+      "What have you learnt about what works and what does not work in implementation? What might you need to do differently next term?",
+    helper_text: null,
+    default_content: null,
+    sort_order: 2,
+  },
+  {
+    field_key: "im_next_term_plan",
+    internal_id: "4.3",
+    stage: "IM",
+    short_name: "Next Term Plan",
+    full_prompt: "Write your implementation plan for the following term.",
+    helper_text: null,
+    default_content: null,
+    sort_order: 3,
+  },
 ];
 
 interface MockStage {

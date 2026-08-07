@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { saveMeasureRows } from "@/app/plans/[id]/actions";
 import type { MeasureRow } from "@/lib/ccps/types";
 import { cn } from "@/lib/utils";
+import { EditableCell } from "@/components/plan/editable-cell";
+import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
 
 interface MeasuresTableProps {
   planId: string;
@@ -14,16 +16,20 @@ interface MeasuresTableProps {
 
 const EMPTY_ROW: MeasureRow = { measure: "", baseline: "", target: "", notes: "" };
 
-const COLUMNS: { key: keyof MeasureRow; label: string }[] = [
-  { key: "measure", label: "Measure" },
-  { key: "baseline", label: "Baseline" },
-  { key: "target", label: "Target" },
-  { key: "notes", label: "Notes" },
+const COLUMNS: { key: keyof MeasureRow; label: string; defaultWidth: number }[] = [
+  { key: "measure", label: "Measure", defaultWidth: 220 },
+  { key: "baseline", label: "Baseline", defaultWidth: 140 },
+  { key: "target", label: "Target", defaultWidth: 140 },
+  { key: "notes", label: "Notes", defaultWidth: 220 },
 ];
 
 export function MeasuresTable({ planId, initialRows }: MeasuresTableProps) {
   const [rows, setRows] = useState<MeasureRow[]>(initialRows);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const { widths, draggingKey, handlePointerDown } = useColumnWidths(
+    "ccps:col-widths:measures",
+    COLUMNS.map(({ key, defaultWidth }) => ({ key, defaultWidth }))
+  );
 
   function persist(nextRows: MeasureRow[]) {
     setRows(nextRows);
@@ -54,18 +60,25 @@ export function MeasuresTable({ planId, initialRows }: MeasuresTableProps) {
 
   return (
     <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full table-fixed border-collapse text-sm">
+        <colgroup>
+          {COLUMNS.map((col) => (
+            <col key={col.key} style={{ width: widths[col.key] }} />
+          ))}
+          <col style={{ width: 32 }} />
+        </colgroup>
         <thead>
           <tr className="bg-muted/50">
             {COLUMNS.map((col) => (
-              <th
+              <ResizableTh
                 key={col.key}
-                className="border-b border-r border-border px-2 py-1.5 text-left font-semibold last:border-r-0"
+                isDragging={draggingKey === col.key}
+                onPointerDown={handlePointerDown(col.key, 80)}
               >
                 {col.label}
-              </th>
+              </ResizableTh>
             ))}
-            <th className="w-8 border-b border-border" />
+            <th className="border-b border-border" />
           </tr>
         </thead>
         <tbody>
@@ -73,11 +86,10 @@ export function MeasuresTable({ planId, initialRows }: MeasuresTableProps) {
             <tr key={i} className="border-b border-border last:border-b-0">
               {COLUMNS.map((col) => (
                 <td key={col.key} className="border-r border-border p-0 last:border-r-0">
-                  <input
+                  <EditableCell
                     value={row[col.key]}
-                    onChange={(e) => updateCell(i, col.key, e.target.value)}
+                    onChange={(value) => updateCell(i, col.key, value)}
                     onBlur={commitRows}
-                    className="w-full bg-transparent px-2 py-1.5 outline-none focus:bg-muted/30"
                   />
                 </td>
               ))}
@@ -86,7 +98,6 @@ export function MeasuresTable({ planId, initialRows }: MeasuresTableProps) {
                   type="button"
                   aria-label="Remove row"
                   onClick={() => removeRow(i)}
-                  disabled={isPending}
                   className="text-muted-foreground hover:text-destructive"
                 >
                   <X className="mx-auto size-3.5" />
@@ -99,7 +110,6 @@ export function MeasuresTable({ planId, initialRows }: MeasuresTableProps) {
               <button
                 type="button"
                 onClick={addRow}
-                disabled={isPending}
                 className={cn(
                   "flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-muted-foreground",
                   "hover:bg-muted/50 hover:text-foreground"

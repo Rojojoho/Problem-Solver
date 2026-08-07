@@ -30,6 +30,8 @@ import {
 } from "@/app/plans/[id]/actions";
 import type { HypothesisRow, ValidationOption } from "@/lib/ccps/types";
 import { cn } from "@/lib/utils";
+import { EditableCell } from "@/components/plan/editable-cell";
+import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
 
 interface HypothesesTableProps {
   planId: string;
@@ -41,6 +43,12 @@ interface HypothesesTableProps {
 const NONE = "__none__";
 type SortKey = "category" | "validation";
 type SortDir = "asc" | "desc";
+
+const COLUMN_WIDTHS = [
+  { key: "hypothesis", defaultWidth: 320 },
+  { key: "category", defaultWidth: 160 },
+  { key: "validation", defaultWidth: 160 },
+];
 
 export function HypothesesTable({
   planId,
@@ -55,6 +63,10 @@ export function HypothesesTable({
   const [bulkText, setBulkText] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
   const [, startTransition] = useTransition();
+  const { widths, draggingKey, handlePointerDown } = useColumnWidths(
+    "ccps:col-widths:hypotheses",
+    COLUMN_WIDTHS
+  );
 
   function persistRows(nextRows: HypothesisRow[]) {
     setRows(nextRows);
@@ -172,13 +184,25 @@ export function HypothesesTable({
       </div>
 
       <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full table-fixed border-collapse text-sm">
+          <colgroup>
+            <col style={{ width: widths.hypothesis }} />
+            <col style={{ width: widths.category }} />
+            <col style={{ width: widths.validation }} />
+            <col style={{ width: 64 }} />
+          </colgroup>
           <thead>
             <tr className="bg-muted/50">
-              <th className="border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+              <ResizableTh
+                isDragging={draggingKey === "hypothesis"}
+                onPointerDown={handlePointerDown("hypothesis", 160)}
+              >
                 Hypothesis
-              </th>
-              <th className="border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+              </ResizableTh>
+              <ResizableTh
+                isDragging={draggingKey === "category"}
+                onPointerDown={handlePointerDown("category", 100)}
+              >
                 <button
                   type="button"
                   onClick={() => toggleSort("category")}
@@ -187,8 +211,11 @@ export function HypothesesTable({
                   Category
                   <ArrowUpDown className="size-3" />
                 </button>
-              </th>
-              <th className="border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+              </ResizableTh>
+              <ResizableTh
+                isDragging={draggingKey === "validation"}
+                onPointerDown={handlePointerDown("validation", 100)}
+              >
                 <button
                   type="button"
                   onClick={() => toggleSort("validation")}
@@ -197,22 +224,19 @@ export function HypothesesTable({
                   Initial Validation
                   <ArrowUpDown className="size-3" />
                 </button>
-              </th>
-              <th className="w-16 border-b border-border" />
+              </ResizableTh>
+              <th className="border-b border-border" />
             </tr>
           </thead>
           <tbody>
             {displayRows.map((row) => (
               <tr key={row.id} className="border-b border-border last:border-b-0">
                 <td className="border-r border-border p-0">
-                  <input
+                  <EditableCell
                     value={row.text}
-                    onChange={(e) => updateRow(row.id, { text: e.target.value })}
+                    onChange={(value) => updateRow(row.id, { text: value })}
                     onBlur={commitRows}
-                    className={cn(
-                      "w-full bg-transparent px-2 py-1.5 outline-none focus:bg-muted/30",
-                      row.struck && "text-muted-foreground line-through"
-                    )}
+                    className={cn(row.struck && "text-muted-foreground line-through")}
                   />
                 </td>
                 <td className="border-r border-border p-1">

@@ -55,3 +55,10 @@ export const SOLUTION_REQUIREMENTS_FIELD_KEY = "sr_solution_requirements";
 // Stage 3B (3.2): also a structured table rendered instead of a Tiptap
 // editor — see stage-form.tsx.
 export const SOLUTION_STRATEGIES_FIELD_KEY = "ss_solution_strategies";
+
+// Stage 4 (4.1): also a structured table rendered instead of a Tiptap
+// editor — see stage-form.tsx. Its rows mirror Stage 3B's solution
+// strategies live (see implementation-monitoring-table.tsx); only the
+// extra columns (Lead/Timeframe/Implementation indicators/Monitor) are
+// stored here, keyed by the 3B row's id.
+export const IMPLEMENTATION_MONITORING_FIELD_KEY = "im_implementation_monitoring";

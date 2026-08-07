@@ -10,12 +10,14 @@ import { HypothesesTable } from "@/components/plan/hypotheses-table";
 import { ConsolidatedHypothesesTable } from "@/components/plan/consolidated-hypotheses-table";
 import { SolutionRequirementsTable } from "@/components/plan/solution-requirements-table";
 import { SolutionStrategiesTable } from "@/components/plan/solution-strategies-table";
+import { ImplementationMonitoringTable } from "@/components/plan/implementation-monitoring-table";
 import {
   asRowArray,
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
   CAUSAL_HYPOTHESES_FIELD_KEY,
   CONSOLIDATED_HYPOTHESES_FIELD_KEY,
   EMPTY_DOC,
+  IMPLEMENTATION_MONITORING_FIELD_KEY,
   MEASURES_FIELD_KEY,
   SOLUTION_REQUIREMENTS_FIELD_KEY,
   SOLUTION_STRATEGIES_FIELD_KEY,
@@ -24,6 +26,7 @@ import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
   ConsolidatedHypothesisRow,
   HypothesisRow,
+  ImplementationRow,
   LabeledOption,
   MeasureRow,
   SolutionRequirementRow,
@@ -45,6 +48,7 @@ interface StageFormProps {
   causeSuggestions: string[];
   measureSuggestions: string[];
   strategyStatuses: LabeledOption[];
+  strategyRows: SolutionStrategyRow[];
 }
 
 export function StageForm({
@@ -59,6 +63,7 @@ export function StageForm({
   causeSuggestions,
   measureSuggestions,
   strategyStatuses,
+  strategyRows,
 }: StageFormProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -130,6 +135,14 @@ export function StageForm({
                   initialResponses[SOLUTION_STRATEGIES_FIELD_KEY]
                 )}
                 strategyStatuses={asRowArray<LabeledOption>(strategyStatuses)}
+              />
+            ) : field.field_key === IMPLEMENTATION_MONITORING_FIELD_KEY ? (
+              <ImplementationMonitoringTable
+                planId={planId}
+                strategyRows={asRowArray<SolutionStrategyRow>(strategyRows)}
+                initialRows={asRowArray<ImplementationRow>(
+                  initialResponses[IMPLEMENTATION_MONITORING_FIELD_KEY]
+                )}
               />
             ) : (
               <TiptapEditor

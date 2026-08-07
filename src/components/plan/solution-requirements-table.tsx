@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { saveSolutionRequirementRows } from "@/app/plans/[id]/actions";
 import type { LabeledOption, SolutionRequirementRow } from "@/lib/ccps/types";
+import { EditableCell } from "@/components/plan/editable-cell";
+import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
 
 interface SolutionRequirementsTableProps {
   planId: string;
@@ -36,6 +38,13 @@ const EMPTY_ROW: Omit<SolutionRequirementRow, "id"> = {
   type: null,
 };
 
+const COLUMN_WIDTHS = [
+  { key: "moscow", defaultWidth: 140 },
+  { key: "requirement", defaultWidth: 280 },
+  { key: "link", defaultWidth: 260 },
+  { key: "type", defaultWidth: 140 },
+];
+
 export function SolutionRequirementsTable({
   planId,
   initialRows,
@@ -46,6 +55,10 @@ export function SolutionRequirementsTable({
 }: SolutionRequirementsTableProps) {
   const [rows, setRows] = useState<SolutionRequirementRow[]>(initialRows);
   const [, startTransition] = useTransition();
+  const { widths, draggingKey, handlePointerDown } = useColumnWidths(
+    "ccps:col-widths:solution-requirements",
+    COLUMN_WIDTHS
+  );
 
   function persist(nextRows: SolutionRequirementRow[]) {
     setRows(nextRows);
@@ -96,21 +109,40 @@ export function SolutionRequirementsTable({
 
   return (
     <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full table-fixed border-collapse text-sm">
+        <colgroup>
+          <col style={{ width: widths.moscow }} />
+          <col style={{ width: widths.requirement }} />
+          <col style={{ width: widths.link }} />
+          <col style={{ width: widths.type }} />
+          <col style={{ width: 32 }} />
+        </colgroup>
         <thead>
           <tr className="bg-muted/50">
-            <th className="w-32 border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+            <ResizableTh
+              isDragging={draggingKey === "moscow"}
+              onPointerDown={handlePointerDown("moscow", 100)}
+            >
               A solution…
-            </th>
-            <th className="border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+            </ResizableTh>
+            <ResizableTh
+              isDragging={draggingKey === "requirement"}
+              onPointerDown={handlePointerDown("requirement", 140)}
+            >
               Requirement
-            </th>
-            <th className="w-64 border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+            </ResizableTh>
+            <ResizableTh
+              isDragging={draggingKey === "link"}
+              onPointerDown={handlePointerDown("link", 140)}
+            >
               Link to Gap or cause
-            </th>
-            <th className="w-32 border-b border-border px-2 py-1.5 text-left font-semibold">
+            </ResizableTh>
+            <ResizableTh
+              isDragging={draggingKey === "type"}
+              onPointerDown={handlePointerDown("type", 100)}
+            >
               Type
-            </th>
+            </ResizableTh>
             <th className="w-8 border-b border-border" />
           </tr>
         </thead>
@@ -142,11 +174,10 @@ export function SolutionRequirementsTable({
                 </Select>
               </td>
               <td className="border-r border-border p-0">
-                <input
+                <EditableCell
                   value={row.requirement}
-                  onChange={(e) => updateRow(row.id, { requirement: e.target.value })}
+                  onChange={(value) => updateRow(row.id, { requirement: value })}
                   onBlur={commitRows}
-                  className="w-full bg-transparent px-2 py-1.5 outline-none focus:bg-muted/30"
                 />
               </td>
               <td className="border-r border-border p-1.5">

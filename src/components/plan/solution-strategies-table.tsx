@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { saveSolutionStrategyRows } from "@/app/plans/[id]/actions";
 import type { LabeledOption, SolutionStrategyRow } from "@/lib/ccps/types";
+import { EditableCell } from "@/components/plan/editable-cell";
+import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
 
 interface SolutionStrategiesTableProps {
   planId: string;
@@ -29,13 +31,24 @@ const EMPTY_ROW: Omit<SolutionStrategyRow, "id"> = {
   status: null,
 };
 
+const COLUMN_WIDTHS = [
+  { key: "strategy", defaultWidth: 220 },
+  { key: "description", defaultWidth: 260 },
+  { key: "theoryOfAction", defaultWidth: 260 },
+  { key: "status", defaultWidth: 140 },
+];
+
 export function SolutionStrategiesTable({
   planId,
   initialRows,
   strategyStatuses,
 }: SolutionStrategiesTableProps) {
   const [rows, setRows] = useState<SolutionStrategyRow[]>(initialRows);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const { widths, draggingKey, handlePointerDown } = useColumnWidths(
+    "ccps:col-widths:solution-strategies",
+    COLUMN_WIDTHS
+  );
 
   function persist(nextRows: SolutionStrategyRow[]) {
     setRows(nextRows);
@@ -72,21 +85,40 @@ export function SolutionStrategiesTable({
 
   return (
     <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full table-fixed border-collapse text-sm">
+        <colgroup>
+          <col style={{ width: widths.strategy }} />
+          <col style={{ width: widths.description }} />
+          <col style={{ width: widths.theoryOfAction }} />
+          <col style={{ width: widths.status }} />
+          <col style={{ width: 32 }} />
+        </colgroup>
         <thead>
           <tr className="bg-muted/50">
-            <th className="border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+            <ResizableTh
+              isDragging={draggingKey === "strategy"}
+              onPointerDown={handlePointerDown("strategy", 120)}
+            >
               Solution strategy
-            </th>
-            <th className="border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+            </ResizableTh>
+            <ResizableTh
+              isDragging={draggingKey === "description"}
+              onPointerDown={handlePointerDown("description", 140)}
+            >
               Description
-            </th>
-            <th className="border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+            </ResizableTh>
+            <ResizableTh
+              isDragging={draggingKey === "theoryOfAction"}
+              onPointerDown={handlePointerDown("theoryOfAction", 140)}
+            >
               Theory of Action
-            </th>
-            <th className="w-32 border-b border-border px-2 py-1.5 text-left font-semibold">
+            </ResizableTh>
+            <ResizableTh
+              isDragging={draggingKey === "status"}
+              onPointerDown={handlePointerDown("status", 100)}
+            >
               Status
-            </th>
+            </ResizableTh>
             <th className="w-8 border-b border-border" />
           </tr>
         </thead>
@@ -94,27 +126,24 @@ export function SolutionStrategiesTable({
           {rows.map((row, i) => (
             <tr key={row.id} className="border-b border-border align-top last:border-b-0">
               <td className="border-r border-border p-0">
-                <input
+                <EditableCell
                   value={row.strategy}
-                  onChange={(e) => updateCell(i, "strategy", e.target.value)}
+                  onChange={(value) => updateCell(i, "strategy", value)}
                   onBlur={commitRows}
-                  className="w-full bg-transparent px-2 py-1.5 outline-none focus:bg-muted/30"
                 />
               </td>
               <td className="border-r border-border p-0">
-                <input
+                <EditableCell
                   value={row.description}
-                  onChange={(e) => updateCell(i, "description", e.target.value)}
+                  onChange={(value) => updateCell(i, "description", value)}
                   onBlur={commitRows}
-                  className="w-full bg-transparent px-2 py-1.5 outline-none focus:bg-muted/30"
                 />
               </td>
               <td className="border-r border-border p-0">
-                <input
+                <EditableCell
                   value={row.theoryOfAction}
-                  onChange={(e) => updateCell(i, "theoryOfAction", e.target.value)}
+                  onChange={(value) => updateCell(i, "theoryOfAction", value)}
                   onBlur={commitRows}
-                  className="w-full bg-transparent px-2 py-1.5 outline-none focus:bg-muted/30"
                 />
               </td>
               <td className="border-r border-border p-1">
@@ -146,7 +175,6 @@ export function SolutionStrategiesTable({
                   type="button"
                   aria-label="Remove row"
                   onClick={() => removeRow(i)}
-                  disabled={isPending}
                   className="mt-2 text-muted-foreground hover:text-destructive"
                 >
                   <X className="mx-auto size-3.5" />
@@ -161,7 +189,6 @@ export function SolutionStrategiesTable({
                 variant="ghost"
                 size="sm"
                 onClick={addRow}
-                disabled={isPending}
                 className="flex w-full items-center justify-start gap-1.5 rounded-none text-muted-foreground hover:text-foreground"
               >
                 <Plus className="size-3.5" />

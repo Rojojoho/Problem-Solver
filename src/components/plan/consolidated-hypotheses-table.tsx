@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { saveConsolidatedHypothesisRows } from "@/app/plans/[id]/actions";
 import type { ConsolidatedHypothesisRow } from "@/lib/ccps/types";
 import { cn } from "@/lib/utils";
+import { EditableCell } from "@/components/plan/editable-cell";
+import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
 
 interface ConsolidatedHypothesesTableProps {
   planId: string;
@@ -21,12 +23,22 @@ const EMPTY_ROW: ConsolidatedHypothesisRow = {
   notes: "",
 };
 
+const COLUMN_WIDTHS = [
+  { key: "hypothesis", defaultWidth: 280 },
+  { key: "validityTest", defaultWidth: 240 },
+  { key: "result", defaultWidth: 220 },
+];
+
 export function ConsolidatedHypothesesTable({
   planId,
   initialRows,
 }: ConsolidatedHypothesesTableProps) {
   const [rows, setRows] = useState<ConsolidatedHypothesisRow[]>(initialRows);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const { widths, draggingKey, handlePointerDown } = useColumnWidths(
+    "ccps:col-widths:consolidated-hypotheses",
+    COLUMN_WIDTHS
+  );
 
   function persist(nextRows: ConsolidatedHypothesisRow[]) {
     setRows(nextRows);
@@ -73,18 +85,33 @@ export function ConsolidatedHypothesesTable({
 
   return (
     <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full table-fixed border-collapse text-sm">
+        <colgroup>
+          <col style={{ width: widths.hypothesis }} />
+          <col style={{ width: widths.validityTest }} />
+          <col style={{ width: widths.result }} />
+          <col style={{ width: 32 }} />
+        </colgroup>
         <thead>
           <tr className="bg-muted/50">
-            <th className="border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+            <ResizableTh
+              isDragging={draggingKey === "hypothesis"}
+              onPointerDown={handlePointerDown("hypothesis", 140)}
+            >
               Causal hypothesis
-            </th>
-            <th className="border-b border-r border-border px-2 py-1.5 text-left font-semibold">
+            </ResizableTh>
+            <ResizableTh
+              isDragging={draggingKey === "validityTest"}
+              onPointerDown={handlePointerDown("validityTest", 140)}
+            >
               Validity test
-            </th>
-            <th className="border-b border-border px-2 py-1.5 text-left font-semibold">
+            </ResizableTh>
+            <ResizableTh
+              isDragging={draggingKey === "result"}
+              onPointerDown={handlePointerDown("result", 140)}
+            >
               Result
-            </th>
+            </ResizableTh>
             <th className="w-8 border-b border-border" />
           </tr>
         </thead>
@@ -92,19 +119,17 @@ export function ConsolidatedHypothesesTable({
           {rows.map((row, i) => (
             <tr key={row.id} className="border-b border-border last:border-b-0">
               <td className="border-r border-border p-0">
-                <input
+                <EditableCell
                   value={row.hypothesis}
-                  onChange={(e) => updateCell(i, "hypothesis", e.target.value)}
+                  onChange={(value) => updateCell(i, "hypothesis", value)}
                   onBlur={commitRows}
-                  className="w-full bg-transparent px-2 py-1.5 outline-none focus:bg-muted/30"
                 />
               </td>
               <td className="border-r border-border p-0">
-                <input
+                <EditableCell
                   value={row.validityTest}
-                  onChange={(e) => updateCell(i, "validityTest", e.target.value)}
+                  onChange={(value) => updateCell(i, "validityTest", value)}
                   onBlur={commitRows}
-                  className="w-full bg-transparent px-2 py-1.5 outline-none focus:bg-muted/30"
                 />
               </td>
               <td className="border-r border-border p-1.5">
@@ -134,12 +159,12 @@ export function ConsolidatedHypothesesTable({
                     Not confirmed
                   </button>
                 </div>
-                <input
+                <EditableCell
                   value={row.notes}
-                  onChange={(e) => updateCell(i, "notes", e.target.value)}
+                  onChange={(value) => updateCell(i, "notes", value)}
                   onBlur={commitRows}
                   placeholder="Notes…"
-                  className="mt-1.5 w-full bg-transparent px-1 py-1 text-xs outline-none focus:bg-muted/30"
+                  className="mt-1.5 px-1 py-1 text-xs"
                 />
               </td>
               <td className="p-0 text-center">
@@ -147,7 +172,6 @@ export function ConsolidatedHypothesesTable({
                   type="button"
                   aria-label="Remove row"
                   onClick={() => removeRow(i)}
-                  disabled={isPending}
                   className="text-muted-foreground hover:text-destructive"
                 >
                   <X className="mx-auto size-3.5" />
@@ -162,7 +186,6 @@ export function ConsolidatedHypothesesTable({
                 variant="ghost"
                 size="sm"
                 onClick={addRow}
-                disabled={isPending}
                 className="flex w-full items-center justify-start gap-1.5 rounded-none text-muted-foreground hover:text-foreground"
               >
                 <Plus className="size-3.5" />

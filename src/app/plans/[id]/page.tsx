@@ -19,7 +19,10 @@ import {
 import { EMPTY_DOC } from "@/lib/ccps/constants";
 import type { StageBundle } from "@/lib/ccps/types";
 import { PlanWorkspace } from "@/components/plan/plan-workspace";
-import { getSolutionRequirementSuggestions } from "@/app/plans/[id]/actions";
+import {
+  getSolutionRequirementSuggestions,
+  getStrategyRows,
+} from "@/app/plans/[id]/actions";
 
 export default async function PlanPage({
   params,
@@ -50,6 +53,7 @@ export default async function PlanPage({
     moscowOptions,
     suggestions,
     strategyStatuses,
+    strategyRows,
     stages,
   ] = await Promise.all([
     getStageFields(stage),
@@ -68,6 +72,7 @@ export default async function PlanPage({
       ? getSolutionRequirementSuggestions(id)
       : Promise.resolve({ causeSuggestions: [], measureSuggestions: [] }),
     stage === "SS" ? listSolutionStrategyStatuses() : Promise.resolve([]),
+    stage === "IM" ? getStrategyRows(id) : Promise.resolve([]),
     listStages(),
   ]);
 
@@ -86,6 +91,7 @@ export default async function PlanPage({
     causeSuggestions: suggestions.causeSuggestions,
     measureSuggestions: suggestions.measureSuggestions,
     strategyStatuses,
+    strategyRows,
   };
 
   return (

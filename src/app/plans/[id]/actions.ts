@@ -3,17 +3,20 @@
 import { revalidatePath } from "next/cache";
 import type { JSONContent } from "@tiptap/react";
 import {
+  asRowArray,
   MEASURES_FIELD_KEY,
   CAUSAL_HYPOTHESES_FIELD_KEY,
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
   CONSOLIDATED_HYPOTHESES_FIELD_KEY,
   SOLUTION_REQUIREMENTS_FIELD_KEY,
   SOLUTION_STRATEGIES_FIELD_KEY,
+  IMPLEMENTATION_MONITORING_FIELD_KEY,
 } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
   ConsolidatedHypothesisRow,
   HypothesisRow,
+  ImplementationRow,
   MeasureRow,
   SolutionRequirementRow,
   SolutionStrategyRow,
@@ -42,6 +45,17 @@ import {
   listSolutionStrategyStatuses,
   listStages,
 } from "@/lib/db";
+
+// Stage 4's table mirrors Stage 3B's solution strategies live — shared by
+// getStageBundle (below) and plans/[id]/page.tsx's initial-load equivalent.
+export async function getStrategyRows(
+  planId: string
+): Promise<SolutionStrategyRow[]> {
+  const ssResponses = await getStageResponses(planId, "SS");
+  return asRowArray<SolutionStrategyRow>(
+    ssResponses[SOLUTION_STRATEGIES_FIELD_KEY]
+  );
+}
 
 // Stage 3A's Link column offers the plan's confirmed 2.3 causes and 1.2
 // measures as one-click suggestions — shared by getStageBundle (below) and
@@ -223,6 +237,20 @@ export async function saveSolutionStrategyRows(
   );
 }
 
+export async function saveImplementationRows(
+  planId: string,
+  rows: ImplementationRow[]
+) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "IM",
+    IMPLEMENTATION_MONITORING_FIELD_KEY,
+    rows as unknown as JSONContent,
+    userId
+  );
+}
+
 export async function publishPlan(planId: string) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("Not authenticated.");
@@ -255,6 +283,7 @@ export async function getStageBundle(
     moscowOptions,
     suggestions,
     strategyStatuses,
+    strategyRows,
   ] = await Promise.all([
     getStageFields(stage),
     getStageResponses(planId, stage),
@@ -268,6 +297,7 @@ export async function getStageBundle(
       ? getSolutionRequirementSuggestions(planId)
       : Promise.resolve({ causeSuggestions: [], measureSuggestions: [] }),
     stage === "SS" ? listSolutionStrategyStatuses() : Promise.resolve([]),
+    stage === "IM" ? getStrategyRows(planId) : Promise.resolve([]),
   ]);
 
   return {
@@ -285,5 +315,6 @@ export async function getStageBundle(
     causeSuggestions: suggestions.causeSuggestions,
     measureSuggestions: suggestions.measureSuggestions,
     strategyStatuses,
+    strategyRows,
   };
 }

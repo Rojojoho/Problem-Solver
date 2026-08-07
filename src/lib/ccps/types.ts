@@ -92,6 +92,14 @@ export interface SolutionStrategyRow {
   status: string | null;
 }
 
+export interface ImplementationRow {
+  strategyId: string;
+  lead: string;
+  timeframe: string;
+  implementationIndicators: string;
+  monitor: string;
+}
+
 export interface StageBundle {
   fields: StageFieldSummary[];
   responses: Record<string, JSONContent>;
@@ -103,6 +111,7 @@ export interface StageBundle {
   causeSuggestions: string[];
   measureSuggestions: string[];
   strategyStatuses: LabeledOption[];
+  strategyRows: SolutionStrategyRow[];
 }
 
 export interface TagData {
