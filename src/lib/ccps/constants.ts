@@ -8,6 +8,17 @@ export function stageLabelMap(stages: StageData[]): Record<string, string> {
   return Object.fromEntries(stages.map((s) => [s.key, s.label]));
 }
 
+// Table fields (Measures, Causal Hypotheses, etc.) store their rows as a
+// JSON array under a synthetic field_key in plan_stage_responses, whose
+// `content` column defaults to `{}` (an object) until something is
+// explicitly saved. A plain `?? []` only catches null/undefined, not that
+// object default, so every table's initialRows is coerced through this
+// instead of trusting the stored shape — an empty/malformed value quietly
+// becomes an empty table rather than crashing the whole page on `.map()`.
+export function asRowArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
 export function paragraphDoc(...lines: string[]): JSONContent {
   return {
     type: "doc",

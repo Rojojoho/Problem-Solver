@@ -11,6 +11,7 @@ import { ConsolidatedHypothesesTable } from "@/components/plan/consolidated-hypo
 import { SolutionRequirementsTable } from "@/components/plan/solution-requirements-table";
 import { SolutionStrategiesTable } from "@/components/plan/solution-strategies-table";
 import {
+  asRowArray,
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
   CAUSAL_HYPOTHESES_FIELD_KEY,
   CONSOLIDATED_HYPOTHESES_FIELD_KEY,
@@ -96,49 +97,39 @@ export function StageForm({
             {field.field_key === CAUSAL_HYPOTHESES_FIELD_KEY ? (
               <HypothesesTable
                 planId={planId}
-                initialRows={
-                  (initialResponses[
-                    CAUSAL_HYPOTHESES_FIELD_KEY
-                  ] as unknown as HypothesisRow[]) ?? []
-                }
-                initialCategories={
-                  (initialResponses[
-                    CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY
-                  ] as unknown as string[]) ?? []
-                }
-                validationOptions={validationOptions}
+                initialRows={asRowArray<HypothesisRow>(
+                  initialResponses[CAUSAL_HYPOTHESES_FIELD_KEY]
+                )}
+                initialCategories={asRowArray<string>(
+                  initialResponses[CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY]
+                )}
+                validationOptions={asRowArray<ValidationOption>(validationOptions)}
               />
             ) : field.field_key === CONSOLIDATED_HYPOTHESES_FIELD_KEY ? (
               <ConsolidatedHypothesesTable
                 planId={planId}
-                initialRows={
-                  (initialResponses[
-                    CONSOLIDATED_HYPOTHESES_FIELD_KEY
-                  ] as unknown as ConsolidatedHypothesisRow[]) ?? []
-                }
+                initialRows={asRowArray<ConsolidatedHypothesisRow>(
+                  initialResponses[CONSOLIDATED_HYPOTHESES_FIELD_KEY]
+                )}
               />
             ) : field.field_key === SOLUTION_REQUIREMENTS_FIELD_KEY ? (
               <SolutionRequirementsTable
                 planId={planId}
-                initialRows={
-                  (initialResponses[
-                    SOLUTION_REQUIREMENTS_FIELD_KEY
-                  ] as unknown as SolutionRequirementRow[]) ?? []
-                }
-                moscowOptions={moscowOptions}
-                requirementTypes={requirementTypes}
-                causeSuggestions={causeSuggestions}
-                measureSuggestions={measureSuggestions}
+                initialRows={asRowArray<SolutionRequirementRow>(
+                  initialResponses[SOLUTION_REQUIREMENTS_FIELD_KEY]
+                )}
+                moscowOptions={asRowArray<LabeledOption>(moscowOptions)}
+                requirementTypes={asRowArray<LabeledOption>(requirementTypes)}
+                causeSuggestions={asRowArray<string>(causeSuggestions)}
+                measureSuggestions={asRowArray<string>(measureSuggestions)}
               />
             ) : field.field_key === SOLUTION_STRATEGIES_FIELD_KEY ? (
               <SolutionStrategiesTable
                 planId={planId}
-                initialRows={
-                  (initialResponses[
-                    SOLUTION_STRATEGIES_FIELD_KEY
-                  ] as unknown as SolutionStrategyRow[]) ?? []
-                }
-                strategyStatuses={strategyStatuses}
+                initialRows={asRowArray<SolutionStrategyRow>(
+                  initialResponses[SOLUTION_STRATEGIES_FIELD_KEY]
+                )}
+                strategyStatuses={asRowArray<LabeledOption>(strategyStatuses)}
               />
             ) : (
               <TiptapEditor
@@ -151,9 +142,9 @@ export function StageForm({
             {field.field_key === "pi_outcome_data" && (
               <MeasuresTable
                 planId={planId}
-                initialRows={
-                  (initialResponses[MEASURES_FIELD_KEY] as unknown as MeasureRow[]) ?? []
-                }
+                initialRows={asRowArray<MeasureRow>(
+                  initialResponses[MEASURES_FIELD_KEY]
+                )}
               />
             )}
           </div>
