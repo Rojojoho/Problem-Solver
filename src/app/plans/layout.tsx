@@ -8,7 +8,7 @@ export default function PlansLayout({
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <TopNav />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-22 pb-8">
+      <main className="w-full flex-1 px-4 pt-22 pb-8 sm:px-6">
         {children}
       </main>
     </div>

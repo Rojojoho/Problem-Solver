@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { JSONContent } from "@tiptap/react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,8 +13,14 @@ import { SidePanel } from "@/components/plan/side-panel";
 import { PublishButton } from "@/components/plan/publish-button";
 import { PlanDetailsForm } from "@/components/plan/plan-details-form";
 import { getStageBundle } from "@/app/plans/[id]/actions";
+import { cn } from "@/lib/utils";
 
 type WorkspaceTab = CcpsStage | "details";
+
+const PANEL_WIDTH_KEY = "ccps:side-panel-width";
+const DEFAULT_PANEL_WIDTH = 380;
+const MIN_PANEL_WIDTH = 300;
+const MAX_PANEL_WIDTH = 680;
 
 interface PlanWorkspaceProps {
   planId: string;
@@ -43,6 +49,49 @@ export function PlanWorkspace({
   });
   const [loadingStage, setLoadingStage] = useState<CcpsStage | null>(null);
   const [, startTransition] = useTransition();
+  // Starts at the default on both server and client so the first render
+  // matches for hydration — the saved width (if any) is applied right after
+  // mount, once localStorage is actually available.
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(PANEL_WIDTH_KEY));
+    if (saved && saved >= MIN_PANEL_WIDTH && saved <= MAX_PANEL_WIDTH) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of a persisted user preference from localStorage on mount
+      setPanelWidth(saved);
+    }
+  }, []);
+
+  function handleResizeStart(e: React.PointerEvent<HTMLDivElement>) {
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    setIsDragging(true);
+
+    function handleMove(ev: PointerEvent) {
+      const next = Math.min(
+        MAX_PANEL_WIDTH,
+        Math.max(MIN_PANEL_WIDTH, startWidth + (startX - ev.clientX))
+      );
+      setPanelWidth(next);
+    }
+
+    function handleEnd(ev: PointerEvent) {
+      handle.releasePointerCapture(ev.pointerId);
+      handle.removeEventListener("pointermove", handleMove);
+      handle.removeEventListener("pointerup", handleEnd);
+      setIsDragging(false);
+      setPanelWidth((current) => {
+        localStorage.setItem(PANEL_WIDTH_KEY, String(current));
+        return current;
+      });
+    }
+
+    handle.addEventListener("pointermove", handleMove);
+    handle.addEventListener("pointerup", handleEnd);
+  }
 
   function handleStageChange(value: string) {
     const next = value as WorkspaceTab;
@@ -93,8 +142,8 @@ export function PlanWorkspace({
       </TabsContent>
 
       {stage !== "details" && (
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-          <div>
+        <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-0">
+          <div className="min-w-0 flex-1 lg:pr-6">
             {STAGES.map((s) => {
               const bundle = bundles[s.key];
               return (
@@ -119,7 +168,21 @@ export function PlanWorkspace({
             })}
           </div>
 
-          <aside>
+          <div
+            onPointerDown={handleResizeStart}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize side panel"
+            className={cn(
+              "hidden w-2 shrink-0 cursor-col-resize touch-none self-stretch rounded-full transition-colors lg:block",
+              isDragging ? "bg-border" : "bg-transparent hover:bg-border"
+            )}
+          />
+
+          <aside
+            style={{ ["--panel-width" as string]: `${panelWidth}px` }}
+            className="w-full shrink-0 lg:w-[var(--panel-width)]"
+          >
             <SidePanel
               planId={planId}
               stage={stage}
