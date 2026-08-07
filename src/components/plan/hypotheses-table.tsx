@@ -228,7 +228,9 @@ export function HypothesesTable({
                     }}
                   >
                     <SelectTrigger className="w-full" size="sm">
-                      <SelectValue placeholder="—" />
+                      <SelectValue>
+                        {(v: string) => (v === NONE ? "—" : v)}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NONE}>—</SelectItem>
@@ -253,7 +255,9 @@ export function HypothesesTable({
                     }}
                   >
                     <SelectTrigger className="w-full" size="sm">
-                      <SelectValue placeholder="—" />
+                      <SelectValue>
+                        {(v: string) => (v === NONE ? "—" : v)}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NONE}>—</SelectItem>
