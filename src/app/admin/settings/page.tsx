@@ -83,6 +83,18 @@ export default function AdminSettingsPage() {
             </CardHeader>
           </Card>
         </Link>
+
+        <Link href="/admin/settings/strategy-statuses">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Solution strategy statuses</CardTitle>
+              <CardDescription>
+                Manage the statuses selectable per solution strategy on
+                Stage 3B. Changes apply immediately across all plans.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </div>
   );
