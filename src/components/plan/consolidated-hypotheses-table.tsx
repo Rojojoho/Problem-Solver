@@ -182,7 +182,7 @@ export function ConsolidatedHypothesesTable({
                         : "border-border text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    Not confirmed
+                    Disconfirmed
                   </button>
                 </div>
                 <EditableCell

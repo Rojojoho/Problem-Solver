@@ -42,10 +42,10 @@ const EMPTY_ROW: Omit<SolutionRequirementRow, "id"> = {
 };
 
 const COLUMN_WIDTHS = [
-  { key: "moscow", defaultWidth: 140 },
+  { key: "moscow", defaultWidth: 88 },
   { key: "requirement", defaultWidth: 280 },
   { key: "link", defaultWidth: 260 },
-  { key: "type", defaultWidth: 140 },
+  { key: "type", defaultWidth: 116 },
 ];
 
 export function SolutionRequirementsTable({
@@ -134,7 +134,7 @@ export function SolutionRequirementsTable({
           <tr className="bg-muted/50">
             <ResizableTh
               isDragging={draggingKey === "moscow"}
-              onPointerDown={handlePointerDown("moscow", 100)}
+              onPointerDown={handlePointerDown("moscow", 72)}
             >
               A solution…
             </ResizableTh>
@@ -152,7 +152,7 @@ export function SolutionRequirementsTable({
             </ResizableTh>
             <ResizableTh
               isDragging={draggingKey === "type"}
-              onPointerDown={handlePointerDown("type", 100)}
+              onPointerDown={handlePointerDown("type", 90)}
             >
               Type
             </ResizableTh>
@@ -301,13 +301,17 @@ function LinkCell({
       {row.links.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {row.links.map((link) => (
-            <Badge key={link} variant="outline" className="gap-1">
-              {link}
+            <Badge
+              key={link}
+              variant="outline"
+              className="h-auto max-w-full items-start gap-1 py-1 whitespace-normal break-words"
+            >
+              <span className="min-w-0">{link}</span>
               <button
                 type="button"
                 aria-label={`Remove ${link} link`}
                 onClick={() => onRemove(link)}
-                className="ml-0.5 hover:text-destructive"
+                className="ml-0.5 shrink-0 hover:text-destructive"
               >
                 ×
               </button>
