@@ -194,6 +194,57 @@ export async function saveCausalHypothesisCategories(
   );
 }
 
+// One-off copy from 2A into 2B: groups the causal hypotheses that aren't
+// Parked by tag, writing one 2B row per tag (hypothesis = tag name,
+// description = the grouped causes). Not a live link — overwrites whatever
+// is currently in 2B, same as re-running it later would.
+export async function consolidateCausalHypotheses(
+  planId: string
+): Promise<ConsolidatedHypothesisRow[]> {
+  const pcResponses = await getStageResponses(planId, "PC");
+  const causalRows = asRowArray<HypothesisRow>(
+    pcResponses[CAUSAL_HYPOTHESES_FIELD_KEY]
+  );
+  const categoryOrder = asRowArray<string>(
+    pcResponses[CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY]
+  );
+
+  const grouped = new Map<string, string[]>();
+  for (const row of causalRows) {
+    if (row.validation === "Parked" || !row.text.trim()) continue;
+    const tags = row.categories.length ? row.categories : ["Untagged"];
+    for (const tag of tags) {
+      if (!grouped.has(tag)) grouped.set(tag, []);
+      grouped.get(tag)!.push(row.text);
+    }
+  }
+
+  const orderedTags = [
+    ...categoryOrder.filter((tag) => grouped.has(tag)),
+    ...Array.from(grouped.keys()).filter((tag) => !categoryOrder.includes(tag)),
+  ];
+
+  const consolidatedRows: ConsolidatedHypothesisRow[] = orderedTags.map((tag) => ({
+    id: crypto.randomUUID(),
+    hypothesis: tag,
+    description: (grouped.get(tag) ?? []).join("\n"),
+    validityTest: "",
+    confirmed: null,
+    notes: "",
+  }));
+
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "CV",
+    CONSOLIDATED_HYPOTHESES_FIELD_KEY,
+    consolidatedRows as unknown as JSONContent,
+    userId
+  );
+
+  return consolidatedRows;
+}
+
 export async function saveConsolidatedHypothesisRows(
   planId: string,
   rows: ConsolidatedHypothesisRow[]

@@ -49,6 +49,7 @@ interface StageFormProps {
   measureSuggestions: string[];
   strategyStatuses: LabeledOption[];
   strategyRows: SolutionStrategyRow[];
+  onStageDataChanged?: (stage: CcpsStage) => void;
 }
 
 export function StageForm({
@@ -64,6 +65,7 @@ export function StageForm({
   measureSuggestions,
   strategyStatuses,
   strategyRows,
+  onStageDataChanged,
 }: StageFormProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -109,6 +111,7 @@ export function StageForm({
                   initialResponses[CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY]
                 )}
                 validationOptions={asRowArray<ValidationOption>(validationOptions)}
+                onConsolidated={() => onStageDataChanged?.("CV")}
               />
             ) : field.field_key === CONSOLIDATED_HYPOTHESES_FIELD_KEY ? (
               <ConsolidatedHypothesesTable

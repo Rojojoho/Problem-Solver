@@ -124,6 +124,18 @@ export function PlanWorkspace({
     }
   }
 
+  // Evicts a cached stage bundle (e.g. after 2A's "Consolidate" overwrites
+  // 2B's data) so the next time that tab is opened it refetches instead of
+  // showing what's now stale — mirrors handleStageChange's own cache-miss path.
+  function invalidateStage(target: CcpsStage) {
+    setBundles((prev) => {
+      if (!prev[target]) return prev;
+      const next = { ...prev };
+      delete next[target];
+      return next;
+    });
+  }
+
   const showPanel = stage !== "details";
 
   return (
@@ -183,6 +195,7 @@ export function PlanWorkspace({
                       measureSuggestions={bundle.measureSuggestions}
                       strategyStatuses={bundle.strategyStatuses}
                       strategyRows={bundle.strategyRows}
+                      onStageDataChanged={invalidateStage}
                     />
                   ) : (
                     <StagePlaceholder label={s.label} />

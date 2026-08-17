@@ -53,6 +53,9 @@ export interface StageData {
 export interface ConsolidatedHypothesisRow {
   id: string;
   hypothesis: string;
+  // The list of causal-hypothesis rows folded into this tag by "Consolidate"
+  // — a one-off copy, not a live link, so it stays editable afterward.
+  description: string;
   validityTest: string;
   confirmed: boolean | null;
   notes: string;
@@ -67,9 +70,11 @@ export interface ValidationOption {
 export interface HypothesisRow {
   id: string;
   text: string;
-  category: string | null;
+  // A cause can carry multiple tags (rendered like multi-select tags, not a
+  // single category). "Parked" is driven entirely by `validation` — there's
+  // no separate stored strike flag.
+  categories: string[];
   validation: string | null;
-  struck: boolean;
 }
 
 // Same shape as ValidationOption — reused for the requirement-type and

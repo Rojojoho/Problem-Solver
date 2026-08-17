@@ -815,6 +815,17 @@ export async function deletePlanRecord(planId: string) {
   if (error) throw new Error(error.message);
 }
 
+export async function deletePlanRecords(planIds: string[]) {
+  if (DEV_MOCK) {
+    for (const id of planIds) mock.mockDeletePlan(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("plans").delete().in("id", planIds);
+  if (error) throw new Error(error.message);
+}
+
 export async function saveBackgroundRecord(
   planId: string,
   content: JSONContent

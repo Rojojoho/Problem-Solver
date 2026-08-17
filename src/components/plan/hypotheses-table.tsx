@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { ArrowUpDown, Plus, Strikethrough, X } from "lucide-react";
+import { ArrowUpDown, Plus, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  consolidateCausalHypotheses,
   saveCausalHypothesisCategories,
   saveCausalHypothesisRows,
 } from "@/app/plans/[id]/actions";
@@ -38,25 +47,44 @@ interface HypothesesTableProps {
   initialRows: HypothesisRow[];
   initialCategories: string[];
   validationOptions: ValidationOption[];
+  onConsolidated?: () => void;
 }
 
 const NONE = "__none__";
-type SortKey = "category" | "validation";
+const PARKED = "Parked";
+type SortKey = "validation";
 type SortDir = "asc" | "desc";
 
 const COLUMN_WIDTHS = [
-  { key: "hypothesis", defaultWidth: 320 },
-  { key: "category", defaultWidth: 160 },
+  { key: "hypothesis", defaultWidth: 300 },
+  { key: "tags", defaultWidth: 180 },
   { key: "validation", defaultWidth: 160 },
 ];
+
+// Old rows stored a single `category` string and a manually-toggled `struck`
+// flag; both are gone (categories are now multi-tag, struck is derived from
+// `validation === "Parked"`) — normalize whatever shape is in storage.
+function normalizeRow(row: HypothesisRow & { category?: string | null }): HypothesisRow {
+  return {
+    id: row.id,
+    text: row.text ?? "",
+    categories: Array.isArray(row.categories)
+      ? row.categories
+      : row.category
+        ? [row.category]
+        : [],
+    validation: row.validation ?? null,
+  };
+}
 
 export function HypothesesTable({
   planId,
   initialRows,
   initialCategories,
   validationOptions,
+  onConsolidated,
 }: HypothesesTableProps) {
-  const [rows, setRows] = useState<HypothesisRow[]>(initialRows);
+  const [rows, setRows] = useState<HypothesisRow[]>(() => initialRows.map(normalizeRow));
   const [categories, setCategories] = useState<string[]>(initialCategories);
   // Mirror `rows`/`categories` synchronously (updated inside every setter
   // below, not via an effect) so onBlur/onValueChange handlers always read
@@ -68,6 +96,8 @@ export function HypothesesTable({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isConsolidating, setIsConsolidating] = useState(false);
   const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:hypotheses",
@@ -112,6 +142,26 @@ export function HypothesesTable({
 
   function removeRow(id: string) {
     persistRows(rowsRef.current.filter((r) => r.id !== id));
+    setSelected((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleRowTag(id: string, tag: string, checked: boolean) {
+    persistRows(
+      rowsRef.current.map((r) => {
+        if (r.id !== id) return r;
+        const has = r.categories.includes(tag);
+        if (checked === has) return r;
+        return {
+          ...r,
+          categories: checked ? [...r.categories, tag] : r.categories.filter((c) => c !== tag),
+        };
+      })
+    );
   }
 
   function addBulkHypotheses() {
@@ -126,9 +176,8 @@ export function HypothesesTable({
     const newRows: HypothesisRow[] = lines.map((text) => ({
       id: crypto.randomUUID(),
       text,
-      category: null,
+      categories: [],
       validation: null,
-      struck: false,
     }));
     persistRows([...rowsRef.current, ...newRows]);
     setBulkText("");
@@ -145,6 +194,13 @@ export function HypothesesTable({
 
   function handleRemoveCategory(category: string) {
     persistCategories(categoriesRef.current.filter((c) => c !== category));
+    persistRows(
+      rowsRef.current.map((r) =>
+        r.categories.includes(category)
+          ? { ...r, categories: r.categories.filter((c) => c !== category) }
+          : r
+      )
+    );
   }
 
   function toggleSort(key: SortKey) {
@@ -153,6 +209,67 @@ export function HypothesesTable({
       if (prev.dir === "asc") return { key, dir: "desc" };
       return null;
     });
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) => (prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.id))));
+  }
+
+  function bulkAddTag(tag: string) {
+    persistRows(
+      rowsRef.current.map((r) =>
+        selected.has(r.id) && !r.categories.includes(tag)
+          ? { ...r, categories: [...r.categories, tag] }
+          : r
+      )
+    );
+  }
+
+  function bulkMarkParked() {
+    persistRows(
+      rowsRef.current.map((r) => (selected.has(r.id) ? { ...r, validation: PARKED } : r))
+    );
+  }
+
+  function bulkDelete() {
+    if (
+      !window.confirm(
+        `Delete ${selected.size} hypothes${selected.size === 1 ? "is" : "es"}? This can't be undone.`
+      )
+    ) {
+      return;
+    }
+    persistRows(rowsRef.current.filter((r) => !selected.has(r.id)));
+    setSelected(new Set());
+  }
+
+  async function handleConsolidate() {
+    if (
+      !window.confirm(
+        "Consolidate will overwrite all rows in the Consolidated Hypotheses table (2B) — one row per tag, built from the causes here that aren't Parked. Are you sure?"
+      )
+    ) {
+      return;
+    }
+    setIsConsolidating(true);
+    try {
+      await consolidateCausalHypotheses(planId);
+      toast.success("Consolidated hypotheses (2B) updated.");
+      onConsolidated?.();
+    } catch {
+      toast.error("Couldn't consolidate hypotheses.");
+    } finally {
+      setIsConsolidating(false);
+    }
   }
 
   const displayRows = [...rows];
@@ -165,46 +282,101 @@ export function HypothesesTable({
     });
   }
 
+  const allSelected = selected.size > 0 && selected.size === rows.length;
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Label className="mr-1">Categories</Label>
-        {categories.map((category) => (
-          <Badge key={category} variant="outline" className="gap-1">
-            {category}
-            <button
-              type="button"
-              aria-label={`Remove ${category} category`}
-              onClick={() => handleRemoveCategory(category)}
-              className="ml-0.5 hover:text-destructive"
-            >
-              ×
-            </button>
-          </Badge>
-        ))}
-        <form onSubmit={handleAddCategory} className="flex items-center gap-1">
-          <Input
-            value={categoryInput}
-            onChange={(e) => setCategoryInput(e.target.value)}
-            placeholder="Add category…"
-            className="h-7 w-36 text-xs"
-          />
-          <Button type="submit" size="xs" variant="outline">
-            Add
-          </Button>
-        </form>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Label className="mr-1">Tags</Label>
+          {categories.map((category) => (
+            <Badge key={category} variant="outline" className="gap-1">
+              {category}
+              <button
+                type="button"
+                aria-label={`Remove ${category} tag`}
+                onClick={() => handleRemoveCategory(category)}
+                className="ml-0.5 hover:text-destructive"
+              >
+                ×
+              </button>
+            </Badge>
+          ))}
+          <form onSubmit={handleAddCategory} className="flex items-center gap-1">
+            <Input
+              value={categoryInput}
+              onChange={(e) => setCategoryInput(e.target.value)}
+              placeholder="Add tag…"
+              className="h-7 w-36 text-xs"
+            />
+            <Button type="submit" size="xs" variant="outline">
+              Add
+            </Button>
+          </form>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleConsolidate}
+          disabled={isConsolidating}
+        >
+          <Sparkles className="size-3.5" />
+          Consolidate
+        </Button>
       </div>
+
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm">
+          <span className="text-muted-foreground">{selected.size} selected</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button type="button" size="xs" variant="outline">
+                  Assign tag
+                </Button>
+              }
+            />
+            <DropdownMenuContent>
+              {categories.length ? (
+                categories.map((c) => (
+                  <DropdownMenuItem key={c} onClick={() => bulkAddTag(c)}>
+                    {c}
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem disabled>No tags yet</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button type="button" size="xs" variant="outline" onClick={bulkMarkParked}>
+            Mark as Parked
+          </Button>
+          <Button type="button" size="xs" variant="outline-destructive" onClick={bulkDelete}>
+            Delete selected
+          </Button>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full table-fixed border-collapse text-sm">
           <colgroup>
+            <col style={{ width: 32 }} />
             <col style={{ width: widths.hypothesis }} />
-            <col style={{ width: widths.category }} />
+            <col style={{ width: widths.tags }} />
             <col style={{ width: widths.validation }} />
             <col style={{ width: 64 }} />
           </colgroup>
           <thead>
             <tr className="bg-muted/50">
+              <th className="border-b border-border p-1 text-center">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Select all hypotheses"
+                />
+              </th>
               <ResizableTh
                 isDragging={draggingKey === "hypothesis"}
                 onPointerDown={handlePointerDown("hypothesis", 160)}
@@ -212,17 +384,10 @@ export function HypothesesTable({
                 Hypothesis
               </ResizableTh>
               <ResizableTh
-                isDragging={draggingKey === "category"}
-                onPointerDown={handlePointerDown("category", 100)}
+                isDragging={draggingKey === "tags"}
+                onPointerDown={handlePointerDown("tags", 100)}
               >
-                <button
-                  type="button"
-                  onClick={() => toggleSort("category")}
-                  className="flex items-center gap-1 hover:text-foreground"
-                >
-                  Category
-                  <ArrowUpDown className="size-3" />
-                </button>
+                Tags
               </ResizableTh>
               <ResizableTh
                 isDragging={draggingKey === "validation"}
@@ -241,104 +406,106 @@ export function HypothesesTable({
             </tr>
           </thead>
           <tbody>
-            {displayRows.map((row) => (
-              <tr key={row.id} className="border-b border-border last:border-b-0">
-                <td className="border-r border-border p-0">
-                  <EditableCell
-                    value={row.text}
-                    onChange={(value) => updateRow(row.id, { text: value })}
-                    onBlur={commitRows}
-                    className={cn(row.struck && "text-muted-foreground line-through")}
-                  />
-                </td>
-                <td className="border-r border-border p-1">
-                  <Select
-                    value={row.category ?? NONE}
-                    onValueChange={(v) => {
-                      const next = v === NONE ? null : v;
-                      persistRows(
-                        rowsRef.current.map((r) =>
-                          r.id === row.id ? { ...r, category: next } : r
-                        )
-                      );
-                    }}
-                  >
-                    <SelectTrigger className="w-full" size="sm">
-                      <SelectValue>
-                        {(v: string) => (v === NONE ? "—" : v)}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="border-r border-border p-1">
-                  <Select
-                    value={row.validation ?? NONE}
-                    onValueChange={(v) => {
-                      const next = v === NONE ? null : v;
-                      persistRows(
-                        rowsRef.current.map((r) =>
-                          r.id === row.id ? { ...r, validation: next } : r
-                        )
-                      );
-                    }}
-                  >
-                    <SelectTrigger className="w-full" size="sm">
-                      <SelectValue>
-                        {(v: string) => (v === NONE ? "—" : v)}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {validationOptions.map((option) => (
-                        <SelectItem key={option.id} value={option.label}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="p-0 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <button
-                      type="button"
-                      aria-label={row.struck ? "Unstrike hypothesis" : "Strike through hypothesis"}
-                      aria-pressed={row.struck}
-                      onClick={() =>
+            {displayRows.map((row) => {
+              const isParked = row.validation === PARKED;
+              return (
+                <tr key={row.id} className="border-b border-border last:border-b-0">
+                  <td className="border-r border-border p-1 text-center">
+                    <Checkbox
+                      checked={selected.has(row.id)}
+                      onCheckedChange={() => toggleSelected(row.id)}
+                      aria-label={`Select ${row.text || "hypothesis"}`}
+                    />
+                  </td>
+                  <td className="border-r border-border p-0">
+                    <EditableCell
+                      value={row.text}
+                      onChange={(value) => updateRow(row.id, { text: value })}
+                      onBlur={commitRows}
+                      className={cn(isParked && "text-muted-foreground line-through")}
+                    />
+                  </td>
+                  <td className="border-r border-border p-1">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <button
+                            type="button"
+                            className="flex min-h-7 w-full flex-wrap items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-muted/50"
+                          />
+                        }
+                      >
+                        {row.categories.length ? (
+                          row.categories.map((c) => (
+                            <Badge key={c} variant="secondary" className="text-[10px]">
+                              {c}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {categories.length ? (
+                          categories.map((c) => (
+                            <DropdownMenuCheckboxItem
+                              key={c}
+                              checked={row.categories.includes(c)}
+                              onCheckedChange={(checked) =>
+                                toggleRowTag(row.id, c, checked === true)
+                              }
+                            >
+                              {c}
+                            </DropdownMenuCheckboxItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No tags yet</DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                  <td className="border-r border-border p-1">
+                    <Select
+                      value={row.validation ?? NONE}
+                      onValueChange={(v) => {
+                        const next = v === NONE ? null : v;
                         persistRows(
                           rowsRef.current.map((r) =>
-                            r.id === row.id ? { ...r, struck: !r.struck } : r
+                            r.id === row.id ? { ...r, validation: next } : r
                           )
-                        )
-                      }
-                      className={cn(
-                        "text-muted-foreground hover:text-foreground",
-                        row.struck && "text-foreground"
-                      )}
+                        );
+                      }}
                     >
-                      <Strikethrough className="size-3.5" />
-                    </button>
+                      <SelectTrigger className="w-full" size="sm">
+                        <SelectValue>
+                          {(v: string) => (v === NONE ? "—" : v)}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE}>—</SelectItem>
+                        {validationOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.label}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="p-0 text-center">
                     <button
                       type="button"
                       aria-label="Delete hypothesis"
                       onClick={() => removeRow(row.id)}
                       className="text-muted-foreground hover:text-destructive"
                     >
-                      <X className="size-3.5" />
+                      <X className="mx-auto size-3.5" />
                     </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
             <tr>
-              <td colSpan={4} className="p-0">
+              <td colSpan={5} className="p-0">
                 <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
                   <DialogTrigger
                     render={
