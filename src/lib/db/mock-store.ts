@@ -570,6 +570,7 @@ let requirementTypes: MockLabeledOption[] = [
   { id: crypto.randomUUID(), label: "Resource", sort_order: 1 },
   { id: crypto.randomUUID(), label: "Improvement", sort_order: 2 },
   { id: crypto.randomUUID(), label: "Learning", sort_order: 3 },
+  { id: crypto.randomUUID(), label: "Accountability", sort_order: 4 },
 ];
 
 export function mockListRequirementTypes() {
@@ -597,78 +598,6 @@ export function mockUpdateRequirementType(
 
 export function mockDeleteRequirementType(id: string) {
   requirementTypes = requirementTypes.filter((o) => o.id !== id);
-}
-
-// The mock stand-in for the global, admin-editable `moscow_options` table.
-let moscowOptions: MockLabeledOption[] = [
-  { id: crypto.randomUUID(), label: "Must", sort_order: 1 },
-  { id: crypto.randomUUID(), label: "Should", sort_order: 2 },
-  { id: crypto.randomUUID(), label: "Could", sort_order: 3 },
-  { id: crypto.randomUUID(), label: "Will not", sort_order: 4 },
-];
-
-export function mockListMoscowOptions() {
-  return moscowOptions
-    .slice()
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map(({ id, label, sort_order }) => ({ id, label, sort_order }));
-}
-
-export function mockCreateMoscowOption(label: string, sortOrder: number) {
-  const id = crypto.randomUUID();
-  moscowOptions = [...moscowOptions, { id, label, sort_order: sortOrder }];
-  return { id };
-}
-
-export function mockUpdateMoscowOption(
-  id: string,
-  updates: { label?: string; sortOrder?: number }
-) {
-  const option = moscowOptions.find((o) => o.id === id);
-  if (!option) return;
-  if (updates.label !== undefined) option.label = updates.label;
-  if (updates.sortOrder !== undefined) option.sort_order = updates.sortOrder;
-}
-
-export function mockDeleteMoscowOption(id: string) {
-  moscowOptions = moscowOptions.filter((o) => o.id !== id);
-}
-
-// The mock stand-in for the global, admin-editable
-// `solution_strategy_statuses` table.
-let solutionStrategyStatuses: MockLabeledOption[] = [
-  { id: crypto.randomUUID(), label: "Agreed", sort_order: 1 },
-  { id: crypto.randomUUID(), label: "Hold", sort_order: 2 },
-];
-
-export function mockListSolutionStrategyStatuses() {
-  return solutionStrategyStatuses
-    .slice()
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map(({ id, label, sort_order }) => ({ id, label, sort_order }));
-}
-
-export function mockCreateSolutionStrategyStatus(label: string, sortOrder: number) {
-  const id = crypto.randomUUID();
-  solutionStrategyStatuses = [
-    ...solutionStrategyStatuses,
-    { id, label, sort_order: sortOrder },
-  ];
-  return { id };
-}
-
-export function mockUpdateSolutionStrategyStatus(
-  id: string,
-  updates: { label?: string; sortOrder?: number }
-) {
-  const option = solutionStrategyStatuses.find((o) => o.id === id);
-  if (!option) return;
-  if (updates.label !== undefined) option.label = updates.label;
-  if (updates.sortOrder !== undefined) option.sort_order = updates.sortOrder;
-}
-
-export function mockDeleteSolutionStrategyStatus(id: string) {
-  solutionStrategyStatuses = solutionStrategyStatuses.filter((o) => o.id !== id);
 }
 
 export function mockGetFeedback(planId: string) {

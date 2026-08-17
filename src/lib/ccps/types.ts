@@ -77,13 +77,16 @@ export interface HypothesisRow {
   validation: string | null;
 }
 
-// Same shape as ValidationOption — reused for the requirement-type and
-// MoSCoW option lists rather than duplicating the interface.
+// Same shape as ValidationOption — reused for the requirement-type option
+// list rather than duplicating the interface.
 export type LabeledOption = ValidationOption;
 
 export interface SolutionRequirementRow {
   id: string;
-  moscow: string | null;
+  // Visible, editable short label ("Requirement 1" by default) — the
+  // human-readable identity 3B's Link column tags reference, same free-text
+  // model as 2B's Causal hypothesis cell.
+  shortId: string;
   requirement: string;
   links: string[];
   type: string | null;
@@ -94,7 +97,10 @@ export interface SolutionStrategyRow {
   strategy: string;
   description: string;
   theoryOfAction: string;
-  status: string | null;
+  // The 3A `shortId`s this strategy addresses — a plain tag list (like 2A's
+  // categories), not a live join, so a later 3A rename won't retroactively
+  // update it.
+  links: string[];
 }
 
 export interface ImplementationRow {
@@ -120,10 +126,8 @@ export interface StageBundle {
   exemplars: ExemplarData[];
   validationOptions: ValidationOption[];
   requirementTypes: LabeledOption[];
-  moscowOptions: LabeledOption[];
   causeSuggestions: string[];
   measureSuggestions: string[];
-  strategyStatuses: LabeledOption[];
   strategyRows: SolutionStrategyRow[];
 }
 

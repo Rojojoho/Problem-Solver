@@ -44,10 +44,8 @@ interface StageFormProps {
   initialResponses: Record<string, JSONContent>;
   validationOptions: ValidationOption[];
   requirementTypes: LabeledOption[];
-  moscowOptions: LabeledOption[];
   causeSuggestions: string[];
   measureSuggestions: string[];
-  strategyStatuses: LabeledOption[];
   strategyRows: SolutionStrategyRow[];
   onStageDataChanged?: (stage: CcpsStage) => void;
 }
@@ -60,10 +58,8 @@ export function StageForm({
   initialResponses,
   validationOptions,
   requirementTypes,
-  moscowOptions,
   causeSuggestions,
   measureSuggestions,
-  strategyStatuses,
   strategyRows,
   onStageDataChanged,
 }: StageFormProps) {
@@ -83,9 +79,7 @@ export function StageForm({
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold tracking-tight">{stageLabel}</h2>
-        <p className="text-sm text-muted-foreground">
-          {isPending ? "Saving…" : "Changes save automatically when you click away from a field."}
-        </p>
+        {isPending && <p className="text-sm text-muted-foreground">Saving…</p>}
       </div>
 
       {[...fields]
@@ -126,7 +120,6 @@ export function StageForm({
                 initialRows={asRowArray<SolutionRequirementRow>(
                   initialResponses[SOLUTION_REQUIREMENTS_FIELD_KEY]
                 )}
-                moscowOptions={asRowArray<LabeledOption>(moscowOptions)}
                 requirementTypes={asRowArray<LabeledOption>(requirementTypes)}
                 causeSuggestions={asRowArray<string>(causeSuggestions)}
                 measureSuggestions={asRowArray<string>(measureSuggestions)}
@@ -137,7 +130,6 @@ export function StageForm({
                 initialRows={asRowArray<SolutionStrategyRow>(
                   initialResponses[SOLUTION_STRATEGIES_FIELD_KEY]
                 )}
-                strategyStatuses={asRowArray<LabeledOption>(strategyStatuses)}
               />
             ) : field.field_key === IMPLEMENTATION_MONITORING_FIELD_KEY ? (
               <ImplementationMonitoringTable

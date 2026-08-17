@@ -61,9 +61,6 @@ export function PlanDetailsForm({
     <div className="max-w-3xl space-y-6">
       <div>
         <h2 className="text-xl font-bold tracking-tight">Plan Details</h2>
-        <p className="text-sm text-muted-foreground">
-          Context for this plan — not tied to any single stage.
-        </p>
       </div>
 
       <div className="space-y-1.5">

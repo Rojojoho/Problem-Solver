@@ -71,30 +71,6 @@ export default function AdminSettingsPage() {
           </Card>
         </Link>
 
-        <Link href="/admin/settings/moscow-options">
-          <Card className="h-full transition-colors hover:border-foreground/30">
-            <CardHeader>
-              <CardTitle>MoSCoW options</CardTitle>
-              <CardDescription>
-                Manage the &quot;A solution…&quot; options selectable per
-                solution requirement on Stage 3A. Changes apply immediately
-                across all plans.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href="/admin/settings/strategy-statuses">
-          <Card className="h-full transition-colors hover:border-foreground/30">
-            <CardHeader>
-              <CardTitle>Solution strategy statuses</CardTitle>
-              <CardDescription>
-                Manage the statuses selectable per solution strategy on
-                Stage 3B. Changes apply immediately across all plans.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
       </div>
     </div>
   );

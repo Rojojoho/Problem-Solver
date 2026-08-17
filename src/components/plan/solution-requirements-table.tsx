@@ -1,17 +1,24 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Plus, X } from "lucide-react";
+import { GripVertical, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Combobox,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxGroupLabel,
+  ComboboxInput,
+  ComboboxInputGroup,
+  ComboboxItem,
+  ComboboxPopup,
+} from "@/components/ui/combobox";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -26,7 +33,6 @@ import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-width
 interface SolutionRequirementsTableProps {
   planId: string;
   initialRows: SolutionRequirementRow[];
-  moscowOptions: LabeledOption[];
   requirementTypes: LabeledOption[];
   causeSuggestions: string[];
   measureSuggestions: string[];
@@ -34,16 +40,20 @@ interface SolutionRequirementsTableProps {
 
 const NONE = "__none__";
 
-const EMPTY_ROW: Omit<SolutionRequirementRow, "id"> = {
-  moscow: null,
-  requirement: "",
-  links: [],
-  type: null,
-};
+function blankRow(shortId: string): SolutionRequirementRow {
+  return { id: crypto.randomUUID(), shortId, requirement: "", links: [], type: null };
+}
+
+// Old rows lack `shortId` (added after the fact) — default it the same way a
+// freshly-added row would get one, keyed off its position among the rows
+// being normalized so existing plans don't all collapse to "Requirement 1".
+function normalizeRows(rows: SolutionRequirementRow[]): SolutionRequirementRow[] {
+  return rows.map((row, i) => ({ ...row, shortId: row.shortId || `Requirement ${i + 1}` }));
+}
 
 const COLUMN_WIDTHS = [
-  { key: "moscow", defaultWidth: 88 },
-  { key: "requirement", defaultWidth: 280 },
+  { key: "shortId", defaultWidth: 110 },
+  { key: "requirement", defaultWidth: 260 },
   { key: "link", defaultWidth: 260 },
   { key: "type", defaultWidth: 116 },
 ];
@@ -51,17 +61,19 @@ const COLUMN_WIDTHS = [
 export function SolutionRequirementsTable({
   planId,
   initialRows,
-  moscowOptions,
   requirementTypes,
   causeSuggestions,
   measureSuggestions,
 }: SolutionRequirementsTableProps) {
-  const [rows, setRows] = useState<SolutionRequirementRow[]>(initialRows);
+  const [rows, setRows] = useState<SolutionRequirementRow[]>(() =>
+    normalizeRows(initialRows)
+  );
   // Mirrors `rows` synchronously (updated inside every setter below, not via
   // an effect) so onBlur/onValueChange handlers always read the truly-latest
   // rows even if they fire before React has re-rendered with a fresh
   // closure — e.g. switching tabs right after an edit.
   const rowsRef = useRef<SolutionRequirementRow[]>(rows);
+  const dragIndexRef = useRef<number | null>(null);
   const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:solution-requirements",
@@ -93,7 +105,7 @@ export function SolutionRequirementsTable({
   }
 
   function addRow() {
-    persist([...rowsRef.current, { ...EMPTY_ROW, id: crypto.randomUUID() }]);
+    persist([...rowsRef.current, blankRow(`Requirement ${rowsRef.current.length + 1}`)]);
   }
 
   function removeRow(id: string) {
@@ -120,11 +132,37 @@ export function SolutionRequirementsTable({
     );
   }
 
+  function handleDragStart(index: number) {
+    return (e: React.DragEvent) => {
+      dragIndexRef.current = index;
+      e.dataTransfer.effectAllowed = "move";
+    };
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(index: number) {
+    return (e: React.DragEvent) => {
+      e.preventDefault();
+      const from = dragIndexRef.current;
+      dragIndexRef.current = null;
+      if (from === null || from === index) return;
+      const next = [...rowsRef.current];
+      const [moved] = next.splice(from, 1);
+      next.splice(index, 0, moved);
+      persist(next);
+    };
+  }
+
   return (
     <div className="overflow-x-auto rounded-md border border-border">
       <table className="w-full table-fixed border-collapse text-sm">
         <colgroup>
-          <col style={{ width: widths.moscow }} />
+          <col style={{ width: 28 }} />
+          <col style={{ width: widths.shortId }} />
           <col style={{ width: widths.requirement }} />
           <col style={{ width: widths.link }} />
           <col style={{ width: widths.type }} />
@@ -132,11 +170,12 @@ export function SolutionRequirementsTable({
         </colgroup>
         <thead>
           <tr className="bg-muted/50">
+            <th className="border-b border-border" />
             <ResizableTh
-              isDragging={draggingKey === "moscow"}
-              onPointerDown={handlePointerDown("moscow", 72)}
+              isDragging={draggingKey === "shortId"}
+              onPointerDown={handlePointerDown("shortId", 70)}
             >
-              A solution…
+              ID
             </ResizableTh>
             <ResizableTh
               isDragging={draggingKey === "requirement"}
@@ -160,31 +199,30 @@ export function SolutionRequirementsTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b border-border align-top last:border-b-0">
-              <td className="border-r border-border p-1">
-                <Select
-                  value={row.moscow ?? NONE}
-                  onValueChange={(v) =>
-                    persist(
-                      rowsRef.current.map((r) =>
-                        r.id === row.id ? { ...r, moscow: v === NONE ? null : v } : r
-                      )
-                    )
-                  }
+          {rows.map((row, i) => (
+            <tr
+              key={row.id}
+              className="border-b border-border align-top last:border-b-0"
+              onDragOver={handleDragOver}
+              onDrop={handleDrop(i)}
+            >
+              <td className="p-0 text-center">
+                <button
+                  type="button"
+                  aria-label="Drag to reorder"
+                  draggable
+                  onDragStart={handleDragStart(i)}
+                  className="mt-2 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
                 >
-                  <SelectTrigger className="w-full" size="sm">
-                    <SelectValue>{(v: string) => (v === NONE ? "—" : v)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>—</SelectItem>
-                    {moscowOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.label}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <GripVertical className="mx-auto size-3.5" />
+                </button>
+              </td>
+              <td className="border-r border-border p-0">
+                <EditableCell
+                  value={row.shortId}
+                  onChange={(value) => updateRow(row.id, { shortId: value })}
+                  onBlur={commitRows}
+                />
               </td>
               <td className="border-r border-border p-0">
                 <EditableCell
@@ -240,7 +278,7 @@ export function SolutionRequirementsTable({
             </tr>
           ))}
           <tr>
-            <td colSpan={5} className="p-0">
+            <td colSpan={6} className="p-0">
               <Button
                 type="button"
                 variant="ghost"
@@ -259,8 +297,6 @@ export function SolutionRequirementsTable({
   );
 }
 
-const INSERT_PLACEHOLDER = "__insert__";
-
 function LinkCell({
   planId,
   row,
@@ -276,25 +312,30 @@ function LinkCell({
   onAdd: (link: string) => void;
   onRemove: (link: string) => void;
 }) {
-  const [textInput, setTextInput] = useState("");
-  const [pickerKey, setPickerKey] = useState(0);
-  // The suggestion props reflect whatever 2B/1.2 looked like when this
-  // stage's bundle was fetched, which goes stale the moment the user edits
-  // 2B/1.2 after visiting 3A (that cached bundle never refetches). Rather
-  // than plumb cross-stage cache invalidation, just fetch the current truth
-  // every time the picker opens — always correct, no staleness possible.
+  const [text, setText] = useState("");
+  // The suggestion list goes stale the moment 2B/1.2 are edited after this
+  // stage's bundle was fetched — fetch the current truth every time the
+  // combobox opens instead of trusting a cached prop (see actions.ts). Starts
+  // from the SSR-provided props so the first open isn't empty.
   const [liveSuggestions, setLiveSuggestions] = useState<{
     causeSuggestions: string[];
     measureSuggestions: string[];
   } | null>(null);
-
-  function handleAddText(e: React.FormEvent) {
-    e.preventDefault();
-    onAdd(textInput);
-    setTextInput("");
-  }
-
   const suggestions = liveSuggestions ?? { causeSuggestions, measureSuggestions };
+
+  const query = text.trim().toLowerCase();
+  const filteredCauses = query
+    ? suggestions.causeSuggestions.filter((c) => c.toLowerCase().includes(query))
+    : suggestions.causeSuggestions;
+  const filteredMeasures = query
+    ? suggestions.measureSuggestions.filter((m) => m.toLowerCase().includes(query))
+    : suggestions.measureSuggestions;
+
+  function commitText() {
+    if (!text.trim()) return;
+    onAdd(text);
+    setText("");
+  }
 
   return (
     <div className="space-y-1.5">
@@ -319,19 +360,15 @@ function LinkCell({
           ))}
         </div>
       )}
-      <form onSubmit={handleAddText} className="flex items-center gap-1">
-        <Input
-          value={textInput}
-          onChange={(e) => setTextInput(e.target.value)}
-          placeholder="Type or select…"
-          className="h-7 flex-1 text-xs"
-        />
-        <Button type="submit" size="xs" variant="outline">
-          Add
-        </Button>
-      </form>
-      <Select
-        key={pickerKey}
+      <Combobox
+        inputValue={text}
+        onInputValueChange={(value) => setText(value)}
+        onValueChange={(value) => {
+          if (typeof value === "string" && value) {
+            onAdd(value);
+            setText("");
+          }
+        }}
         onOpenChange={(open) => {
           if (!open) return;
           getSolutionRequirementSuggestions(planId)
@@ -340,37 +377,45 @@ function LinkCell({
               // Keep showing whatever suggestions we already had.
             });
         }}
-        onValueChange={(v: string | null) => {
-          if (v && v !== INSERT_PLACEHOLDER) onAdd(v);
-          setPickerKey((k) => k + 1);
-        }}
       >
-        <SelectTrigger className="h-7 w-full text-xs" size="sm">
-          <SelectValue placeholder="Insert suggestion…" />
-        </SelectTrigger>
-        <SelectContent>
-          {suggestions.causeSuggestions.length > 0 && (
-            <SelectGroup>
-              <SelectLabel>Validated causes (2.3)</SelectLabel>
-              {suggestions.causeSuggestions.map((cause) => (
-                <SelectItem key={cause} value={cause}>
+        <ComboboxInputGroup>
+          <ComboboxInput
+            placeholder="Type or select…"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitText();
+              }
+            }}
+          />
+          <Button type="button" size="xs" variant="outline" onClick={commitText}>
+            Add
+          </Button>
+        </ComboboxInputGroup>
+        <ComboboxPopup>
+          <ComboboxEmpty>No matches — press Enter to add it as free text.</ComboboxEmpty>
+          {filteredCauses.length > 0 && (
+            <ComboboxGroup>
+              <ComboboxGroupLabel>Validated causes (2.3)</ComboboxGroupLabel>
+              {filteredCauses.map((cause) => (
+                <ComboboxItem key={cause} value={cause}>
                   {cause}
-                </SelectItem>
+                </ComboboxItem>
               ))}
-            </SelectGroup>
+            </ComboboxGroup>
           )}
-          {suggestions.measureSuggestions.length > 0 && (
-            <SelectGroup>
-              <SelectLabel>Measures (1.2)</SelectLabel>
-              {suggestions.measureSuggestions.map((measure) => (
-                <SelectItem key={measure} value={measure}>
+          {filteredMeasures.length > 0 && (
+            <ComboboxGroup>
+              <ComboboxGroupLabel>Measures (1.2)</ComboboxGroupLabel>
+              {filteredMeasures.map((measure) => (
+                <ComboboxItem key={measure} value={measure}>
                   {measure}
-                </SelectItem>
+                </ComboboxItem>
               ))}
-            </SelectGroup>
+            </ComboboxGroup>
           )}
-        </SelectContent>
-      </Select>
+        </ComboboxPopup>
+      </Combobox>
     </div>
   );
 }
