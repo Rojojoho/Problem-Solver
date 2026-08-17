@@ -15,7 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { saveSolutionRequirementRows } from "@/app/plans/[id]/actions";
+import {
+  getSolutionRequirementSuggestions,
+  saveSolutionRequirementRows,
+} from "@/app/plans/[id]/actions";
 import type { LabeledOption, SolutionRequirementRow } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
@@ -192,6 +195,7 @@ export function SolutionRequirementsTable({
               </td>
               <td className="border-r border-border p-1.5">
                 <LinkCell
+                  planId={planId}
                   row={row}
                   causeSuggestions={causeSuggestions}
                   measureSuggestions={measureSuggestions}
@@ -258,12 +262,14 @@ export function SolutionRequirementsTable({
 const INSERT_PLACEHOLDER = "__insert__";
 
 function LinkCell({
+  planId,
   row,
   causeSuggestions,
   measureSuggestions,
   onAdd,
   onRemove,
 }: {
+  planId: string;
   row: SolutionRequirementRow;
   causeSuggestions: string[];
   measureSuggestions: string[];
@@ -272,12 +278,23 @@ function LinkCell({
 }) {
   const [textInput, setTextInput] = useState("");
   const [pickerKey, setPickerKey] = useState(0);
+  // The suggestion props reflect whatever 2B/1.2 looked like when this
+  // stage's bundle was fetched, which goes stale the moment the user edits
+  // 2B/1.2 after visiting 3A (that cached bundle never refetches). Rather
+  // than plumb cross-stage cache invalidation, just fetch the current truth
+  // every time the picker opens — always correct, no staleness possible.
+  const [liveSuggestions, setLiveSuggestions] = useState<{
+    causeSuggestions: string[];
+    measureSuggestions: string[];
+  } | null>(null);
 
   function handleAddText(e: React.FormEvent) {
     e.preventDefault();
     onAdd(textInput);
     setTextInput("");
   }
+
+  const suggestions = liveSuggestions ?? { causeSuggestions, measureSuggestions };
 
   return (
     <div className="space-y-1.5">
@@ -309,41 +326,47 @@ function LinkCell({
           Add
         </Button>
       </form>
-      {(causeSuggestions.length > 0 || measureSuggestions.length > 0) && (
-        <Select
-          key={pickerKey}
-          onValueChange={(v: string | null) => {
-            if (v && v !== INSERT_PLACEHOLDER) onAdd(v);
-            setPickerKey((k) => k + 1);
-          }}
-        >
-          <SelectTrigger className="h-7 w-full text-xs" size="sm">
-            <SelectValue placeholder="Insert suggestion…" />
-          </SelectTrigger>
-          <SelectContent>
-            {causeSuggestions.length > 0 && (
-              <SelectGroup>
-                <SelectLabel>Validated causes (2.3)</SelectLabel>
-                {causeSuggestions.map((cause) => (
-                  <SelectItem key={cause} value={cause}>
-                    {cause}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            )}
-            {measureSuggestions.length > 0 && (
-              <SelectGroup>
-                <SelectLabel>Measures (1.2)</SelectLabel>
-                {measureSuggestions.map((measure) => (
-                  <SelectItem key={measure} value={measure}>
-                    {measure}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            )}
-          </SelectContent>
-        </Select>
-      )}
+      <Select
+        key={pickerKey}
+        onOpenChange={(open) => {
+          if (!open) return;
+          getSolutionRequirementSuggestions(planId)
+            .then(setLiveSuggestions)
+            .catch(() => {
+              // Keep showing whatever suggestions we already had.
+            });
+        }}
+        onValueChange={(v: string | null) => {
+          if (v && v !== INSERT_PLACEHOLDER) onAdd(v);
+          setPickerKey((k) => k + 1);
+        }}
+      >
+        <SelectTrigger className="h-7 w-full text-xs" size="sm">
+          <SelectValue placeholder="Insert suggestion…" />
+        </SelectTrigger>
+        <SelectContent>
+          {suggestions.causeSuggestions.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>Validated causes (2.3)</SelectLabel>
+              {suggestions.causeSuggestions.map((cause) => (
+                <SelectItem key={cause} value={cause}>
+                  {cause}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+          {suggestions.measureSuggestions.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>Measures (1.2)</SelectLabel>
+              {suggestions.measureSuggestions.map((measure) => (
+                <SelectItem key={measure} value={measure}>
+                  {measure}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

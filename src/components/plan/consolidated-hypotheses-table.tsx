@@ -25,8 +25,8 @@ const EMPTY_ROW: ConsolidatedHypothesisRow = {
 };
 
 const COLUMN_WIDTHS = [
-  { key: "description", defaultWidth: 320 },
   { key: "hypothesis", defaultWidth: 220 },
+  { key: "description", defaultWidth: 320 },
   { key: "validityTest", defaultWidth: 200 },
   { key: "result", defaultWidth: 200 },
 ];
@@ -99,8 +99,8 @@ export function ConsolidatedHypothesesTable({
     <div className="overflow-x-auto rounded-md border border-border">
       <table className="w-full table-fixed border-collapse text-sm">
         <colgroup>
-          <col style={{ width: widths.description }} />
           <col style={{ width: widths.hypothesis }} />
+          <col style={{ width: widths.description }} />
           <col style={{ width: widths.validityTest }} />
           <col style={{ width: widths.result }} />
           <col style={{ width: 32 }} />
@@ -108,16 +108,16 @@ export function ConsolidatedHypothesesTable({
         <thead>
           <tr className="bg-muted/50">
             <ResizableTh
-              isDragging={draggingKey === "description"}
-              onPointerDown={handlePointerDown("description", 140)}
-            >
-              Description
-            </ResizableTh>
-            <ResizableTh
               isDragging={draggingKey === "hypothesis"}
               onPointerDown={handlePointerDown("hypothesis", 140)}
             >
               Causal hypothesis
+            </ResizableTh>
+            <ResizableTh
+              isDragging={draggingKey === "description"}
+              onPointerDown={handlePointerDown("description", 140)}
+            >
+              Description
             </ResizableTh>
             <ResizableTh
               isDragging={draggingKey === "validityTest"}
@@ -137,28 +137,28 @@ export function ConsolidatedHypothesesTable({
         <tbody>
           {rows.map((row, i) => (
             <tr key={row.id} className="border-b border-border last:border-b-0">
-              <td className="border-r border-border p-0">
-                <EditableCell
-                  value={row.description}
-                  onChange={(value) => updateCell(i, "description", value)}
-                  onBlur={commitRows}
-                />
-              </td>
-              <td className="border-r border-border p-0">
+              <td className="border-r border-border p-0 align-top">
                 <EditableCell
                   value={row.hypothesis}
                   onChange={(value) => updateCell(i, "hypothesis", value)}
                   onBlur={commitRows}
                 />
               </td>
-              <td className="border-r border-border p-0">
+              <td className="border-r border-border p-0 align-top">
+                <EditableCell
+                  value={row.description}
+                  onChange={(value) => updateCell(i, "description", value)}
+                  onBlur={commitRows}
+                />
+              </td>
+              <td className="border-r border-border p-0 align-top">
                 <EditableCell
                   value={row.validityTest}
                   onChange={(value) => updateCell(i, "validityTest", value)}
                   onBlur={commitRows}
                 />
               </td>
-              <td className="border-r border-border p-1.5">
+              <td className="border-r border-border p-1.5 align-top">
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -193,7 +193,7 @@ export function ConsolidatedHypothesesTable({
                   className="mt-1.5 px-1 py-1 text-xs"
                 />
               </td>
-              <td className="p-0 text-center">
+              <td className="p-1 text-center align-top">
                 <button
                   type="button"
                   aria-label="Remove row"
