@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { saveMeasureRows } from "@/app/plans/[id]/actions";
@@ -25,6 +25,11 @@ const COLUMNS: { key: keyof MeasureRow; label: string; defaultWidth: number }[] 
 
 export function MeasuresTable({ planId, initialRows }: MeasuresTableProps) {
   const [rows, setRows] = useState<MeasureRow[]>(initialRows);
+  // Mirrors `rows` synchronously (updated inside every setter below, not via
+  // an effect) so onBlur handlers always read the truly-latest rows even if
+  // the blur fires before React has re-rendered with a fresh `commitRows`
+  // closure — e.g. switching tabs right after an edit.
+  const rowsRef = useRef<MeasureRow[]>(rows);
   const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:measures",
@@ -32,6 +37,7 @@ export function MeasuresTable({ planId, initialRows }: MeasuresTableProps) {
   );
 
   function persist(nextRows: MeasureRow[]) {
+    rowsRef.current = nextRows;
     setRows(nextRows);
     startTransition(async () => {
       try {
@@ -43,19 +49,23 @@ export function MeasuresTable({ planId, initialRows }: MeasuresTableProps) {
   }
 
   function updateCell(index: number, key: keyof MeasureRow, value: string) {
-    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
+    setRows((prev) => {
+      const next = prev.map((row, i) => (i === index ? { ...row, [key]: value } : row));
+      rowsRef.current = next;
+      return next;
+    });
   }
 
   function commitRows() {
-    persist(rows);
+    persist(rowsRef.current);
   }
 
   function addRow() {
-    persist([...rows, { ...EMPTY_ROW }]);
+    persist([...rowsRef.current, { ...EMPTY_ROW }]);
   }
 
   function removeRow(index: number) {
-    persist(rows.filter((_, i) => i !== index));
+    persist(rowsRef.current.filter((_, i) => i !== index));
   }
 
   return (

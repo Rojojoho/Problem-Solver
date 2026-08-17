@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import type { JSONContent } from "@tiptap/react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CcpsStage, PublishedStatus } from "@/lib/supabase/database.types";
 import type {
@@ -153,6 +154,7 @@ export function PlanWorkspace({
                 value={s.key}
                 className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
               >
+                {loadingStage === s.key && <Loader2 className="size-3 animate-spin" />}
                 {s.label}
               </TabsTrigger>
             ))}
@@ -186,7 +188,10 @@ export function PlanWorkspace({
                     <StagePlaceholder label={s.label} />
                   )
                 ) : loadingStage === s.key ? (
-                  <p className="text-sm text-muted-foreground">Loading…</p>
+                  <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading…
+                  </div>
                 ) : null}
               </TabsContent>
             );

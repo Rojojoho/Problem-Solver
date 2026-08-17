@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +54,11 @@ export function SolutionRequirementsTable({
   measureSuggestions,
 }: SolutionRequirementsTableProps) {
   const [rows, setRows] = useState<SolutionRequirementRow[]>(initialRows);
+  // Mirrors `rows` synchronously (updated inside every setter below, not via
+  // an effect) so onBlur/onValueChange handlers always read the truly-latest
+  // rows even if they fire before React has re-rendered with a fresh
+  // closure — e.g. switching tabs right after an edit.
+  const rowsRef = useRef<SolutionRequirementRow[]>(rows);
   const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:solution-requirements",
@@ -61,6 +66,7 @@ export function SolutionRequirementsTable({
   );
 
   function persist(nextRows: SolutionRequirementRow[]) {
+    rowsRef.current = nextRows;
     setRows(nextRows);
     startTransition(async () => {
       try {
@@ -72,26 +78,30 @@ export function SolutionRequirementsTable({
   }
 
   function updateRow(id: string, updates: Partial<SolutionRequirementRow>) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
+    setRows((prev) => {
+      const next = prev.map((r) => (r.id === id ? { ...r, ...updates } : r));
+      rowsRef.current = next;
+      return next;
+    });
   }
 
   function commitRows() {
-    persist(rows);
+    persist(rowsRef.current);
   }
 
   function addRow() {
-    persist([...rows, { ...EMPTY_ROW, id: crypto.randomUUID() }]);
+    persist([...rowsRef.current, { ...EMPTY_ROW, id: crypto.randomUUID() }]);
   }
 
   function removeRow(id: string) {
-    persist(rows.filter((r) => r.id !== id));
+    persist(rowsRef.current.filter((r) => r.id !== id));
   }
 
   function addLink(id: string, link: string) {
     const trimmed = link.trim();
     if (!trimmed) return;
     persist(
-      rows.map((r) =>
+      rowsRef.current.map((r) =>
         r.id === id && !r.links.includes(trimmed)
           ? { ...r, links: [...r.links, trimmed] }
           : r
@@ -101,7 +111,7 @@ export function SolutionRequirementsTable({
 
   function removeLink(id: string, link: string) {
     persist(
-      rows.map((r) =>
+      rowsRef.current.map((r) =>
         r.id === id ? { ...r, links: r.links.filter((l) => l !== link) } : r
       )
     );
@@ -154,7 +164,7 @@ export function SolutionRequirementsTable({
                   value={row.moscow ?? NONE}
                   onValueChange={(v) =>
                     persist(
-                      rows.map((r) =>
+                      rowsRef.current.map((r) =>
                         r.id === row.id ? { ...r, moscow: v === NONE ? null : v } : r
                       )
                     )
@@ -194,7 +204,7 @@ export function SolutionRequirementsTable({
                   value={row.type ?? NONE}
                   onValueChange={(v) =>
                     persist(
-                      rows.map((r) =>
+                      rowsRef.current.map((r) =>
                         r.id === row.id ? { ...r, type: v === NONE ? null : v } : r
                       )
                     )

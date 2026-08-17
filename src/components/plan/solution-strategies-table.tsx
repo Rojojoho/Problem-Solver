@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,11 @@ export function SolutionStrategiesTable({
   strategyStatuses,
 }: SolutionStrategiesTableProps) {
   const [rows, setRows] = useState<SolutionStrategyRow[]>(initialRows);
+  // Mirrors `rows` synchronously (updated inside every setter below, not via
+  // an effect) so onBlur/onValueChange handlers always read the truly-latest
+  // rows even if they fire before React has re-rendered with a fresh
+  // closure — e.g. switching tabs right after an edit.
+  const rowsRef = useRef<SolutionStrategyRow[]>(rows);
   const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:solution-strategies",
@@ -51,6 +56,7 @@ export function SolutionStrategiesTable({
   );
 
   function persist(nextRows: SolutionStrategyRow[]) {
+    rowsRef.current = nextRows;
     setRows(nextRows);
     startTransition(async () => {
       try {
@@ -66,21 +72,23 @@ export function SolutionStrategiesTable({
     key: "strategy" | "description" | "theoryOfAction",
     value: string
   ) {
-    setRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, [key]: value } : row))
-    );
+    setRows((prev) => {
+      const next = prev.map((row, i) => (i === index ? { ...row, [key]: value } : row));
+      rowsRef.current = next;
+      return next;
+    });
   }
 
   function commitRows() {
-    persist(rows);
+    persist(rowsRef.current);
   }
 
   function addRow() {
-    persist([...rows, { ...EMPTY_ROW, id: crypto.randomUUID() }]);
+    persist([...rowsRef.current, { ...EMPTY_ROW, id: crypto.randomUUID() }]);
   }
 
   function removeRow(index: number) {
-    persist(rows.filter((_, i) => i !== index));
+    persist(rowsRef.current.filter((_, i) => i !== index));
   }
 
   return (
@@ -151,7 +159,7 @@ export function SolutionStrategiesTable({
                   value={row.status ?? NONE}
                   onValueChange={(v: string | null) =>
                     persist(
-                      rows.map((r, idx) =>
+                      rowsRef.current.map((r, idx) =>
                         idx === i ? { ...r, status: v === NONE ? null : v } : r
                       )
                     )

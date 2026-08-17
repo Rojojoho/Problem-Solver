@@ -43,7 +43,6 @@ import {
   listRequirementTypes,
   listMoscowOptions,
   listSolutionStrategyStatuses,
-  listStages,
 } from "@/lib/db";
 
 // Stage 4's table mirrors Stage 3B's solution strategies live — shared by
@@ -263,14 +262,22 @@ export async function publishPlan(planId: string) {
 // Bundles everything a single stage tab needs into one call, so switching to
 // a stage that hasn't been loaded yet costs one round trip instead of
 // fetching all 5 stages' worth of data up front (see plan-workspace.tsx).
+//
+// `stage` is trusted rather than re-validated against `listStages()` here —
+// that would be a whole extra sequential round trip on every single stage
+// switch (blocking the Promise.all below from even starting) to guard
+// against a value that can only ever come from a tab the UI already
+// rendered from that same stages list.
 export async function getStageBundle(
   planId: string,
   stage: CcpsStage
 ): Promise<StageBundle> {
-  const stages = await listStages();
-  if (!stages.some((s) => s.key === stage)) {
-    throw new Error(`Unknown stage: ${stage}`);
-  }
+  // Checklist/checklist-state/exemplars are only ever displayed once we know
+  // the stage actually has fields (an empty-fields stage renders "Coming
+  // soon" and its side panel shows "Not available") — chaining them off the
+  // (fast) fields query lets a blank stage skip 3 queries entirely, while
+  // every independent query below still starts immediately in parallel.
+  const fieldsPromise = getStageFields(stage);
 
   const [
     fields,
@@ -285,11 +292,13 @@ export async function getStageBundle(
     strategyStatuses,
     strategyRows,
   ] = await Promise.all([
-    getStageFields(stage),
+    fieldsPromise,
     getStageResponses(planId, stage),
-    getChecklistItems(planId, stage),
-    getChecklistState(planId),
-    getExemplars(stage),
+    fieldsPromise.then((f) => (f.length ? getChecklistItems(planId, stage) : [])),
+    fieldsPromise.then((f) =>
+      f.length ? getChecklistState(planId) : Promise.resolve({} as Record<string, boolean>)
+    ),
+    fieldsPromise.then((f) => (f.length ? getExemplars(stage) : [])),
     stage === "PC" ? listValidationOptions() : Promise.resolve([]),
     stage === "SR" ? listRequirementTypes() : Promise.resolve([]),
     stage === "SR" ? listMoscowOptions() : Promise.resolve([]),

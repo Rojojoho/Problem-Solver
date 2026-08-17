@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,11 @@ export function ConsolidatedHypothesesTable({
   initialRows,
 }: ConsolidatedHypothesesTableProps) {
   const [rows, setRows] = useState<ConsolidatedHypothesisRow[]>(initialRows);
+  // Mirrors `rows` synchronously (updated inside every setter below, not via
+  // an effect) so onBlur handlers always read the truly-latest rows even if
+  // the blur fires before React has re-rendered with a fresh `commitRows`
+  // closure — e.g. switching tabs right after an edit.
+  const rowsRef = useRef<ConsolidatedHypothesisRow[]>(rows);
   const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:consolidated-hypotheses",
@@ -41,6 +46,7 @@ export function ConsolidatedHypothesesTable({
   );
 
   function persist(nextRows: ConsolidatedHypothesisRow[]) {
+    rowsRef.current = nextRows;
     setRows(nextRows);
     startTransition(async () => {
       try {
@@ -56,18 +62,20 @@ export function ConsolidatedHypothesesTable({
     key: "hypothesis" | "validityTest" | "notes",
     value: string
   ) {
-    setRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, [key]: value } : row))
-    );
+    setRows((prev) => {
+      const next = prev.map((row, i) => (i === index ? { ...row, [key]: value } : row));
+      rowsRef.current = next;
+      return next;
+    });
   }
 
   function commitRows() {
-    persist(rows);
+    persist(rowsRef.current);
   }
 
   function setConfirmed(index: number, confirmed: boolean) {
     persist(
-      rows.map((row, i) =>
+      rowsRef.current.map((row, i) =>
         i === index
           ? { ...row, confirmed: row.confirmed === confirmed ? null : confirmed }
           : row
@@ -76,11 +84,11 @@ export function ConsolidatedHypothesesTable({
   }
 
   function addRow() {
-    persist([...rows, { ...EMPTY_ROW, id: crypto.randomUUID() }]);
+    persist([...rowsRef.current, { ...EMPTY_ROW, id: crypto.randomUUID() }]);
   }
 
   function removeRow(index: number) {
-    persist(rows.filter((_, i) => i !== index));
+    persist(rowsRef.current.filter((_, i) => i !== index));
   }
 
   return (

@@ -38,6 +38,12 @@ export default async function PlanPage({
 
   const stage = plan.current_stage;
 
+  // Checklist/checklist-state/exemplars are only ever displayed once we know
+  // the stage actually has fields — chaining them off the (fast) fields
+  // query lets a blank stage skip 3 queries entirely, while every
+  // independent query below still starts immediately in parallel.
+  const fieldsPromise = getStageFields(stage);
+
   const [
     fields,
     responses,
@@ -56,11 +62,13 @@ export default async function PlanPage({
     strategyRows,
     stages,
   ] = await Promise.all([
-    getStageFields(stage),
+    fieldsPromise,
     getStageResponses(id, stage),
-    getChecklistItems(id, stage),
-    getExemplars(stage),
-    getChecklistState(id),
+    fieldsPromise.then((f) => (f.length ? getChecklistItems(id, stage) : [])),
+    fieldsPromise.then((f) => (f.length ? getExemplars(stage) : [])),
+    fieldsPromise.then((f) =>
+      f.length ? getChecklistState(id) : Promise.resolve({} as Record<string, boolean>)
+    ),
     getFeedback(id),
     getLatestPublishedPlanForSource(id),
     listKbArticles(true),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { ArrowUpDown, Plus, Strikethrough, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +58,12 @@ export function HypothesesTable({
 }: HypothesesTableProps) {
   const [rows, setRows] = useState<HypothesisRow[]>(initialRows);
   const [categories, setCategories] = useState<string[]>(initialCategories);
+  // Mirror `rows`/`categories` synchronously (updated inside every setter
+  // below, not via an effect) so onBlur/onValueChange handlers always read
+  // the truly-latest state even if they fire before React has re-rendered
+  // with a fresh closure — e.g. switching tabs right after an edit.
+  const rowsRef = useRef<HypothesisRow[]>(rows);
+  const categoriesRef = useRef<string[]>(categories);
   const [categoryInput, setCategoryInput] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkText, setBulkText] = useState("");
@@ -69,6 +75,7 @@ export function HypothesesTable({
   );
 
   function persistRows(nextRows: HypothesisRow[]) {
+    rowsRef.current = nextRows;
     setRows(nextRows);
     startTransition(async () => {
       try {
@@ -80,6 +87,7 @@ export function HypothesesTable({
   }
 
   function persistCategories(nextCategories: string[]) {
+    categoriesRef.current = nextCategories;
     setCategories(nextCategories);
     startTransition(async () => {
       try {
@@ -91,15 +99,19 @@ export function HypothesesTable({
   }
 
   function updateRow(id: string, updates: Partial<HypothesisRow>) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
+    setRows((prev) => {
+      const next = prev.map((r) => (r.id === id ? { ...r, ...updates } : r));
+      rowsRef.current = next;
+      return next;
+    });
   }
 
   function commitRows() {
-    persistRows(rows);
+    persistRows(rowsRef.current);
   }
 
   function removeRow(id: string) {
-    persistRows(rows.filter((r) => r.id !== id));
+    persistRows(rowsRef.current.filter((r) => r.id !== id));
   }
 
   function addBulkHypotheses() {
@@ -118,7 +130,7 @@ export function HypothesesTable({
       validation: null,
       struck: false,
     }));
-    persistRows([...rows, ...newRows]);
+    persistRows([...rowsRef.current, ...newRows]);
     setBulkText("");
     setBulkOpen(false);
   }
@@ -126,13 +138,13 @@ export function HypothesesTable({
   function handleAddCategory(e: React.FormEvent) {
     e.preventDefault();
     const category = categoryInput.trim();
-    if (!category || categories.includes(category)) return;
-    persistCategories([...categories, category]);
+    if (!category || categoriesRef.current.includes(category)) return;
+    persistCategories([...categoriesRef.current, category]);
     setCategoryInput("");
   }
 
   function handleRemoveCategory(category: string) {
-    persistCategories(categories.filter((c) => c !== category));
+    persistCategories(categoriesRef.current.filter((c) => c !== category));
   }
 
   function toggleSort(key: SortKey) {
@@ -245,7 +257,7 @@ export function HypothesesTable({
                     onValueChange={(v) => {
                       const next = v === NONE ? null : v;
                       persistRows(
-                        rows.map((r) =>
+                        rowsRef.current.map((r) =>
                           r.id === row.id ? { ...r, category: next } : r
                         )
                       );
@@ -272,7 +284,7 @@ export function HypothesesTable({
                     onValueChange={(v) => {
                       const next = v === NONE ? null : v;
                       persistRows(
-                        rows.map((r) =>
+                        rowsRef.current.map((r) =>
                           r.id === row.id ? { ...r, validation: next } : r
                         )
                       );
@@ -301,7 +313,7 @@ export function HypothesesTable({
                       aria-pressed={row.struck}
                       onClick={() =>
                         persistRows(
-                          rows.map((r) =>
+                          rowsRef.current.map((r) =>
                             r.id === row.id ? { ...r, struck: !r.struck } : r
                           )
                         )
