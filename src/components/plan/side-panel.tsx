@@ -13,6 +13,7 @@ import { ChecklistPanel } from "@/components/plan/checklist-panel";
 import { ExemplarPanel } from "@/components/plan/exemplar-panel";
 import { FeedbackPanel } from "@/components/plan/feedback-panel";
 import { KbPanel } from "@/components/plan/kb-panel";
+import { AskPanel } from "@/components/plan/ask-panel";
 
 interface SidePanelProps {
   planId: string;
@@ -52,6 +53,9 @@ export function SidePanel({
         <TabsTrigger value="kb" className="flex-1">
           Knowledge Base
         </TabsTrigger>
+        <TabsTrigger value="ask" className="flex-1">
+          Ask
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="checklist" className="mt-4">
@@ -76,6 +80,10 @@ export function SidePanel({
 
       <TabsContent value="kb" className="mt-4">
         <KbPanel stage={stage} articles={kbArticles} />
+      </TabsContent>
+
+      <TabsContent value="ask" className="mt-4">
+        <AskPanel />
       </TabsContent>
     </Tabs>
   );
