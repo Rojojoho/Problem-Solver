@@ -16,11 +16,17 @@ import { StageForm } from "@/components/plan/stage-form";
 import { StagePlaceholder } from "@/components/plan/stage-placeholder";
 import { SidePanel } from "@/components/plan/side-panel";
 import { PublishButton } from "@/components/plan/publish-button";
+import { ExportPlanButton } from "@/components/plan/export-plan-button";
 import { PlanDetailsForm } from "@/components/plan/plan-details-form";
-import { getStageBundle } from "@/app/plans/[id]/actions";
+import { SummaryTab } from "@/components/plan/summary-tab";
+import {
+  getStageBundle,
+  getPlanSummary,
+  type PlanSummaryData,
+} from "@/app/plans/[id]/actions";
 import { cn } from "@/lib/utils";
 
-type WorkspaceTab = CcpsStage | "details";
+type WorkspaceTab = CcpsStage | "details" | "summary";
 
 const PANEL_WIDTH_KEY = "ccps:side-panel-width";
 const DEFAULT_PANEL_WIDTH = 380;
@@ -58,6 +64,8 @@ export function PlanWorkspace({
     [initialStage]: initialBundle,
   });
   const [loadingStage, setLoadingStage] = useState<CcpsStage | null>(null);
+  const [summaryData, setSummaryData] = useState<PlanSummaryData | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [, startTransition] = useTransition();
   // Starts at the default on both server and client so the first render
   // matches for hydration — the saved width (if any) is applied right after
@@ -107,6 +115,23 @@ export function PlanWorkspace({
     const next = value as WorkspaceTab;
     setStage(next);
 
+    if (next === "summary") {
+      // Re-fetches every visit rather than caching — Summary rolls up
+      // content from four different stages, any of which could have
+      // changed since the last time it was open.
+      setSummaryLoading(true);
+      startTransition(async () => {
+        try {
+          setSummaryData(await getPlanSummary(planId));
+        } catch {
+          toast.error("Couldn't load the summary.");
+        } finally {
+          setSummaryLoading(false);
+        }
+      });
+      return;
+    }
+
     // Only fetch a stage's data the first time it's visited — once cached,
     // switching back and forth is instant with no extra round trip.
     if (next !== "details" && !bundles[next]) {
@@ -136,7 +161,7 @@ export function PlanWorkspace({
     });
   }
 
-  const showPanel = stage !== "details";
+  const showPanel = stage !== "details" && stage !== "summary";
 
   return (
     <div className="relative">
@@ -151,7 +176,10 @@ export function PlanWorkspace({
         <Tabs value={stage} onValueChange={handleStageChange}>
           <div className="mb-4 flex items-center justify-between gap-4">
             <h1 className="text-2xl font-semibold">{planName}</h1>
-            <PublishButton planId={planId} status={publishStatus} />
+            <div className="flex items-center gap-2">
+              <ExportPlanButton planId={planId} planName={planName} />
+              <PublishButton planId={planId} status={publishStatus} />
+            </div>
           </div>
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger
@@ -159,6 +187,13 @@ export function PlanWorkspace({
               className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
             >
               Plan Details
+            </TabsTrigger>
+            <TabsTrigger
+              value="summary"
+              className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+            >
+              {summaryLoading && <Loader2 className="size-3 animate-spin" />}
+              Summary
             </TabsTrigger>
             {stages.map((s) => (
               <TabsTrigger
@@ -174,6 +209,17 @@ export function PlanWorkspace({
 
           <TabsContent value="details" className="mt-6" keepMounted>
             <PlanDetailsForm planId={planId} background={background} tags={tags} />
+          </TabsContent>
+
+          <TabsContent value="summary" className="mt-6" keepMounted>
+            {summaryData ? (
+              <SummaryTab {...summaryData} />
+            ) : summaryLoading ? (
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                Loading…
+              </div>
+            ) : null}
           </TabsContent>
 
           {stages.map((s) => {

@@ -1,0 +1,54 @@
+"use client";
+
+import { TiptapEditor } from "@/components/tiptap-editor";
+import type { PlanSummaryData } from "@/app/plans/[id]/actions";
+
+export function SummaryTab({ fields, requirements, strategies }: PlanSummaryData) {
+  return (
+    <div className="max-w-3xl space-y-6">
+      {fields.map((field) => (
+        <div key={field.fieldKey} className="space-y-1.5">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <span className="font-mono text-xs text-muted-foreground">
+              {field.internalId}
+            </span>
+            {field.label}
+          </h3>
+          <TiptapEditor content={field.content} editable={false} />
+        </div>
+      ))}
+
+      <div className="space-y-1.5">
+        <h3 className="text-sm font-semibold">
+          Solutions will need to meet the following requirements:
+        </h3>
+        {requirements.length ? (
+          <ul className="list-inside list-disc space-y-1 text-sm">
+            {requirements.map((requirement, i) => (
+              <li key={i}>{requirement}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No solution requirements added yet.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <h3 className="text-sm font-semibold">Proposed solution strategies:</h3>
+        {strategies.length ? (
+          <ul className="list-inside list-disc space-y-1 text-sm">
+            {strategies.map((strategy, i) => (
+              <li key={i}>{strategy}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No solution strategies added yet.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}

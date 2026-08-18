@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { JSONContent } from "@tiptap/react";
 import {
   asRowArray,
+  EMPTY_DOC,
   MEASURES_FIELD_KEY,
   CAUSAL_HYPOTHESES_FIELD_KEY,
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
@@ -41,7 +42,117 @@ import {
   getExemplars,
   listValidationOptions,
   listRequirementTypes,
+  getPlan,
+  getPlanTags,
+  listStages,
 } from "@/lib/db";
+
+export interface PlanExport {
+  version: 1;
+  name: string;
+  background: JSONContent;
+  tags: string[];
+  // stage key -> field_key -> content
+  responses: Record<string, Record<string, JSONContent>>;
+}
+
+// A quick way to move a plan between two separate environments (e.g. a
+// local dev Supabase project and the one Vercel deploys against) that
+// don't share a database — download here, upload there via importPlan
+// in plans/actions.ts. Not a full backup: feedback comments, checklist
+// progress, and publish history are intentionally left out since this is
+// meant for moving working content around, not archiving everything.
+export async function exportPlan(planId: string): Promise<PlanExport> {
+  const plan = await getPlan(planId);
+  if (!plan) throw new Error("Plan not found.");
+
+  const [stages, tags] = await Promise.all([listStages(), getPlanTags(planId)]);
+
+  const responses: Record<string, Record<string, JSONContent>> = {};
+  await Promise.all(
+    stages.map(async (stage) => {
+      const stageResponses = await getStageResponses(
+        planId,
+        stage.key as CcpsStage
+      );
+      if (Object.keys(stageResponses).length) {
+        responses[stage.key] = stageResponses;
+      }
+    })
+  );
+
+  return {
+    version: 1,
+    name: plan.name,
+    background: plan.background ?? EMPTY_DOC,
+    tags,
+    responses,
+  };
+}
+
+export interface PlanSummaryField {
+  fieldKey: string;
+  internalId: string;
+  label: string;
+  content: JSONContent;
+}
+
+export interface PlanSummaryData {
+  fields: PlanSummaryField[];
+  requirements: string[];
+  strategies: string[];
+}
+
+// Fixed set of fields the Summary tab surfaces, independent of whichever
+// stage tabs the user has actually visited this session.
+const SUMMARY_FIELD_KEYS = [
+  "pi_problem_description", // 1.1
+  "pi_educational_argument", // 1.3
+  "cv_validated_causal_story", // 2.4
+] as const;
+
+// Read-only rollup of a plan's key content — pulled fresh every time the
+// Summary tab is opened (same live-fetch reasoning as the cross-stage
+// suggestion pickers elsewhere in this file: a cached snapshot would go
+// stale the moment 1/2B/3A/3B are edited after Summary was last visited).
+export async function getPlanSummary(planId: string): Promise<PlanSummaryData> {
+  const [piFields, cvFields, piResponses, cvResponses, srResponses, ssResponses] =
+    await Promise.all([
+      getStageFields("PI"),
+      getStageFields("CV"),
+      getStageResponses(planId, "PI"),
+      getStageResponses(planId, "CV"),
+      getStageResponses(planId, "SR"),
+      getStageResponses(planId, "SS"),
+    ]);
+
+  const fieldMeta = [...piFields, ...cvFields];
+  const responses: Record<string, JSONContent> = { ...piResponses, ...cvResponses };
+
+  const fields = SUMMARY_FIELD_KEYS.map((fieldKey) => {
+    const meta = fieldMeta.find((f) => f.field_key === fieldKey);
+    return {
+      fieldKey,
+      internalId: meta?.internal_id ?? "",
+      label: meta?.full_prompt ?? fieldKey,
+      content: responses[fieldKey] ?? EMPTY_DOC,
+    };
+  });
+
+  const requirements = asRowArray<SolutionRequirementRow>(
+    srResponses[SOLUTION_REQUIREMENTS_FIELD_KEY]
+  )
+    .map((r) => r.requirement)
+    .filter(Boolean);
+
+  const strategies = asRowArray<SolutionStrategyRow>(
+    ssResponses[SOLUTION_STRATEGIES_FIELD_KEY]
+  )
+    .map((r) => r.strategy)
+    .filter(Boolean);
+
+  return { fields, requirements, strategies };
+}
 
 // Stage 4's table mirrors Stage 3B's solution strategies live — shared by
 // getStageBundle (below) and plans/[id]/page.tsx's initial-load equivalent.
