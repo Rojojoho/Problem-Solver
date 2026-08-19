@@ -26,16 +26,22 @@ import {
   getSolutionRequirementSuggestions,
   saveSolutionRequirementRows,
 } from "@/app/plans/[id]/actions";
-import type { LabeledOption, SolutionRequirementRow } from "@/lib/ccps/types";
+import type {
+  LabeledOption,
+  LinkRef,
+  SolutionRequirementRow,
+} from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
+import { cn } from "@/lib/utils";
 
 interface SolutionRequirementsTableProps {
   planId: string;
   initialRows: SolutionRequirementRow[];
   requirementTypes: LabeledOption[];
-  causeSuggestions: string[];
+  causeOptions: { id: string; label: string }[];
   measureSuggestions: string[];
+  onDataChanged?: () => void;
 }
 
 const NONE = "__none__";
@@ -47,8 +53,16 @@ function blankRow(shortId: string): SolutionRequirementRow {
 // Old rows lack `shortId` (added after the fact) — default it the same way a
 // freshly-added row would get one, keyed off its position among the rows
 // being normalized so existing plans don't all collapse to "Requirement 1".
+// Links used to be plain strings (before ref/text links existed) — treat any
+// of those as a `text` link so nothing silently disappears.
 function normalizeRows(rows: SolutionRequirementRow[]): SolutionRequirementRow[] {
-  return rows.map((row, i) => ({ ...row, shortId: row.shortId || `Requirement ${i + 1}` }));
+  return rows.map((row, i) => ({
+    ...row,
+    shortId: row.shortId || `Requirement ${i + 1}`,
+    links: (row.links ?? []).map((link) =>
+      typeof link === "string" ? { type: "text", value: link } : link
+    ),
+  }));
 }
 
 const COLUMN_WIDTHS = [
@@ -62,8 +76,9 @@ export function SolutionRequirementsTable({
   planId,
   initialRows,
   requirementTypes,
-  causeSuggestions,
+  causeOptions,
   measureSuggestions,
+  onDataChanged,
 }: SolutionRequirementsTableProps) {
   const [rows, setRows] = useState<SolutionRequirementRow[]>(() =>
     normalizeRows(initialRows)
@@ -86,6 +101,7 @@ export function SolutionRequirementsTable({
     startTransition(async () => {
       try {
         await saveSolutionRequirementRows(planId, nextRows);
+        onDataChanged?.();
       } catch {
         toast.error("Couldn't save the solution requirements table.");
       }
@@ -112,22 +128,24 @@ export function SolutionRequirementsTable({
     persist(rowsRef.current.filter((r) => r.id !== id));
   }
 
-  function addLink(id: string, link: string) {
-    const trimmed = link.trim();
-    if (!trimmed) return;
+  function addLink(id: string, link: LinkRef) {
     persist(
-      rowsRef.current.map((r) =>
-        r.id === id && !r.links.includes(trimmed)
-          ? { ...r, links: [...r.links, trimmed] }
-          : r
-      )
+      rowsRef.current.map((r) => {
+        if (r.id !== id) return r;
+        const exists = r.links.some(
+          (l) =>
+            (l.type === "ref" && link.type === "ref" && l.targetId === link.targetId) ||
+            (l.type === "text" && link.type === "text" && l.value === link.value)
+        );
+        return exists ? r : { ...r, links: [...r.links, link] };
+      })
     );
   }
 
-  function removeLink(id: string, link: string) {
+  function removeLink(id: string, index: number) {
     persist(
       rowsRef.current.map((r) =>
-        r.id === id ? { ...r, links: r.links.filter((l) => l !== link) } : r
+        r.id === id ? { ...r, links: r.links.filter((_, i) => i !== index) } : r
       )
     );
   }
@@ -235,10 +253,10 @@ export function SolutionRequirementsTable({
                 <LinkCell
                   planId={planId}
                   row={row}
-                  causeSuggestions={causeSuggestions}
+                  causeOptions={causeOptions}
                   measureSuggestions={measureSuggestions}
                   onAdd={(link) => addLink(row.id, link)}
-                  onRemove={(link) => removeLink(row.id, link)}
+                  onRemove={(index) => removeLink(row.id, index)}
                 />
               </td>
               <td className="border-r border-border p-1">
@@ -300,40 +318,43 @@ export function SolutionRequirementsTable({
 function LinkCell({
   planId,
   row,
-  causeSuggestions,
+  causeOptions,
   measureSuggestions,
   onAdd,
   onRemove,
 }: {
   planId: string;
   row: SolutionRequirementRow;
-  causeSuggestions: string[];
+  causeOptions: { id: string; label: string }[];
   measureSuggestions: string[];
-  onAdd: (link: string) => void;
-  onRemove: (link: string) => void;
+  onAdd: (link: LinkRef) => void;
+  onRemove: (index: number) => void;
 }) {
   const [text, setText] = useState("");
-  // The suggestion list goes stale the moment 2B/1.2 are edited after this
+  // The options/suggestions go stale the moment 2B/1.2 are edited after this
   // stage's bundle was fetched — fetch the current truth every time the
   // combobox opens instead of trusting a cached prop (see actions.ts). Starts
-  // from the SSR-provided props so the first open isn't empty.
-  const [liveSuggestions, setLiveSuggestions] = useState<{
-    causeSuggestions: string[];
+  // from the SSR-provided props so the first open isn't empty, and so
+  // already-added ref badges below can resolve their current label even
+  // before the combobox has ever been opened.
+  const [liveOptions, setLiveOptions] = useState<{
+    causeOptions: { id: string; label: string }[];
     measureSuggestions: string[];
   } | null>(null);
-  const suggestions = liveSuggestions ?? { causeSuggestions, measureSuggestions };
+  const options = liveOptions ?? { causeOptions, measureSuggestions };
+  const causeLabelById = new Map(options.causeOptions.map((c) => [c.id, c.label]));
 
   const query = text.trim().toLowerCase();
   const filteredCauses = query
-    ? suggestions.causeSuggestions.filter((c) => c.toLowerCase().includes(query))
-    : suggestions.causeSuggestions;
+    ? options.causeOptions.filter((c) => c.label.toLowerCase().includes(query))
+    : options.causeOptions;
   const filteredMeasures = query
-    ? suggestions.measureSuggestions.filter((m) => m.toLowerCase().includes(query))
-    : suggestions.measureSuggestions;
+    ? options.measureSuggestions.filter((m) => m.toLowerCase().includes(query))
+    : options.measureSuggestions;
 
   function commitText() {
     if (!text.trim()) return;
-    onAdd(text);
+    onAdd({ type: "text", value: text.trim() });
     setText("");
   }
 
@@ -341,40 +362,52 @@ function LinkCell({
     <div className="space-y-1.5">
       {row.links.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {row.links.map((link) => (
-            <Badge
-              key={link}
-              variant="outline"
-              className="h-auto max-w-full items-start gap-1 py-1 whitespace-normal break-words"
-            >
-              <span className="min-w-0">{link}</span>
-              <button
-                type="button"
-                aria-label={`Remove ${link} link`}
-                onClick={() => onRemove(link)}
-                className="ml-0.5 shrink-0 hover:text-destructive"
+          {row.links.map((link, index) => {
+            const label =
+              link.type === "ref"
+                ? (causeLabelById.get(link.targetId) ?? null)
+                : link.value;
+            const isDangling = link.type === "ref" && label === null;
+            return (
+              <Badge
+                key={link.type === "ref" ? `ref:${link.targetId}` : `text:${index}:${link.value}`}
+                variant="outline"
+                className="h-auto max-w-full items-start gap-1 py-1 whitespace-normal break-words"
               >
-                ×
-              </button>
-            </Badge>
-          ))}
+                <span className={cn("min-w-0", isDangling && "text-muted-foreground italic")}>
+                  {isDangling ? "Deleted item" : label}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Remove link"
+                  onClick={() => onRemove(index)}
+                  className="ml-0.5 shrink-0 hover:text-destructive"
+                >
+                  ×
+                </button>
+              </Badge>
+            );
+          })}
         </div>
       )}
       <Combobox
         inputValue={text}
         onInputValueChange={(value) => setText(value)}
         onValueChange={(value) => {
-          if (typeof value === "string" && value) {
-            onAdd(value);
-            setText("");
+          if (typeof value !== "string" || !value) return;
+          if (value.startsWith("cause:")) {
+            onAdd({ type: "ref", targetId: value.slice("cause:".length) });
+          } else if (value.startsWith("measure:")) {
+            onAdd({ type: "text", value: value.slice("measure:".length) });
           }
+          setText("");
         }}
         onOpenChange={(open) => {
           if (!open) return;
           getSolutionRequirementSuggestions(planId)
-            .then(setLiveSuggestions)
+            .then(setLiveOptions)
             .catch(() => {
-              // Keep showing whatever suggestions we already had.
+              // Keep showing whatever options we already had.
             });
         }}
       >
@@ -398,8 +431,8 @@ function LinkCell({
             <ComboboxGroup>
               <ComboboxGroupLabel>Validated causes (2.3)</ComboboxGroupLabel>
               {filteredCauses.map((cause) => (
-                <ComboboxItem key={cause} value={cause}>
-                  {cause}
+                <ComboboxItem key={cause.id} value={`cause:${cause.id}`}>
+                  {cause.label}
                 </ComboboxItem>
               ))}
             </ComboboxGroup>
@@ -408,7 +441,7 @@ function LinkCell({
             <ComboboxGroup>
               <ComboboxGroupLabel>Measures (1.2)</ComboboxGroupLabel>
               {filteredMeasures.map((measure) => (
-                <ComboboxItem key={measure} value={measure}>
+                <ComboboxItem key={measure} value={`measure:${measure}`}>
                   {measure}
                 </ComboboxItem>
               ))}

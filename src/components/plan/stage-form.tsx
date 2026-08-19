@@ -44,8 +44,9 @@ interface StageFormProps {
   initialResponses: Record<string, JSONContent>;
   validationOptions: ValidationOption[];
   requirementTypes: LabeledOption[];
-  causeSuggestions: string[];
+  causeOptions: { id: string; label: string }[];
   measureSuggestions: string[];
+  requirementOptions: { id: string; label: string }[];
   strategyRows: SolutionStrategyRow[];
   onStageDataChanged?: (stage: CcpsStage) => void;
 }
@@ -58,8 +59,9 @@ export function StageForm({
   initialResponses,
   validationOptions,
   requirementTypes,
-  causeSuggestions,
+  causeOptions,
   measureSuggestions,
+  requirementOptions,
   strategyRows,
   onStageDataChanged,
 }: StageFormProps) {
@@ -113,6 +115,7 @@ export function StageForm({
                 initialRows={asRowArray<ConsolidatedHypothesisRow>(
                   initialResponses[CONSOLIDATED_HYPOTHESES_FIELD_KEY]
                 )}
+                onDataChanged={() => onStageDataChanged?.("SR")}
               />
             ) : field.field_key === SOLUTION_REQUIREMENTS_FIELD_KEY ? (
               <SolutionRequirementsTable
@@ -121,8 +124,9 @@ export function StageForm({
                   initialResponses[SOLUTION_REQUIREMENTS_FIELD_KEY]
                 )}
                 requirementTypes={asRowArray<LabeledOption>(requirementTypes)}
-                causeSuggestions={asRowArray<string>(causeSuggestions)}
+                causeOptions={causeOptions}
                 measureSuggestions={asRowArray<string>(measureSuggestions)}
+                onDataChanged={() => onStageDataChanged?.("SS")}
               />
             ) : field.field_key === SOLUTION_STRATEGIES_FIELD_KEY ? (
               <SolutionStrategiesTable
@@ -130,6 +134,7 @@ export function StageForm({
                 initialRows={asRowArray<SolutionStrategyRow>(
                   initialResponses[SOLUTION_STRATEGIES_FIELD_KEY]
                 )}
+                requirementOptions={requirementOptions}
               />
             ) : field.field_key === IMPLEMENTATION_MONITORING_FIELD_KEY ? (
               <ImplementationMonitoringTable

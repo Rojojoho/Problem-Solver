@@ -236,8 +236,9 @@ export function PlanWorkspace({
                       initialResponses={bundle.responses}
                       validationOptions={bundle.validationOptions}
                       requirementTypes={bundle.requirementTypes}
-                      causeSuggestions={bundle.causeSuggestions}
+                      causeOptions={bundle.causeOptions}
                       measureSuggestions={bundle.measureSuggestions}
+                      requirementOptions={bundle.requirementOptions}
                       strategyRows={bundle.strategyRows}
                       onStageDataChanged={invalidateStage}
                     />

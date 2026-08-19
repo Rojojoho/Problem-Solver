@@ -13,40 +13,49 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  getSolutionRequirementShortIds,
+  getSolutionRequirementOptions,
   saveSolutionStrategyRows,
 } from "@/app/plans/[id]/actions";
-import type { SolutionStrategyRow } from "@/lib/ccps/types";
+import type { LinkRef, SolutionStrategyRow } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
+import { cn } from "@/lib/utils";
 
 interface SolutionStrategiesTableProps {
   planId: string;
   initialRows: SolutionStrategyRow[];
+  requirementOptions: { id: string; label: string }[];
 }
 
 const EMPTY_ROW: Omit<SolutionStrategyRow, "id"> = {
   strategy: "",
   description: "",
-  theoryOfAction: "",
   links: [],
 };
 
 const COLUMN_WIDTHS = [
-  { key: "strategy", defaultWidth: 200 },
-  { key: "description", defaultWidth: 240 },
-  { key: "theoryOfAction", defaultWidth: 240 },
-  { key: "link", defaultWidth: 180 },
+  { key: "strategy", defaultWidth: 220 },
+  { key: "description", defaultWidth: 300 },
+  { key: "link", defaultWidth: 220 },
 ];
 
-// Old rows lack `links` (added after Status was removed) — default it on read.
+// Old rows lack `links`, or have it as plain strings from before ref/text
+// links existed — normalize both on read. A legacy plain string becomes a
+// dangling ref-less "text" link so nothing silently disappears; going
+// forward 3B only ever produces `ref` links (its dropdown is picks-only).
 function normalizeRows(rows: SolutionStrategyRow[]): SolutionStrategyRow[] {
-  return rows.map((row) => ({ ...row, links: row.links ?? [] }));
+  return rows.map((row) => ({
+    ...row,
+    links: (row.links ?? []).map((link) =>
+      typeof link === "string" ? { type: "text", value: link } : link
+    ),
+  }));
 }
 
 export function SolutionStrategiesTable({
   planId,
   initialRows,
+  requirementOptions,
 }: SolutionStrategiesTableProps) {
   const [rows, setRows] = useState<SolutionStrategyRow[]>(() => normalizeRows(initialRows));
   // Mirrors `rows` synchronously (updated inside every setter below, not via
@@ -72,11 +81,7 @@ export function SolutionStrategiesTable({
     });
   }
 
-  function updateCell(
-    index: number,
-    key: "strategy" | "description" | "theoryOfAction",
-    value: string
-  ) {
+  function updateCell(index: number, key: "strategy" | "description", value: string) {
     setRows((prev) => {
       const next = prev.map((row, i) => (i === index ? { ...row, [key]: value } : row));
       rowsRef.current = next;
@@ -96,21 +101,27 @@ export function SolutionStrategiesTable({
     persist(rowsRef.current.filter((_, i) => i !== index));
   }
 
-  function toggleLink(id: string, link: string, checked: boolean) {
+  function toggleLink(id: string, targetId: string, checked: boolean) {
     persist(
       rowsRef.current.map((r) => {
         if (r.id !== id) return r;
-        const has = r.links.includes(link);
+        const has = r.links.some((l) => l.type === "ref" && l.targetId === targetId);
         if (checked === has) return r;
-        return { ...r, links: checked ? [...r.links, link] : r.links.filter((l) => l !== link) };
+        const link: LinkRef = { type: "ref", targetId };
+        return {
+          ...r,
+          links: checked
+            ? [...r.links, link]
+            : r.links.filter((l) => !(l.type === "ref" && l.targetId === targetId)),
+        };
       })
     );
   }
 
-  function removeLink(id: string, link: string) {
+  function removeLink(id: string, index: number) {
     persist(
       rowsRef.current.map((r) =>
-        r.id === id ? { ...r, links: r.links.filter((l) => l !== link) } : r
+        r.id === id ? { ...r, links: r.links.filter((_, i) => i !== index) } : r
       )
     );
   }
@@ -121,7 +132,6 @@ export function SolutionStrategiesTable({
         <colgroup>
           <col style={{ width: widths.strategy }} />
           <col style={{ width: widths.description }} />
-          <col style={{ width: widths.theoryOfAction }} />
           <col style={{ width: widths.link }} />
           <col style={{ width: 32 }} />
         </colgroup>
@@ -138,12 +148,6 @@ export function SolutionStrategiesTable({
               onPointerDown={handlePointerDown("description", 140)}
             >
               Description
-            </ResizableTh>
-            <ResizableTh
-              isDragging={draggingKey === "theoryOfAction"}
-              onPointerDown={handlePointerDown("theoryOfAction", 140)}
-            >
-              Theory of Action
             </ResizableTh>
             <ResizableTh
               isDragging={draggingKey === "link"}
@@ -171,19 +175,13 @@ export function SolutionStrategiesTable({
                   onBlur={commitRows}
                 />
               </td>
-              <td className="border-r border-border p-0">
-                <EditableCell
-                  value={row.theoryOfAction}
-                  onChange={(value) => updateCell(i, "theoryOfAction", value)}
-                  onBlur={commitRows}
-                />
-              </td>
               <td className="border-r border-border p-1.5">
                 <LinkPicker
                   planId={planId}
                   row={row}
-                  onToggle={(link, checked) => toggleLink(row.id, link, checked)}
-                  onRemove={(link) => removeLink(row.id, link)}
+                  requirementOptions={requirementOptions}
+                  onToggle={(targetId, checked) => toggleLink(row.id, targetId, checked)}
+                  onRemove={(index) => removeLink(row.id, index)}
                 />
               </td>
               <td className="p-0 text-center">
@@ -199,7 +197,7 @@ export function SolutionStrategiesTable({
             </tr>
           ))}
           <tr>
-            <td colSpan={5} className="p-0">
+            <td colSpan={4} className="p-0">
               <Button
                 type="button"
                 variant="ghost"
@@ -221,44 +219,62 @@ export function SolutionStrategiesTable({
 function LinkPicker({
   planId,
   row,
+  requirementOptions,
   onToggle,
   onRemove,
 }: {
   planId: string;
   row: SolutionStrategyRow;
-  onToggle: (link: string, checked: boolean) => void;
-  onRemove: (link: string) => void;
+  requirementOptions: { id: string; label: string }[];
+  onToggle: (targetId: string, checked: boolean) => void;
+  onRemove: (index: number) => void;
 }) {
-  // 3A's short IDs are fetched live every time the dropdown opens rather
-  // than through a cached bundle prop — a cached list would go stale the
-  // moment 3A adds/renames a requirement after this stage was visited (same
-  // reasoning as 3A's own cause/measure suggestion picker).
-  const [shortIds, setShortIds] = useState<string[]>([]);
+  // 3A's current requirements are fetched live every time the dropdown
+  // opens rather than trusting a cached bundle prop — a cached list would
+  // go stale the moment 3A adds/renames/removes a requirement after this
+  // stage was visited. Starts from the SSR-provided prop so already-linked
+  // badges below can resolve their current label even before the dropdown
+  // has ever been opened.
+  const [liveOptions, setLiveOptions] = useState<{ id: string; label: string }[] | null>(
+    null
+  );
+  const options = liveOptions ?? requirementOptions;
+  const labelById = new Map(options.map((o) => [o.id, o.label]));
 
   return (
     <div className="space-y-1.5">
       {row.links.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {row.links.map((link) => (
-            <Badge key={link} variant="outline" className="gap-1">
-              {link}
-              <button
-                type="button"
-                aria-label={`Remove ${link} link`}
-                onClick={() => onRemove(link)}
-                className="ml-0.5 hover:text-destructive"
+          {row.links.map((link, index) => {
+            const label = link.type === "ref" ? (labelById.get(link.targetId) ?? null) : link.value;
+            const isDangling = link.type === "ref" && label === null;
+            return (
+              <Badge
+                key={link.type === "ref" ? `ref:${link.targetId}` : `text:${index}:${link.value}`}
+                variant="outline"
+                className="gap-1"
               >
-                ×
-              </button>
-            </Badge>
-          ))}
+                <span className={cn(isDangling && "text-muted-foreground italic")}>
+                  {isDangling ? "Deleted item" : label}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Remove link"
+                  onClick={() => onRemove(index)}
+                  className="ml-0.5 hover:text-destructive"
+                >
+                  ×
+                </button>
+              </Badge>
+            );
+          })}
         </div>
       )}
       <DropdownMenu
         onOpenChange={(open) => {
           if (!open) return;
-          getSolutionRequirementShortIds(planId)
-            .then(setShortIds)
+          getSolutionRequirementOptions(planId)
+            .then(setLiveOptions)
             .catch(() => {
               // Keep showing whatever we already had.
             });
@@ -272,14 +288,16 @@ function LinkPicker({
           }
         />
         <DropdownMenuContent>
-          {shortIds.length ? (
-            shortIds.map((id) => (
+          {options.length ? (
+            options.map((option) => (
               <DropdownMenuCheckboxItem
-                key={id}
-                checked={row.links.includes(id)}
-                onCheckedChange={(checked) => onToggle(id, checked === true)}
+                key={option.id}
+                checked={row.links.some(
+                  (l) => l.type === "ref" && l.targetId === option.id
+                )}
+                onCheckedChange={(checked) => onToggle(option.id, checked === true)}
               >
-                {id}
+                {option.label}
               </DropdownMenuCheckboxItem>
             ))
           ) : (

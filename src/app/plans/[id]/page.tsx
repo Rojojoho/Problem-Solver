@@ -19,6 +19,7 @@ import type { StageBundle } from "@/lib/ccps/types";
 import { PlanWorkspace } from "@/components/plan/plan-workspace";
 import {
   getSolutionRequirementSuggestions,
+  getSolutionRequirementOptions,
   getStrategyRows,
 } from "@/app/plans/[id]/actions";
 
@@ -55,6 +56,7 @@ export default async function PlanPage({
     validationOptions,
     requirementTypes,
     suggestions,
+    requirementOptions,
     strategyRows,
     stages,
   ] = await Promise.all([
@@ -73,7 +75,8 @@ export default async function PlanPage({
     stage === "SR" ? listRequirementTypes() : Promise.resolve([]),
     stage === "SR"
       ? getSolutionRequirementSuggestions(id)
-      : Promise.resolve({ causeSuggestions: [], measureSuggestions: [] }),
+      : Promise.resolve({ causeOptions: [], measureSuggestions: [] }),
+    stage === "SS" ? getSolutionRequirementOptions(id) : Promise.resolve([]),
     stage === "IM" ? getStrategyRows(id) : Promise.resolve([]),
     listStages(),
   ]);
@@ -89,8 +92,9 @@ export default async function PlanPage({
     exemplars,
     validationOptions,
     requirementTypes,
-    causeSuggestions: suggestions.causeSuggestions,
+    causeOptions: suggestions.causeOptions,
     measureSuggestions: suggestions.measureSuggestions,
+    requirementOptions,
     strategyRows,
   };
 

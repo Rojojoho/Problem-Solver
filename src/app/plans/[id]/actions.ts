@@ -165,9 +165,11 @@ export async function getStrategyRows(
   );
 }
 
-// Stage 3A's Link column offers the plan's confirmed 2.3 causes and 1.2
-// measures as one-click suggestions — shared by getStageBundle (below) and
-// plans/[id]/page.tsx's initial-load equivalent.
+// Stage 3A's Link column offers the plan's confirmed 2.3 causes (as live
+// ref picks — id + current label) and 1.2 measures (as plain-text
+// suggestions only, since MeasureRow has no stable id to reference) —
+// shared by getStageBundle (below) and plans/[id]/page.tsx's initial-load
+// equivalent.
 export async function getSolutionRequirementSuggestions(planId: string) {
   const [cvResponses, piResponses] = await Promise.all([
     getStageResponses(planId, "CV"),
@@ -183,26 +185,28 @@ export async function getSolutionRequirementSuggestions(planId: string) {
     [];
 
   return {
-    causeSuggestions: causeRows
-      .filter((row) => row.confirmed === true)
-      .map((row) => row.hypothesis)
-      .filter(Boolean),
+    causeOptions: causeRows
+      .filter((row) => row.confirmed === true && row.hypothesis)
+      .map((row) => ({ id: row.id, label: row.hypothesis })),
     measureSuggestions: measureRows.map((row) => row.measure).filter(Boolean),
   };
 }
 
-// Stage 3B's Link column offers 3A's current short IDs as taggable options
-// — fetched live (not through the cached stage bundle) every time that
-// picker opens, same reasoning as getSolutionRequirementSuggestions above:
-// a cached snapshot goes stale the moment 3A is edited after 3B was visited.
-export async function getSolutionRequirementShortIds(
+// Stage 3B's Link column offers 3A's current requirements as live ref
+// picks (id + current shortId) — fetched live (not through the cached
+// stage bundle) every time that picker opens, same reasoning as
+// getSolutionRequirementSuggestions above: a cached snapshot goes stale
+// the moment 3A is edited after 3B was visited.
+export async function getSolutionRequirementOptions(
   planId: string
-): Promise<string[]> {
+): Promise<{ id: string; label: string }[]> {
   const srResponses = await getStageResponses(planId, "SR");
   const rows = asRowArray<SolutionRequirementRow>(
     srResponses[SOLUTION_REQUIREMENTS_FIELD_KEY]
   );
-  return rows.map((row) => row.shortId).filter(Boolean);
+  return rows
+    .filter((row) => row.shortId)
+    .map((row) => ({ id: row.id, label: row.shortId }));
 }
 
 // Granular per-field saves don't revalidate the page — the client already
@@ -462,6 +466,7 @@ export async function getStageBundle(
     validationOptions,
     requirementTypes,
     suggestions,
+    requirementOptions,
     strategyRows,
   ] = await Promise.all([
     fieldsPromise,
@@ -475,7 +480,8 @@ export async function getStageBundle(
     stage === "SR" ? listRequirementTypes() : Promise.resolve([]),
     stage === "SR"
       ? getSolutionRequirementSuggestions(planId)
-      : Promise.resolve({ causeSuggestions: [], measureSuggestions: [] }),
+      : Promise.resolve({ causeOptions: [], measureSuggestions: [] }),
+    stage === "SS" ? getSolutionRequirementOptions(planId) : Promise.resolve([]),
     stage === "IM" ? getStrategyRows(planId) : Promise.resolve([]),
   ]);
 
@@ -490,8 +496,9 @@ export async function getStageBundle(
     exemplars,
     validationOptions,
     requirementTypes,
-    causeSuggestions: suggestions.causeSuggestions,
+    causeOptions: suggestions.causeOptions,
     measureSuggestions: suggestions.measureSuggestions,
+    requirementOptions,
     strategyRows,
   };
 }

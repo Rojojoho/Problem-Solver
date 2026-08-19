@@ -13,6 +13,7 @@ import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-width
 interface ConsolidatedHypothesesTableProps {
   planId: string;
   initialRows: ConsolidatedHypothesisRow[];
+  onDataChanged?: () => void;
 }
 
 const EMPTY_ROW: ConsolidatedHypothesisRow = {
@@ -34,6 +35,7 @@ const COLUMN_WIDTHS = [
 export function ConsolidatedHypothesesTable({
   planId,
   initialRows,
+  onDataChanged,
 }: ConsolidatedHypothesesTableProps) {
   const [rows, setRows] = useState<ConsolidatedHypothesisRow[]>(() =>
     initialRows.map((row) => ({ ...row, description: row.description ?? "" }))
@@ -55,6 +57,7 @@ export function ConsolidatedHypothesesTable({
     startTransition(async () => {
       try {
         await saveConsolidatedHypothesisRows(planId, nextRows);
+        onDataChanged?.();
       } catch {
         toast.error("Couldn't save the consolidated hypotheses table.");
       }

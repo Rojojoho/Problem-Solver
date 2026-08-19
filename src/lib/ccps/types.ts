@@ -81,14 +81,23 @@ export interface HypothesisRow {
 // list rather than duplicating the interface.
 export type LabeledOption = ValidationOption;
 
+// A link is either a live reference to another row (resolved to that row's
+// *current* label wherever it's displayed — rename the source and every
+// place linking to it updates automatically) or a plain string with nothing
+// backing it. Both can appear side by side in the same links list.
+export type LinkRef =
+  | { type: "ref"; targetId: string }
+  | { type: "text"; value: string };
+
 export interface SolutionRequirementRow {
   id: string;
   // Visible, editable short label ("Requirement 1" by default) — the
-  // human-readable identity 3B's Link column tags reference, same free-text
-  // model as 2B's Causal hypothesis cell.
+  // human-readable identity 3B's Link column refs resolve to, same
+  // free-text-identity model as 2B's Causal hypothesis cell.
   shortId: string;
   requirement: string;
-  links: string[];
+  // Refs point at a 2B ConsolidatedHypothesisRow's id.
+  links: LinkRef[];
   type: string | null;
 }
 
@@ -96,11 +105,8 @@ export interface SolutionStrategyRow {
   id: string;
   strategy: string;
   description: string;
-  theoryOfAction: string;
-  // The 3A `shortId`s this strategy addresses — a plain tag list (like 2A's
-  // categories), not a live join, so a later 3A rename won't retroactively
-  // update it.
-  links: string[];
+  // Refs point at a SolutionRequirementRow's id (this stage's own 3A rows).
+  links: LinkRef[];
 }
 
 export interface ImplementationRow {
@@ -126,8 +132,9 @@ export interface StageBundle {
   exemplars: ExemplarData[];
   validationOptions: ValidationOption[];
   requirementTypes: LabeledOption[];
-  causeSuggestions: string[];
+  causeOptions: { id: string; label: string }[];
   measureSuggestions: string[];
+  requirementOptions: { id: string; label: string }[];
   strategyRows: SolutionStrategyRow[];
 }
 
