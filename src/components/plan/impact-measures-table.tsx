@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Download, GripVertical, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,11 @@ interface ImpactMeasuresTableProps {
 
 const NONE = "__none__";
 
-function blankRow(groupId: string | null): ImpactMeasureRow {
+function defaultGroup(): OutcomeGroup {
+  return { id: crypto.randomUUID(), name: "Outcome group 1", description: "" };
+}
+
+function blankRow(groupId: string): ImpactMeasureRow {
   return {
     id: crypto.randomUUID(),
     groupId,
@@ -44,7 +48,6 @@ function blankRow(groupId: string | null): ImpactMeasureRow {
 }
 
 const COLUMN_WIDTHS = [
-  { key: "group", defaultWidth: 200 },
   { key: "measure", defaultWidth: 200 },
   { key: "baseline", defaultWidth: 120 },
   { key: "target", defaultWidth: 120 },
@@ -54,6 +57,8 @@ const COLUMN_WIDTHS = [
   { key: "notes", defaultWidth: 200 },
 ];
 
+const DATA_COL_COUNT = 9; // drag-handle, 7 fields, delete
+
 export function ImpactMeasuresTable({
   planId,
   initialRows,
@@ -61,7 +66,9 @@ export function ImpactMeasuresTable({
   impactMeasureTypes,
 }: ImpactMeasuresTableProps) {
   const [rows, setRows] = useState<ImpactMeasureRow[]>(initialRows);
-  const [groups, setGroups] = useState<OutcomeGroup[]>(initialGroups);
+  const [groups, setGroups] = useState<OutcomeGroup[]>(() =>
+    initialGroups.length ? initialGroups : [defaultGroup()]
+  );
   // Mirror `rows`/`groups` synchronously (updated inside every setter below,
   // not via an effect) so onBlur/drop handlers always read the truly-latest
   // state even if they fire before React has re-rendered with a fresh
@@ -75,6 +82,22 @@ export function ImpactMeasuresTable({
     "ccps:col-widths:impact-measures",
     COLUMN_WIDTHS
   );
+
+  // A brand-new Stage 5 starts with no groups at all — the lazy initializer
+  // above already seeds one default group into local state so the page
+  // isn't empty, but that seed still needs saving once, here.
+  useEffect(() => {
+    if (initialGroups.length === 0) {
+      startTransition(async () => {
+        try {
+          await saveImpactOutcomeGroups(planId, groupsRef.current);
+        } catch {
+          toast.error("Couldn't save the default outcome group.");
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time seed persist on mount only
+  }, []);
 
   function persistRows(nextRows: ImpactMeasureRow[]) {
     rowsRef.current = nextRows;
@@ -112,7 +135,7 @@ export function ImpactMeasuresTable({
     persistRows(rowsRef.current);
   }
 
-  function addRow(groupId: string | null) {
+  function addRow(groupId: string) {
     persistRows([...rowsRef.current, blankRow(groupId)]);
   }
 
@@ -135,15 +158,26 @@ export function ImpactMeasuresTable({
   function addGroup() {
     persistGroups([
       ...groupsRef.current,
-      { id: crypto.randomUUID(), name: `Outcome group ${groupsRef.current.length + 1}`, description: "" },
+      {
+        id: crypto.randomUUID(),
+        name: `Outcome group ${groupsRef.current.length + 1}`,
+        description: "",
+      },
     ]);
   }
 
+  // Deleting a group folds its rows into the first remaining group rather
+  // than losing them — deleting the last group left is disallowed entirely
+  // (the remove button is disabled whenever there's only one), since every
+  // row always needs some group's table to live in.
   function removeGroup(id: string) {
-    persistGroups(groupsRef.current.filter((g) => g.id !== id));
-    // Non-destructive, same precedent as removing a 2A tag — rows lose the
-    // group, they aren't deleted.
-    persistRows(rowsRef.current.map((r) => (r.groupId === id ? { ...r, groupId: null } : r)));
+    if (groupsRef.current.length <= 1) return;
+    const remaining = groupsRef.current.filter((g) => g.id !== id);
+    const fallbackId = remaining[0].id;
+    persistGroups(remaining);
+    persistRows(
+      rowsRef.current.map((r) => (r.groupId === id ? { ...r, groupId: fallbackId } : r))
+    );
   }
 
   function handleDragStart(rowId: string) {
@@ -159,8 +193,8 @@ export function ImpactMeasuresTable({
   }
 
   // Dropping onto a row moves the dragged row next to it and adopts its
-  // group — reordering within a group and moving between groups are the
-  // same gesture.
+  // group — reordering within a group and moving between groups (even
+  // across separate tables) are the same gesture.
   function handleDropOnRow(targetRow: ImpactMeasureRow) {
     return (e: React.DragEvent) => {
       e.preventDefault();
@@ -180,15 +214,9 @@ export function ImpactMeasuresTable({
     };
   }
 
-  // Dropping on a group's empty area / "+ Add measure" row appends the
-  // dragged row to the end of that group (or ungroups it, for the final
-  // section's footer).
-  function handleDropOnGroup(groupId: string | null) {
-    /* eslint-disable react-hooks/refs -- reading rowsRef.current here is the
-       sanctioned case (inside an actual event handler, after preventDefault)
-       — same pattern as handleDropOnRow just above, which the rule doesn't
-       flag; this appears to be a false positive tied to the nullable
-       `groupId` closure rather than real render-time ref access. */
+  // Dropping on a group's "+ Add measure" row appends the dragged row to
+  // the end of that group.
+  function handleDropOnGroup(groupId: string) {
     return (e: React.DragEvent) => {
       e.preventDefault();
       const sourceId = dragRowIdRef.current;
@@ -201,12 +229,18 @@ export function ImpactMeasuresTable({
       current.push({ ...moved, groupId });
       persistRows(current);
     };
-    /* eslint-enable react-hooks/refs */
   }
 
   async function handleImport() {
     setIsImporting(true);
     try {
+      let targetGroupId = groupsRef.current[0]?.id;
+      if (!targetGroupId) {
+        const seeded = [defaultGroup()];
+        persistGroups(seeded);
+        targetGroupId = seeded[0].id;
+      }
+
       const sourceRows = await getSourceMeasureRows(planId);
       const existing = new Set(
         rowsRef.current.map((r) => r.measure.trim().toLowerCase())
@@ -217,7 +251,7 @@ export function ImpactMeasuresTable({
         )
         .map((r) => ({
           id: crypto.randomUUID(),
-          groupId: null,
+          groupId: targetGroupId as string,
           measure: r.measure,
           baseline: r.baseline,
           target: r.target,
@@ -239,11 +273,8 @@ export function ImpactMeasuresTable({
     }
   }
 
-  const dataColSpan = 8; // measure, baseline, target, timeframe, type, actual, notes, delete
-  const ungroupedRows = rows.filter((r) => r.groupId === null);
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
       <Button
         type="button"
         variant="outline"
@@ -255,155 +286,116 @@ export function ImpactMeasuresTable({
         {isImporting ? "Importing…" : "Import measures from Stage 1"}
       </Button>
 
-      <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full table-fixed border-collapse text-sm">
-          <colgroup>
-            <col style={{ width: 28 }} />
-            <col style={{ width: widths.group }} />
-            <col style={{ width: widths.measure }} />
-            <col style={{ width: widths.baseline }} />
-            <col style={{ width: widths.target }} />
-            <col style={{ width: widths.timeframe }} />
-            <col style={{ width: widths.type }} />
-            <col style={{ width: widths.actual }} />
-            <col style={{ width: widths.notes }} />
-            <col style={{ width: 32 }} />
-          </colgroup>
-          <thead>
-            <tr className="bg-muted/50">
-              <th className="border-b border-border" />
-              <ResizableTh
-                isDragging={draggingKey === "group"}
-                onPointerDown={handlePointerDown("group", 140)}
-              >
-                Group
-              </ResizableTh>
-              <ResizableTh
-                isDragging={draggingKey === "measure"}
-                onPointerDown={handlePointerDown("measure", 140)}
-              >
-                Measure
-              </ResizableTh>
-              <ResizableTh
-                isDragging={draggingKey === "baseline"}
-                onPointerDown={handlePointerDown("baseline", 90)}
-              >
-                Baseline
-              </ResizableTh>
-              <ResizableTh
-                isDragging={draggingKey === "target"}
-                onPointerDown={handlePointerDown("target", 90)}
-              >
-                Target
-              </ResizableTh>
-              <ResizableTh
-                isDragging={draggingKey === "timeframe"}
-                onPointerDown={handlePointerDown("timeframe", 90)}
-              >
-                Timeframe
-              </ResizableTh>
-              <ResizableTh
-                isDragging={draggingKey === "type"}
-                onPointerDown={handlePointerDown("type", 90)}
-              >
-                Type
-              </ResizableTh>
-              <ResizableTh
-                isDragging={draggingKey === "actual"}
-                onPointerDown={handlePointerDown("actual", 100)}
-              >
-                Actual
-              </ResizableTh>
-              <ResizableTh
-                isDragging={draggingKey === "notes"}
-                onPointerDown={handlePointerDown("notes", 140)}
-              >
-                Notes
-              </ResizableTh>
-              <th className="w-8 border-b border-border" />
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map((group) => {
-              const groupRows = rows.filter((r) => r.groupId === group.id);
-              return (
-                <Fragment key={group.id}>
-                  {groupRows.length === 0 ? (
+      {groups.map((group) => {
+        const groupRows = rows.filter((r) => r.groupId === group.id);
+        return (
+          <div key={group.id} className="space-y-2">
+            <GroupHeading
+              group={group}
+              disabledRemove={groups.length <= 1}
+              onUpdate={(updates) => updateGroup(group.id, updates)}
+              onBlur={commitGroups}
+              onRemove={() => removeGroup(group.id)}
+            />
+
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full table-fixed border-collapse text-sm">
+                <colgroup>
+                  <col style={{ width: 28 }} />
+                  <col style={{ width: widths.measure }} />
+                  <col style={{ width: widths.baseline }} />
+                  <col style={{ width: widths.target }} />
+                  <col style={{ width: widths.timeframe }} />
+                  <col style={{ width: widths.type }} />
+                  <col style={{ width: widths.actual }} />
+                  <col style={{ width: widths.notes }} />
+                  <col style={{ width: 32 }} />
+                </colgroup>
+                <thead>
+                  <tr className="bg-muted/50">
+                    <th className="border-b border-border" />
+                    <ResizableTh
+                      isDragging={draggingKey === "measure"}
+                      onPointerDown={handlePointerDown("measure", 140)}
+                    >
+                      Measure
+                    </ResizableTh>
+                    <ResizableTh
+                      isDragging={draggingKey === "baseline"}
+                      onPointerDown={handlePointerDown("baseline", 90)}
+                    >
+                      Baseline
+                    </ResizableTh>
+                    <ResizableTh
+                      isDragging={draggingKey === "target"}
+                      onPointerDown={handlePointerDown("target", 90)}
+                    >
+                      Target
+                    </ResizableTh>
+                    <ResizableTh
+                      isDragging={draggingKey === "timeframe"}
+                      onPointerDown={handlePointerDown("timeframe", 90)}
+                    >
+                      Timeframe
+                    </ResizableTh>
+                    <ResizableTh
+                      isDragging={draggingKey === "type"}
+                      onPointerDown={handlePointerDown("type", 90)}
+                    >
+                      Type
+                    </ResizableTh>
+                    <ResizableTh
+                      isDragging={draggingKey === "actual"}
+                      onPointerDown={handlePointerDown("actual", 100)}
+                    >
+                      Actual
+                    </ResizableTh>
+                    <ResizableTh
+                      isDragging={draggingKey === "notes"}
+                      onPointerDown={handlePointerDown("notes", 140)}
+                    >
+                      Notes
+                    </ResizableTh>
+                    <th className="w-8 border-b border-border" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupRows.map((row) => (
                     <tr
+                      key={row.id}
                       className="border-b border-border align-top"
                       onDragOver={handleDragOver}
-                      onDrop={handleDropOnGroup(group.id)}
+                      onDrop={handleDropOnRow(row)}
                     >
-                      <td />
-                      <td className="border-r border-border p-1.5 align-top">
-                        <GroupCell
-                          group={group}
-                          onUpdate={(updates) => updateGroup(group.id, updates)}
-                          onBlur={commitGroups}
-                          onRemove={() => removeGroup(group.id)}
-                        />
+                      <td className="p-0 text-center">
+                        <button
+                          type="button"
+                          aria-label="Drag to reorder or regroup"
+                          draggable
+                          onDragStart={handleDragStart(row.id)}
+                          className="mt-2 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                        >
+                          <GripVertical className="mx-auto size-3.5" />
+                        </button>
                       </td>
-                      <td
-                        colSpan={dataColSpan}
-                        className="p-2 text-xs text-muted-foreground italic"
-                      >
-                        No measures yet — drag one here, or add below.
-                      </td>
-                    </tr>
-                  ) : (
-                    groupRows.map((row, i) => (
-                      <tr
-                        key={row.id}
-                        className="border-b border-border align-top"
-                        onDragOver={handleDragOver}
-                        onDrop={handleDropOnRow(row)}
-                      >
-                        <td className="p-0 text-center">
-                          <button
-                            type="button"
-                            aria-label="Drag to reorder or regroup"
-                            draggable
-                            onDragStart={handleDragStart(row.id)}
-                            className="mt-2 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-                          >
-                            <GripVertical className="mx-auto size-3.5" />
-                          </button>
-                        </td>
-                        {i === 0 && (
-                          <td
-                            rowSpan={groupRows.length}
-                            className="border-r border-border p-1.5 align-top"
-                          >
-                            <GroupCell
-                              group={group}
-                              onUpdate={(updates) => updateGroup(group.id, updates)}
-                              onBlur={commitGroups}
-                              onRemove={() => removeGroup(group.id)}
-                            />
-                          </td>
-                        )}
-                        <MeasureCells
-                          row={row}
-                          impactMeasureTypes={impactMeasureTypes}
-                          onUpdate={(updates) => updateRow(row.id, updates)}
-                          onBlur={commitRows}
-                          onTypeChange={(type) =>
-                            persistRows(
-                              rowsRef.current.map((r) =>
-                                r.id === row.id ? { ...r, type } : r
-                              )
+                      <MeasureCells
+                        row={row}
+                        impactMeasureTypes={impactMeasureTypes}
+                        onUpdate={(updates) => updateRow(row.id, updates)}
+                        onBlur={commitRows}
+                        onTypeChange={(type) =>
+                          persistRows(
+                            rowsRef.current.map((r) =>
+                              r.id === row.id ? { ...r, type } : r
                             )
-                          }
-                          onRemove={() => removeRow(row.id)}
-                        />
-                      </tr>
-                    ))
-                  )}
-                  <tr
-                    onDragOver={handleDragOver}
-                    onDrop={handleDropOnGroup(group.id)}
-                  >
-                    <td colSpan={10} className="p-0">
+                          )
+                        }
+                        onRemove={() => removeRow(row.id)}
+                      />
+                    </tr>
+                  ))}
+                  <tr onDragOver={handleDragOver} onDrop={handleDropOnGroup(group.id)}>
+                    <td colSpan={DATA_COL_COUNT} className="p-0">
                       <button
                         type="button"
                         onClick={() => addRow(group.id)}
@@ -414,110 +406,65 @@ export function ImpactMeasuresTable({
                       </button>
                     </td>
                   </tr>
-                </Fragment>
-              );
-            })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
 
-            {ungroupedRows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border align-top"
-                onDragOver={handleDragOver}
-                onDrop={handleDropOnRow(row)}
-              >
-                <td className="p-0 text-center">
-                  <button
-                    type="button"
-                    aria-label="Drag to reorder or regroup"
-                    draggable
-                    onDragStart={handleDragStart(row.id)}
-                    className="mt-2 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-                  >
-                    <GripVertical className="mx-auto size-3.5" />
-                  </button>
-                </td>
-                <td className="border-r border-border bg-muted/20" />
-                <MeasureCells
-                  row={row}
-                  impactMeasureTypes={impactMeasureTypes}
-                  onUpdate={(updates) => updateRow(row.id, updates)}
-                  onBlur={commitRows}
-                  onTypeChange={(type) =>
-                    persistRows(
-                      rowsRef.current.map((r) => (r.id === row.id ? { ...r, type } : r))
-                    )
-                  }
-                  onRemove={() => removeRow(row.id)}
-                />
-              </tr>
-            ))}
-            <tr onDragOver={handleDragOver} onDrop={handleDropOnGroup(null)}>
-              <td colSpan={10} className="p-0">
-                <button
-                  type="button"
-                  onClick={() => addRow(null)}
-                  className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                >
-                  <Plus className="size-3.5" />
-                  New measure
-                </button>
-              </td>
-            </tr>
-            <tr>
-              <td colSpan={10} className="border-t border-border p-0">
-                <button
-                  type="button"
-                  onClick={addGroup}
-                  className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                >
-                  <Plus className="size-3.5" />
-                  Add group
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <Button type="button" variant="outline" size="sm" onClick={addGroup}>
+        <Plus className="size-3.5" />
+        Add group
+      </Button>
     </div>
   );
 }
 
-function GroupCell({
+function GroupHeading({
   group,
+  disabledRemove,
   onUpdate,
   onBlur,
   onRemove,
 }: {
   group: OutcomeGroup;
+  disabledRemove: boolean;
   onUpdate: (updates: Partial<OutcomeGroup>) => void;
   onBlur: () => void;
   onRemove: () => void;
 }) {
   return (
-    <div className="space-y-1">
-      <div className="flex items-start gap-1">
+    <div className="flex items-start gap-2">
+      <div className="min-w-0 flex-1 space-y-0.5">
         <EditableCell
           value={group.name}
           onChange={(value) => onUpdate({ name: value })}
           onBlur={onBlur}
-          className="px-0 py-0 font-semibold"
+          className="px-0 py-0 text-base font-semibold"
         />
-        <button
-          type="button"
-          aria-label={`Remove ${group.name || "group"}`}
-          onClick={onRemove}
-          className="mt-0.5 shrink-0 text-muted-foreground hover:text-destructive"
-        >
-          <X className="size-3.5" />
-        </button>
+        <EditableCell
+          value={group.description}
+          onChange={(value) => onUpdate({ description: value })}
+          onBlur={onBlur}
+          placeholder="Description…"
+          className="px-0 py-0 text-xs text-muted-foreground"
+        />
       </div>
-      <EditableCell
-        value={group.description}
-        onChange={(value) => onUpdate({ description: value })}
-        onBlur={onBlur}
-        placeholder="Description…"
-        className="px-0 py-0 text-xs text-muted-foreground"
-      />
+      <button
+        type="button"
+        aria-label={
+          disabledRemove
+            ? "Can't remove the only remaining group"
+            : `Remove ${group.name || "group"}`
+        }
+        title={disabledRemove ? "You need at least one group" : undefined}
+        onClick={onRemove}
+        disabled={disabledRemove}
+        className="mt-1 shrink-0 text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted-foreground"
+      >
+        <X className="size-4" />
+      </button>
     </div>
   );
 }
