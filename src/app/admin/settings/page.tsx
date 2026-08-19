@@ -71,6 +71,18 @@ export default function AdminSettingsPage() {
           </Card>
         </Link>
 
+        <Link href="/admin/settings/impact-measure-types">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Impact measure types</CardTitle>
+              <CardDescription>
+                Manage the types selectable per measure on Stage 5. Changes
+                apply immediately across all plans.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import {
   getPlanTags,
   listValidationOptions,
   listRequirementTypes,
+  listImpactMeasureTypes,
   listStages,
 } from "@/lib/db";
 import { EMPTY_DOC } from "@/lib/ccps/constants";
@@ -58,6 +59,7 @@ export default async function PlanPage({
     suggestions,
     requirementOptions,
     strategyRows,
+    impactMeasureTypes,
     stages,
   ] = await Promise.all([
     fieldsPromise,
@@ -78,6 +80,7 @@ export default async function PlanPage({
       : Promise.resolve({ causeOptions: [], measureSuggestions: [] }),
     stage === "SS" ? getSolutionRequirementOptions(id) : Promise.resolve([]),
     stage === "IM" ? getStrategyRows(id) : Promise.resolve([]),
+    stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([]),
     listStages(),
   ]);
 
@@ -96,6 +99,7 @@ export default async function PlanPage({
     measureSuggestions: suggestions.measureSuggestions,
     requirementOptions,
     strategyRows,
+    impactMeasureTypes,
   };
 
   return (

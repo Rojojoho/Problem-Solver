@@ -241,6 +241,16 @@ const stageFields: MockStageField[] = [
     default_content: null,
     sort_order: 3,
   },
+  {
+    field_key: "ei_impact_measures",
+    internal_id: "5.1",
+    stage: "EI",
+    short_name: "Impact Measures",
+    full_prompt: "Track each measure against its target to evaluate impact.",
+    helper_text: null,
+    default_content: null,
+    sort_order: 1,
+  },
 ];
 
 interface MockStage {
@@ -598,6 +608,39 @@ export function mockUpdateRequirementType(
 
 export function mockDeleteRequirementType(id: string) {
   requirementTypes = requirementTypes.filter((o) => o.id !== id);
+}
+
+// The mock stand-in for the global, admin-editable `impact_measure_types` table.
+let impactMeasureTypes: MockLabeledOption[] = [
+  { id: crypto.randomUUID(), label: "Short term", sort_order: 1 },
+  { id: crypto.randomUUID(), label: "Long term", sort_order: 2 },
+];
+
+export function mockListImpactMeasureTypes() {
+  return impactMeasureTypes
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ id, label, sort_order }) => ({ id, label, sort_order }));
+}
+
+export function mockCreateImpactMeasureType(label: string, sortOrder: number) {
+  const id = crypto.randomUUID();
+  impactMeasureTypes = [...impactMeasureTypes, { id, label, sort_order: sortOrder }];
+  return { id };
+}
+
+export function mockUpdateImpactMeasureType(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  const option = impactMeasureTypes.find((o) => o.id === id);
+  if (!option) return;
+  if (updates.label !== undefined) option.label = updates.label;
+  if (updates.sortOrder !== undefined) option.sort_order = updates.sortOrder;
+}
+
+export function mockDeleteImpactMeasureType(id: string) {
+  impactMeasureTypes = impactMeasureTypes.filter((o) => o.id !== id);
 }
 
 export function mockGetFeedback(planId: string) {

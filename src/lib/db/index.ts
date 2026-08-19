@@ -527,6 +527,71 @@ export async function deleteRequirementTypeRecord(id: string) {
   if (error) throw new Error(error.message);
 }
 
+// ---------------------------------------------------------------------------
+// Impact measure types — global, admin-editable "Type" options selectable
+// per measure on Stage 5. Same shape/pattern as requirement_types.
+// ---------------------------------------------------------------------------
+
+export async function listImpactMeasureTypes(): Promise<LabeledOption[]> {
+  if (DEV_MOCK) return mock.mockListImpactMeasureTypes();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("impact_measure_types")
+    .select("id, label, sort_order")
+    .order("sort_order");
+  return data ?? [];
+}
+
+export async function createImpactMeasureTypeRecord(
+  label: string,
+  sortOrder: number
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockCreateImpactMeasureType(label, sortOrder);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("impact_measure_types")
+    .insert({ label, sort_order: sortOrder })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create impact measure type.");
+  }
+  return data;
+}
+
+export async function updateImpactMeasureTypeRecord(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateImpactMeasureType(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("impact_measure_types")
+    .update({
+      ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteImpactMeasureTypeRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteImpactMeasureType(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("impact_measure_types").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function getChecklistState(
   planId: string
 ): Promise<Record<string, boolean>> {

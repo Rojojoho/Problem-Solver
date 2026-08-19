@@ -240,6 +240,7 @@ export function PlanWorkspace({
                       measureSuggestions={bundle.measureSuggestions}
                       requirementOptions={bundle.requirementOptions}
                       strategyRows={bundle.strategyRows}
+                      impactMeasureTypes={bundle.impactMeasureTypes}
                       onStageDataChanged={invalidateStage}
                     />
                   ) : (

@@ -12,13 +12,17 @@ import {
   SOLUTION_REQUIREMENTS_FIELD_KEY,
   SOLUTION_STRATEGIES_FIELD_KEY,
   IMPLEMENTATION_MONITORING_FIELD_KEY,
+  IMPACT_MEASURES_FIELD_KEY,
+  IMPACT_OUTCOME_GROUPS_FIELD_KEY,
 } from "@/lib/ccps/constants";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
   ConsolidatedHypothesisRow,
   HypothesisRow,
   ImplementationRow,
+  ImpactMeasureRow,
   MeasureRow,
+  OutcomeGroup,
   SolutionRequirementRow,
   SolutionStrategyRow,
   StageBundle,
@@ -42,6 +46,7 @@ import {
   getExemplars,
   listValidationOptions,
   listRequirementTypes,
+  listImpactMeasureTypes,
   getPlan,
   getPlanTags,
   listStages,
@@ -207,6 +212,15 @@ export async function getSolutionRequirementOptions(
   return rows
     .filter((row) => row.shortId)
     .map((row) => ({ id: row.id, label: row.shortId }));
+}
+
+// Stage 5's "Import measures from Stage 1" button calls this directly from
+// the client (not through the cached stage bundle) so it always reflects
+// Stage 1's current measures, same live-fetch-on-demand reasoning as Stage
+// 4's "Refresh strategies" (getStrategyRows above).
+export async function getSourceMeasureRows(planId: string): Promise<MeasureRow[]> {
+  const piResponses = await getStageResponses(planId, "PI");
+  return asRowArray<MeasureRow>(piResponses[MEASURES_FIELD_KEY]);
 }
 
 // Granular per-field saves don't revalidate the page — the client already
@@ -428,6 +442,34 @@ export async function saveImplementationRows(
   );
 }
 
+export async function saveImpactMeasureRows(
+  planId: string,
+  rows: ImpactMeasureRow[]
+) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "EI",
+    IMPACT_MEASURES_FIELD_KEY,
+    rows as unknown as JSONContent,
+    userId
+  );
+}
+
+export async function saveImpactOutcomeGroups(
+  planId: string,
+  groups: OutcomeGroup[]
+) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "EI",
+    IMPACT_OUTCOME_GROUPS_FIELD_KEY,
+    groups as unknown as JSONContent,
+    userId
+  );
+}
+
 export async function publishPlan(planId: string) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("Not authenticated.");
@@ -468,6 +510,7 @@ export async function getStageBundle(
     suggestions,
     requirementOptions,
     strategyRows,
+    impactMeasureTypes,
   ] = await Promise.all([
     fieldsPromise,
     getStageResponses(planId, stage),
@@ -483,6 +526,7 @@ export async function getStageBundle(
       : Promise.resolve({ causeOptions: [], measureSuggestions: [] }),
     stage === "SS" ? getSolutionRequirementOptions(planId) : Promise.resolve([]),
     stage === "IM" ? getStrategyRows(planId) : Promise.resolve([]),
+    stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([]),
   ]);
 
   return {
@@ -500,5 +544,6 @@ export async function getStageBundle(
     measureSuggestions: suggestions.measureSuggestions,
     requirementOptions,
     strategyRows,
+    impactMeasureTypes,
   };
 }

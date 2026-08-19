@@ -11,6 +11,7 @@ import { ConsolidatedHypothesesTable } from "@/components/plan/consolidated-hypo
 import { SolutionRequirementsTable } from "@/components/plan/solution-requirements-table";
 import { SolutionStrategiesTable } from "@/components/plan/solution-strategies-table";
 import { ImplementationMonitoringTable } from "@/components/plan/implementation-monitoring-table";
+import { ImpactMeasuresTable } from "@/components/plan/impact-measures-table";
 import {
   asRowArray,
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
@@ -18,6 +19,8 @@ import {
   CONSOLIDATED_HYPOTHESES_FIELD_KEY,
   EMPTY_DOC,
   IMPLEMENTATION_MONITORING_FIELD_KEY,
+  IMPACT_MEASURES_FIELD_KEY,
+  IMPACT_OUTCOME_GROUPS_FIELD_KEY,
   MEASURES_FIELD_KEY,
   SOLUTION_REQUIREMENTS_FIELD_KEY,
   SOLUTION_STRATEGIES_FIELD_KEY,
@@ -27,8 +30,10 @@ import type {
   ConsolidatedHypothesisRow,
   HypothesisRow,
   ImplementationRow,
+  ImpactMeasureRow,
   LabeledOption,
   MeasureRow,
+  OutcomeGroup,
   SolutionRequirementRow,
   SolutionStrategyRow,
   StageFieldSummary,
@@ -48,6 +53,7 @@ interface StageFormProps {
   measureSuggestions: string[];
   requirementOptions: { id: string; label: string }[];
   strategyRows: SolutionStrategyRow[];
+  impactMeasureTypes: LabeledOption[];
   onStageDataChanged?: (stage: CcpsStage) => void;
 }
 
@@ -63,6 +69,7 @@ export function StageForm({
   measureSuggestions,
   requirementOptions,
   strategyRows,
+  impactMeasureTypes,
   onStageDataChanged,
 }: StageFormProps) {
   const [isPending, startTransition] = useTransition();
@@ -143,6 +150,17 @@ export function StageForm({
                 initialRows={asRowArray<ImplementationRow>(
                   initialResponses[IMPLEMENTATION_MONITORING_FIELD_KEY]
                 )}
+              />
+            ) : field.field_key === IMPACT_MEASURES_FIELD_KEY ? (
+              <ImpactMeasuresTable
+                planId={planId}
+                initialRows={asRowArray<ImpactMeasureRow>(
+                  initialResponses[IMPACT_MEASURES_FIELD_KEY]
+                )}
+                initialGroups={asRowArray<OutcomeGroup>(
+                  initialResponses[IMPACT_OUTCOME_GROUPS_FIELD_KEY]
+                )}
+                impactMeasureTypes={impactMeasureTypes}
               />
             ) : (
               <TiptapEditor

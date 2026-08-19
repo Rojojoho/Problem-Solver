@@ -125,6 +125,25 @@ export interface ImplementationRow {
   monitor: string;
 }
 
+export interface OutcomeGroup {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface ImpactMeasureRow {
+  id: string;
+  // null = ungrouped (rendered in the table's final unlabeled section).
+  groupId: string | null;
+  measure: string;
+  baseline: string;
+  target: string;
+  timeframe: string;
+  type: string | null;
+  actual: string;
+  notes: string;
+}
+
 export interface StageBundle {
   fields: StageFieldSummary[];
   responses: Record<string, JSONContent>;
@@ -136,6 +155,7 @@ export interface StageBundle {
   measureSuggestions: string[];
   requirementOptions: { id: string; label: string }[];
   strategyRows: SolutionStrategyRow[];
+  impactMeasureTypes: LabeledOption[];
 }
 
 export interface TagData {

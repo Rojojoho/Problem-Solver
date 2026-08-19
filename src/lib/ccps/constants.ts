@@ -62,3 +62,10 @@ export const SOLUTION_STRATEGIES_FIELD_KEY = "ss_solution_strategies";
 // extra columns (Lead/Timeframe/Implementation indicators/Monitor) are
 // stored here, keyed by the 3B row's id.
 export const IMPLEMENTATION_MONITORING_FIELD_KEY = "im_implementation_monitoring";
+
+// Stage 5 (5.1): also a structured table rendered instead of a Tiptap
+// editor — see stage-form.tsx. Rows are pulled in from Stage 1's Measures
+// table on demand (an explicit "Import" button, not a live mirror) and can
+// be clustered into outcome groups, stored separately under their own key.
+export const IMPACT_MEASURES_FIELD_KEY = "ei_impact_measures";
+export const IMPACT_OUTCOME_GROUPS_FIELD_KEY = "ei_impact_outcome_groups";
