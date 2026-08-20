@@ -250,7 +250,7 @@ function LinkPicker({
               <Badge
                 key={link.type === "ref" ? `ref:${link.targetId}` : `text:${index}:${link.value}`}
                 variant="outline"
-                className="gap-1"
+                className="h-auto max-w-full items-start gap-1 py-1 whitespace-normal break-words"
               >
                 <span className={cn(isDangling && "text-muted-foreground italic")}>
                   {isDangling ? "Deleted item" : label}
@@ -280,8 +280,13 @@ function LinkPicker({
       >
         <DropdownMenuTrigger
           render={
-            <Button type="button" size="xs" variant="outline" className="w-full">
-              Link to requirement…
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="outline"
+              aria-label="Link to requirement"
+            >
+              <Plus className="size-3.5" />
             </Button>
           }
         />
