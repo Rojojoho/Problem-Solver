@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { ArrowUpDown, Plus, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,7 @@ import type { HypothesisRow, ValidationOption } from "@/lib/ccps/types";
 import { cn } from "@/lib/utils";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
+import { useSerializedSave } from "@/components/plan/use-serialized-save";
 
 interface HypothesesTableProps {
   planId: string;
@@ -98,34 +99,29 @@ export function HypothesesTable({
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isConsolidating, setIsConsolidating] = useState(false);
-  const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:hypotheses",
     COLUMN_WIDTHS
+  );
+  const saveRows = useSerializedSave<HypothesisRow[]>(
+    (nextRows) => saveCausalHypothesisRows(planId, nextRows),
+    () => toast.error("Couldn't save the causal hypotheses table.")
+  );
+  const saveCategories = useSerializedSave<string[]>(
+    (nextCategories) => saveCausalHypothesisCategories(planId, nextCategories),
+    () => toast.error("Couldn't save categories.")
   );
 
   function persistRows(nextRows: HypothesisRow[]) {
     rowsRef.current = nextRows;
     setRows(nextRows);
-    startTransition(async () => {
-      try {
-        await saveCausalHypothesisRows(planId, nextRows);
-      } catch {
-        toast.error("Couldn't save the causal hypotheses table.");
-      }
-    });
+    saveRows(nextRows);
   }
 
   function persistCategories(nextCategories: string[]) {
     categoriesRef.current = nextCategories;
     setCategories(nextCategories);
-    startTransition(async () => {
-      try {
-        await saveCausalHypothesisCategories(planId, nextCategories);
-      } catch {
-        toast.error("Couldn't save categories.");
-      }
-    });
+    saveCategories(nextCategories);
   }
 
   function updateRow(id: string, updates: Partial<HypothesisRow>) {

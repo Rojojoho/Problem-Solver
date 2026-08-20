@@ -1,6 +1,5 @@
 "use client";
 
-import { useTransition } from "react";
 import type { JSONContent } from "@tiptap/react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
@@ -12,6 +11,7 @@ import { SolutionRequirementsTable } from "@/components/plan/solution-requiremen
 import { SolutionStrategiesTable } from "@/components/plan/solution-strategies-table";
 import { ImplementationMonitoringTable } from "@/components/plan/implementation-monitoring-table";
 import { ImpactMeasuresTable } from "@/components/plan/impact-measures-table";
+import { useKeyedSerializedSave } from "@/components/plan/use-serialized-save";
 import {
   asRowArray,
   CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY,
@@ -72,16 +72,13 @@ export function StageForm({
   impactMeasureTypes,
   onStageDataChanged,
 }: StageFormProps) {
-  const [isPending, startTransition] = useTransition();
+  const { save, isSaving: isPending } = useKeyedSerializedSave<JSONContent>(
+    (fieldKey, content) => saveStageResponse(planId, stage, fieldKey, content),
+    () => toast.error("Couldn't save your changes. Please try again.")
+  );
 
   function handleSave(fieldKey: string, content: JSONContent) {
-    startTransition(async () => {
-      try {
-        await saveStageResponse(planId, stage, fieldKey, content);
-      } catch {
-        toast.error("Couldn't save your changes. Please try again.");
-      }
-    });
+    save(fieldKey, content);
   }
 
   return (

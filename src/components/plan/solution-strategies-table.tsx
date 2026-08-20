@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import {
 import type { LinkRef, SolutionStrategyRow } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
+import { useSerializedSave } from "@/components/plan/use-serialized-save";
 import { cn } from "@/lib/utils";
 
 interface SolutionStrategiesTableProps {
@@ -63,22 +64,19 @@ export function SolutionStrategiesTable({
   // rows even if they fire before React has re-rendered with a fresh
   // closure — e.g. switching tabs right after an edit.
   const rowsRef = useRef<SolutionStrategyRow[]>(rows);
-  const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:solution-strategies",
     COLUMN_WIDTHS
+  );
+  const save = useSerializedSave<SolutionStrategyRow[]>(
+    (nextRows) => saveSolutionStrategyRows(planId, nextRows),
+    () => toast.error("Couldn't save the solution strategies table.")
   );
 
   function persist(nextRows: SolutionStrategyRow[]) {
     rowsRef.current = nextRows;
     setRows(nextRows);
-    startTransition(async () => {
-      try {
-        await saveSolutionStrategyRows(planId, nextRows);
-      } catch {
-        toast.error("Couldn't save the solution strategies table.");
-      }
-    });
+    save(nextRows);
   }
 
   function updateCell(index: number, key: "strategy" | "description", value: string) {

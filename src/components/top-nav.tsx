@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Compass, ListChecks, ShieldCheck, BookOpen } from "lucide-react";
+import Image from "next/image";
+import { ListChecks, ShieldCheck, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/sign-out-button";
 import { DEV_MOCK } from "@/lib/dev-mode";
@@ -15,8 +16,15 @@ export async function TopNav() {
       <div className="flex h-14 w-full items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-6">
           <Link href="/plans" className="flex items-center gap-2 font-bold text-white">
-            <Compass className="size-5" />
-            Complex Problem Solver
+            <Image
+              src="/assets/Resolve_white_small.png"
+              alt=""
+              width={200}
+              height={87}
+              className="h-6 w-auto"
+              priority
+            />
+            Resolve
           </Link>
           <nav className="flex items-center gap-4 text-sm text-white/70">
             <Link href="/plans" className="flex items-center gap-1.5 hover:text-white">

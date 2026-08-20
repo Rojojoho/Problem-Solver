@@ -13,6 +13,7 @@ import {
   addPlanTag,
   removePlanTag,
 } from "@/app/plans/[id]/actions";
+import { useSerializedSave } from "@/components/plan/use-serialized-save";
 
 interface PlanDetailsFormProps {
   planId: string;
@@ -28,6 +29,10 @@ export function PlanDetailsForm({
   const [tags, setTags] = useState(initialTags);
   const [tagInput, setTagInput] = useState("");
   const [isPending, startTransition] = useTransition();
+  const saveBackgroundQueued = useSerializedSave<JSONContent>(
+    (content) => saveBackground(planId, content),
+    () => toast.error("Couldn't save the background.")
+  );
 
   function handleAddTag(e: React.FormEvent) {
     e.preventDefault();
@@ -67,7 +72,7 @@ export function PlanDetailsForm({
         <Label>Background</Label>
         <TiptapEditor
           content={background}
-          onBlurSave={(content) => saveBackground(planId, content)}
+          onBlurSave={(content) => saveBackgroundQueued(content)}
         />
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { saveMeasureRows } from "@/app/plans/[id]/actions";
@@ -8,6 +8,7 @@ import type { MeasureRow } from "@/lib/ccps/types";
 import { cn } from "@/lib/utils";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
+import { useSerializedSave } from "@/components/plan/use-serialized-save";
 
 interface MeasuresTableProps {
   planId: string;
@@ -30,22 +31,19 @@ export function MeasuresTable({ planId, initialRows }: MeasuresTableProps) {
   // the blur fires before React has re-rendered with a fresh `commitRows`
   // closure — e.g. switching tabs right after an edit.
   const rowsRef = useRef<MeasureRow[]>(rows);
-  const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:measures",
     COLUMNS.map(({ key, defaultWidth }) => ({ key, defaultWidth }))
+  );
+  const save = useSerializedSave<MeasureRow[]>(
+    (nextRows) => saveMeasureRows(planId, nextRows),
+    () => toast.error("Couldn't save the measures table.")
   );
 
   function persist(nextRows: MeasureRow[]) {
     rowsRef.current = nextRows;
     setRows(nextRows);
-    startTransition(async () => {
-      try {
-        await saveMeasureRows(planId, nextRows);
-      } catch {
-        toast.error("Couldn't save the measures table.");
-      }
-    });
+    save(nextRows);
   }
 
   function updateCell(index: number, key: keyof MeasureRow, value: string) {

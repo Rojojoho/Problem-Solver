@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
@@ -19,7 +20,15 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Complex Problem Solver</CardTitle>
+          <Image
+            src="/assets/Resolve_black.png"
+            alt=""
+            width={650}
+            height={282}
+            className="mb-2 h-10 w-auto"
+            priority
+          />
+          <CardTitle>Resolve</CardTitle>
           <CardDescription>
             Sign in to create and continue your CCPS problem-solving plans.
           </CardDescription>

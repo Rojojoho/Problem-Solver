@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Complex Problem Solver",
+  title: "Resolve",
   description: "A guided tool for the CCPS collaborative problem-solving process.",
 };
 

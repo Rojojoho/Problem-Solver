@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { GripVertical, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ import type {
 } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
+import { useSerializedSave } from "@/components/plan/use-serialized-save";
 import { cn } from "@/lib/utils";
 
 interface SolutionRequirementsTableProps {
@@ -89,23 +90,22 @@ export function SolutionRequirementsTable({
   // closure — e.g. switching tabs right after an edit.
   const rowsRef = useRef<SolutionRequirementRow[]>(rows);
   const dragIndexRef = useRef<number | null>(null);
-  const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:solution-requirements",
     COLUMN_WIDTHS
+  );
+  const save = useSerializedSave<SolutionRequirementRow[]>(
+    async (nextRows) => {
+      await saveSolutionRequirementRows(planId, nextRows);
+      onDataChanged?.();
+    },
+    () => toast.error("Couldn't save the solution requirements table.")
   );
 
   function persist(nextRows: SolutionRequirementRow[]) {
     rowsRef.current = nextRows;
     setRows(nextRows);
-    startTransition(async () => {
-      try {
-        await saveSolutionRequirementRows(planId, nextRows);
-        onDataChanged?.();
-      } catch {
-        toast.error("Couldn't save the solution requirements table.");
-      }
-    });
+    save(nextRows);
   }
 
   function updateRow(id: string, updates: Partial<SolutionRequirementRow>) {

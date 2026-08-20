@@ -1,4 +1,4 @@
-# Complex Problem Solver (CCPS)
+# Resolve (CCPS)
 
 An online tool that steps a school (or any organisation) through the 5-stage
 Collaborative Complex Problem Solving (CCPS) process:

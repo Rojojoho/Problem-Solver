@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, GripVertical, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
 import type { ImpactMeasureRow, LabeledOption, OutcomeGroup } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
+import { useSerializedSave } from "@/components/plan/use-serialized-save";
 
 interface ImpactMeasuresTableProps {
   planId: string;
@@ -76,11 +77,18 @@ export function ImpactMeasuresTable({
   const rowsRef = useRef<ImpactMeasureRow[]>(rows);
   const groupsRef = useRef<OutcomeGroup[]>(groups);
   const dragRowIdRef = useRef<string | null>(null);
-  const [, startTransition] = useTransition();
   const [isImporting, setIsImporting] = useState(false);
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:impact-measures",
     COLUMN_WIDTHS
+  );
+  const saveRows = useSerializedSave<ImpactMeasureRow[]>(
+    (nextRows) => saveImpactMeasureRows(planId, nextRows),
+    () => toast.error("Couldn't save the impact measures table.")
+  );
+  const saveGroups = useSerializedSave<OutcomeGroup[]>(
+    (nextGroups) => saveImpactOutcomeGroups(planId, nextGroups),
+    () => toast.error("Couldn't save the outcome groups.")
   );
 
   // A brand-new Stage 5 starts with no groups at all — the lazy initializer
@@ -88,13 +96,7 @@ export function ImpactMeasuresTable({
   // isn't empty, but that seed still needs saving once, here.
   useEffect(() => {
     if (initialGroups.length === 0) {
-      startTransition(async () => {
-        try {
-          await saveImpactOutcomeGroups(planId, groupsRef.current);
-        } catch {
-          toast.error("Couldn't save the default outcome group.");
-        }
-      });
+      saveGroups(groupsRef.current);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time seed persist on mount only
   }, []);
@@ -102,25 +104,13 @@ export function ImpactMeasuresTable({
   function persistRows(nextRows: ImpactMeasureRow[]) {
     rowsRef.current = nextRows;
     setRows(nextRows);
-    startTransition(async () => {
-      try {
-        await saveImpactMeasureRows(planId, nextRows);
-      } catch {
-        toast.error("Couldn't save the impact measures table.");
-      }
-    });
+    saveRows(nextRows);
   }
 
   function persistGroups(nextGroups: OutcomeGroup[]) {
     groupsRef.current = nextGroups;
     setGroups(nextGroups);
-    startTransition(async () => {
-      try {
-        await saveImpactOutcomeGroups(planId, nextGroups);
-      } catch {
-        toast.error("Couldn't save the outcome groups.");
-      }
-    });
+    saveGroups(nextGroups);
   }
 
   function updateRow(id: string, updates: Partial<ImpactMeasureRow>) {

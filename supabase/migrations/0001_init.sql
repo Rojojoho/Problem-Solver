@@ -1,4 +1,4 @@
--- Complex Problem Solver (CCPS) — initial schema
+-- Resolve (CCPS) — initial schema
 -- Run this in the Supabase SQL editor, or via `supabase db push`.
 
 -- ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { Plus, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
 import type { ImplementationRow, SolutionStrategyRow } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
+import { useSerializedSave } from "@/components/plan/use-serialized-save";
 
 interface ImplementationMonitoringTableProps {
   planId: string;
@@ -62,22 +63,19 @@ export function ImplementationMonitoringTable({
   // closure — e.g. switching tabs right after an edit.
   const rowsRef = useRef<ImplementationRow[]>(rows);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:implementation-monitoring",
     COLUMN_WIDTHS
+  );
+  const save = useSerializedSave<ImplementationRow[]>(
+    (nextRows) => saveImplementationRows(planId, nextRows),
+    () => toast.error("Couldn't save the implementation & monitoring table.")
   );
 
   function persist(nextRows: ImplementationRow[]) {
     rowsRef.current = nextRows;
     setRows(nextRows);
-    startTransition(async () => {
-      try {
-        await saveImplementationRows(planId, nextRows);
-      } catch {
-        toast.error("Couldn't save the implementation & monitoring table.");
-      }
-    });
+    save(nextRows);
   }
 
   async function handleRefresh() {

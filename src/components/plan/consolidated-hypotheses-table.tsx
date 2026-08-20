@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import type { ConsolidatedHypothesisRow } from "@/lib/ccps/types";
 import { cn } from "@/lib/utils";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
+import { useSerializedSave } from "@/components/plan/use-serialized-save";
 
 interface ConsolidatedHypothesesTableProps {
   planId: string;
@@ -45,23 +46,22 @@ export function ConsolidatedHypothesesTable({
   // the blur fires before React has re-rendered with a fresh `commitRows`
   // closure — e.g. switching tabs right after an edit.
   const rowsRef = useRef<ConsolidatedHypothesisRow[]>(rows);
-  const [, startTransition] = useTransition();
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:consolidated-hypotheses",
     COLUMN_WIDTHS
+  );
+  const save = useSerializedSave<ConsolidatedHypothesisRow[]>(
+    async (nextRows) => {
+      await saveConsolidatedHypothesisRows(planId, nextRows);
+      onDataChanged?.();
+    },
+    () => toast.error("Couldn't save the consolidated hypotheses table.")
   );
 
   function persist(nextRows: ConsolidatedHypothesisRow[]) {
     rowsRef.current = nextRows;
     setRows(nextRows);
-    startTransition(async () => {
-      try {
-        await saveConsolidatedHypothesisRows(planId, nextRows);
-        onDataChanged?.();
-      } catch {
-        toast.error("Couldn't save the consolidated hypotheses table.");
-      }
-    });
+    save(nextRows);
   }
 
   function updateCell(
