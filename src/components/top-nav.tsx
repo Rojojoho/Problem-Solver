@@ -15,13 +15,13 @@ export async function TopNav() {
     <header className="fixed inset-x-0 top-0 z-40 h-14 border-b border-nav-foreground/10 bg-nav">
       <div className="flex h-14 w-full items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-6">
-          <Link href="/plans" className="flex items-center gap-2 text-[2rem] font-bold text-white">
+          <Link href="/plans" className="flex items-center gap-2 text-xl font-bold text-white">
             <Image
               src="/assets/Resolve_white_small.png"
               alt=""
               width={200}
               height={87}
-              className="h-6 w-auto"
+              className="h-5 w-auto"
               priority
             />
             Resolve
