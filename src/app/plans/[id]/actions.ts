@@ -216,6 +216,7 @@ export async function getSolutionRequirementOptions(
 }
 
 export interface TraceCauseNode {
+  id: string; // ConsolidatedHypothesisRow.id for causes; measure name for measures; synthetic for dangling — lets the diagram dedupe a cause shared by multiple requirements into one box
   kind: "cause" | "measure" | "dangling";
   label: string;
   detail?: string;
@@ -230,7 +231,7 @@ export interface TraceRequirement {
 }
 
 export interface StrategyTraceability {
-  strategy: string | null;
+  strategy: { name: string; description: string } | null;
   problemStatement: string[];
   requirements: TraceRequirement[];
 }
@@ -282,11 +283,12 @@ export async function getSolutionStrategyTraceability(
       if (l.type === "ref") {
         const cause = causeById.get(l.targetId);
         return cause
-          ? { kind: "cause", label: cause.hypothesis, detail: cause.validityTest || undefined }
-          : { kind: "dangling", label: "Deleted item" };
+          ? { id: cause.id, kind: "cause", label: cause.hypothesis, detail: cause.description || undefined }
+          : { id: `dangling:${l.targetId}`, kind: "dangling", label: "Deleted item" };
       }
       const measure = measureByName.get(l.value);
       return {
+        id: `measure:${l.value}`,
         kind: "measure",
         label: l.value,
         detail: measure && (measure.baseline || measure.target)
@@ -306,7 +308,9 @@ export async function getSolutionStrategyTraceability(
   const problemStatement = docToParagraphs(piResponses["pi_problem_description"]);
 
   return {
-    strategy: strategyRow?.strategy || null,
+    strategy: strategyRow
+      ? { name: strategyRow.strategy || "Untitled strategy", description: strategyRow.description }
+      : null,
     problemStatement,
     requirements,
   };

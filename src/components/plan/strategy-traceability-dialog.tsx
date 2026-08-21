@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Loader2, Waypoints } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import {
   getSolutionStrategyTraceability,
   type StrategyTraceability,
   type TraceCauseNode,
-  type TraceRequirement,
 } from "@/app/plans/[id]/actions";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +60,7 @@ export function StrategyTraceabilityDialog({
           </Button>
         }
       />
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[95vw]">
         <DialogHeader>
           <DialogTitle>
             Connections{strategyLabel ? ` — ${strategyLabel}` : ""}
@@ -74,98 +73,234 @@ export function StrategyTraceabilityDialog({
             Loading…
           </div>
         ) : data ? (
-          <TraceabilityView data={data} />
+          <TraceabilityDiagram data={data} />
         ) : null}
       </DialogContent>
     </Dialog>
   );
 }
 
-function TraceabilityView({ data }: { data: StrategyTraceability }) {
-  return (
-    <div className="max-h-[70vh] space-y-4 overflow-y-auto">
-      <div className="rounded-md border border-border bg-muted/30 p-3">
-        <div className="text-xs font-medium text-muted-foreground uppercase">
-          1.1 Problem
-        </div>
-        {data.problemStatement.length ? (
-          <div className="mt-1 space-y-1 text-sm">
-            {data.problemStatement.map((p, i) => (
-              <p key={i}>{p}</p>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-1 text-sm text-muted-foreground italic">
-            Not filled in yet.
-          </p>
-        )}
-      </div>
+// --- diagram ---------------------------------------------------------
 
-      {data.requirements.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          This strategy isn&apos;t linked to any requirements yet.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {data.requirements.map((requirement, i) => (
-            <RequirementBranch key={requirement.id + i} requirement={requirement} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+type NodeKind = "strategy" | "requirement" | "cause" | "measure" | "dangling" | "problem";
+
+interface DiagramNode {
+  key: string;
+  kind: NodeKind;
+  title: string;
+  body?: string;
 }
 
-function RequirementBranch({ requirement }: { requirement: TraceRequirement }) {
-  if (requirement.dangling) {
-    return (
-      <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground italic">
-        Deleted requirement
-      </div>
-    );
+interface DiagramEdge {
+  from: string;
+  to: string;
+}
+
+const STRATEGY_KEY = "strategy";
+const PROBLEM_KEY = "problem";
+
+function buildDiagram(data: StrategyTraceability) {
+  const requirementNodes: DiagramNode[] = [];
+  const causeNodes = new Map<string, DiagramNode>();
+  const edges: DiagramEdge[] = [];
+
+  data.requirements.forEach((req, i) => {
+    const reqKey = `req:${req.id}:${i}`;
+    if (req.dangling) {
+      requirementNodes.push({ key: reqKey, kind: "dangling", title: "Deleted requirement" });
+      edges.push({ from: STRATEGY_KEY, to: reqKey });
+      return;
+    }
+    requirementNodes.push({
+      key: reqKey,
+      kind: "requirement",
+      title: req.shortId,
+      body: req.requirement || undefined,
+    });
+    edges.push({ from: STRATEGY_KEY, to: reqKey });
+
+    req.causes.forEach((cause: TraceCauseNode) => {
+      const causeKey = `cause:${cause.id}`;
+      if (!causeNodes.has(causeKey)) {
+        causeNodes.set(causeKey, {
+          key: causeKey,
+          kind: cause.kind,
+          title: cause.label,
+          body: cause.detail,
+        });
+      }
+      edges.push({ from: reqKey, to: causeKey });
+    });
+  });
+
+  for (const causeNode of causeNodes.values()) {
+    edges.push({ from: causeNode.key, to: PROBLEM_KEY });
   }
 
-  return (
-    <div className="rounded-md border border-border p-3">
-      <div className="text-sm font-medium">
-        {requirement.shortId}
-        {requirement.requirement ? (
-          <span className="ml-1.5 font-normal text-muted-foreground">
-            {requirement.requirement}
-          </span>
-        ) : null}
-      </div>
+  const strategyNode: DiagramNode = {
+    key: STRATEGY_KEY,
+    kind: "strategy",
+    title: data.strategy?.name || "Untitled strategy",
+    body: data.strategy?.description || undefined,
+  };
 
-      {requirement.causes.length === 0 ? (
-        <p className="mt-2 border-l-2 border-border pl-3 text-xs text-muted-foreground italic">
-          No causes or measures linked yet.
-        </p>
-      ) : (
-        <div className="mt-2 space-y-1.5 border-l-2 border-border pl-3">
-          {requirement.causes.map((cause, i) => (
-            <CauseLeaf key={i} cause={cause} />
+  const problemNode: DiagramNode = {
+    key: PROBLEM_KEY,
+    kind: "problem",
+    title: "1.1 Problem",
+    body: data.problemStatement.length ? data.problemStatement.join(" ") : "Not filled in yet.",
+  };
+
+  return {
+    strategyNode,
+    requirementNodes,
+    causeNodes: [...causeNodes.values()],
+    problemNode,
+    edges,
+  };
+}
+
+function TraceabilityDiagram({ data }: { data: StrategyTraceability }) {
+  const diagram = buildDiagram(data);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const boxRefs = useRef(new Map<string, HTMLDivElement>());
+  const [paths, setPaths] = useState<{ id: string; d: string }[]>([]);
+
+  function setBoxRef(key: string) {
+    return (el: HTMLDivElement | null) => {
+      if (el) boxRefs.current.set(key, el);
+      else boxRefs.current.delete(key);
+    };
+  }
+
+  function computeEdges() {
+    const container = containerRef.current;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+
+    function anchor(key: string, side: "left" | "right") {
+      const el = boxRefs.current.get(key);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const x = (side === "right" ? r.right : r.left) - containerRect.left;
+      const y = r.top + r.height / 2 - containerRect.top;
+      return { x, y };
+    }
+
+    const next = diagram.edges
+      .map((edge) => {
+        const from = anchor(edge.from, "right");
+        const to = anchor(edge.to, "left");
+        if (!from || !to) return null;
+        const midX = (from.x + to.x) / 2;
+        return {
+          id: `${edge.from}->${edge.to}`,
+          d: `M ${from.x},${from.y} C ${midX},${from.y} ${midX},${to.y} ${to.x},${to.y}`,
+        };
+      })
+      .filter((p): p is { id: string; d: string } => p !== null);
+
+    setPaths(next);
+  }
+
+  useLayoutEffect(() => {
+    computeEdges();
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => computeEdges());
+    observer.observe(container);
+    let cancelled = false;
+    document.fonts?.ready?.then(() => {
+      if (!cancelled) computeEdges();
+    });
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  return (
+    <div className="max-h-[80vh] overflow-auto">
+      <div ref={containerRef} className="relative min-w-max p-2">
+        <svg className="pointer-events-none absolute inset-0 z-0 h-full w-full overflow-visible">
+          {paths.map((p) => (
+            <path
+              key={p.id}
+              d={p.d}
+              fill="none"
+              stroke="var(--color-border)"
+              strokeWidth={1.5}
+            />
           ))}
+        </svg>
+
+        <div className="relative z-10 flex items-stretch gap-12">
+          <DiagramColumn>
+            <NodeBox node={diagram.strategyNode} setRef={setBoxRef} />
+          </DiagramColumn>
+
+          <DiagramColumn>
+            {diagram.requirementNodes.length ? (
+              diagram.requirementNodes.map((n) => (
+                <NodeBox key={n.key} node={n} setRef={setBoxRef} />
+              ))
+            ) : (
+              <p className="w-56 text-xs text-muted-foreground italic">
+                No requirements linked yet.
+              </p>
+            )}
+          </DiagramColumn>
+
+          <DiagramColumn>
+            {diagram.causeNodes.length ? (
+              diagram.causeNodes.map((n) => (
+                <NodeBox key={n.key} node={n} setRef={setBoxRef} />
+              ))
+            ) : (
+              <p className="w-56 text-xs text-muted-foreground italic">
+                No causes or measures linked yet.
+              </p>
+            )}
+          </DiagramColumn>
+
+          <DiagramColumn>
+            <NodeBox node={diagram.problemNode} setRef={setBoxRef} />
+          </DiagramColumn>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-function CauseLeaf({ cause }: { cause: TraceCauseNode }) {
-  const isDangling = cause.kind === "dangling";
+function DiagramColumn({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-xs">
-      <span
-        className={cn(
-          "font-medium",
-          isDangling && "text-muted-foreground italic"
-        )}
-      >
-        {cause.kind === "measure" ? "Measure: " : isDangling ? "" : "Cause: "}
-        {cause.label}
-      </span>
-      {cause.detail ? (
-        <span className="ml-1 text-muted-foreground">({cause.detail})</span>
+    <div className="flex w-56 flex-none flex-col justify-center gap-4">{children}</div>
+  );
+}
+
+function NodeBox({
+  node,
+  setRef,
+}: {
+  node: DiagramNode;
+  setRef: (key: string) => (el: HTMLDivElement | null) => void;
+}) {
+  const isDangling = node.kind === "dangling";
+  return (
+    <div
+      ref={setRef(node.key)}
+      className={cn(
+        "rounded-md border bg-card p-3 text-xs shadow-sm",
+        isDangling ? "border-dashed border-border text-muted-foreground italic" : "border-border"
+      )}
+    >
+      <div className={cn("font-medium", node.kind === "strategy" && "text-sm")}>
+        {node.kind === "measure" && !isDangling ? "Measure: " : null}
+        {node.title}
+      </div>
+      {node.body ? (
+        <p className="mt-1 line-clamp-4 text-muted-foreground">{node.body}</p>
       ) : null}
     </div>
   );
