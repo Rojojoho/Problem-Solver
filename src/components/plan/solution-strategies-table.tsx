@@ -18,6 +18,7 @@ import {
 } from "@/app/plans/[id]/actions";
 import type { LinkRef, SolutionStrategyRow } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
+import { StrategyTraceabilityDialog } from "@/components/plan/strategy-traceability-dialog";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
 import { useSerializedSave } from "@/components/plan/use-serialized-save";
 import { cn } from "@/lib/utils";
@@ -159,12 +160,20 @@ export function SolutionStrategiesTable({
         <tbody>
           {rows.map((row, i) => (
             <tr key={row.id} className="border-b border-border align-top last:border-b-0">
-              <td className="border-r border-border p-0">
+              <td className="relative border-r border-border p-0">
                 <EditableCell
                   value={row.strategy}
                   onChange={(value) => updateCell(i, "strategy", value)}
                   onBlur={commitRows}
+                  className="pr-7"
                 />
+                <div className="absolute top-1 right-1">
+                  <StrategyTraceabilityDialog
+                    planId={planId}
+                    strategyId={row.id}
+                    strategyLabel={row.strategy}
+                  />
+                </div>
               </td>
               <td className="border-r border-border p-0">
                 <EditableCell

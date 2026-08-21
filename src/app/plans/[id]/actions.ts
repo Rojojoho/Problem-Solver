@@ -15,6 +15,7 @@ import {
   IMPACT_MEASURES_FIELD_KEY,
   IMPACT_OUTCOME_GROUPS_FIELD_KEY,
 } from "@/lib/ccps/constants";
+import { docToParagraphs } from "@/lib/ccps/doc-to-text";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
   ConsolidatedHypothesisRow,
@@ -212,6 +213,103 @@ export async function getSolutionRequirementOptions(
   return rows
     .filter((row) => row.shortId)
     .map((row) => ({ id: row.id, label: row.shortId }));
+}
+
+export interface TraceCauseNode {
+  kind: "cause" | "measure" | "dangling";
+  label: string;
+  detail?: string;
+}
+
+export interface TraceRequirement {
+  id: string;
+  shortId: string;
+  requirement: string;
+  dangling?: boolean;
+  causes: TraceCauseNode[];
+}
+
+export interface StrategyTraceability {
+  strategy: string | null;
+  problemStatement: string[];
+  requirements: TraceRequirement[];
+}
+
+// Powers the 3.2 "trace" popup: walks a strategy's links down to the
+// requirements it's linked to, and each of those requirements' own links
+// down to validated causes (2.3) or 1.2 measures — fetched fresh every
+// time (same live-refetch reasoning as the pickers above, since this
+// crosses the same stages they do). The 2.3 -> 2A / 1.1 connection isn't
+// stored anywhere (consolidateCausalHypotheses does a one-time textual
+// copy, not a live link), so the 1.1 problem statement is surfaced here
+// as fixed context rather than a traced edge, and 2A is skipped entirely.
+export async function getSolutionStrategyTraceability(
+  planId: string,
+  strategyId: string
+): Promise<StrategyTraceability> {
+  const [piResponses, cvResponses, srResponses, ssResponses] = await Promise.all([
+    getStageResponses(planId, "PI"),
+    getStageResponses(planId, "CV"),
+    getStageResponses(planId, "SR"),
+    getStageResponses(planId, "SS"),
+  ]);
+
+  const measureRows = asRowArray<MeasureRow>(piResponses[MEASURES_FIELD_KEY]);
+  const causeRows = asRowArray<ConsolidatedHypothesisRow>(
+    cvResponses[CONSOLIDATED_HYPOTHESES_FIELD_KEY]
+  );
+  const requirementRows = asRowArray<SolutionRequirementRow>(
+    srResponses[SOLUTION_REQUIREMENTS_FIELD_KEY]
+  );
+  const strategyRows = asRowArray<SolutionStrategyRow>(
+    ssResponses[SOLUTION_STRATEGIES_FIELD_KEY]
+  );
+
+  const causeById = new Map(causeRows.map((c) => [c.id, c]));
+  const measureByName = new Map(measureRows.map((m) => [m.measure, m]));
+  const requirementById = new Map(requirementRows.map((r) => [r.id, r]));
+
+  const strategyRow = strategyRows.find((s) => s.id === strategyId) ?? null;
+
+  const requirements: TraceRequirement[] = (strategyRow?.links ?? []).map((link) => {
+    const requirement = link.type === "ref" ? requirementById.get(link.targetId) : undefined;
+    if (!requirement) {
+      const label = link.type === "text" ? link.value : "Deleted requirement";
+      return { id: link.type === "ref" ? link.targetId : label, shortId: label, requirement: "", dangling: true, causes: [] };
+    }
+
+    const causes: TraceCauseNode[] = requirement.links.map((l): TraceCauseNode => {
+      if (l.type === "ref") {
+        const cause = causeById.get(l.targetId);
+        return cause
+          ? { kind: "cause", label: cause.hypothesis, detail: cause.validityTest || undefined }
+          : { kind: "dangling", label: "Deleted item" };
+      }
+      const measure = measureByName.get(l.value);
+      return {
+        kind: "measure",
+        label: l.value,
+        detail: measure && (measure.baseline || measure.target)
+          ? `${measure.baseline || "—"} → ${measure.target || "—"}`
+          : undefined,
+      };
+    });
+
+    return {
+      id: requirement.id,
+      shortId: requirement.shortId,
+      requirement: requirement.requirement,
+      causes,
+    };
+  });
+
+  const problemStatement = docToParagraphs(piResponses["pi_problem_description"]);
+
+  return {
+    strategy: strategyRow?.strategy || null,
+    problemStatement,
+    requirements,
+  };
 }
 
 // Stage 5's "Import measures from Stage 1" button calls this directly from
