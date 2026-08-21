@@ -248,8 +248,15 @@ function LinkPicker({
   const options = liveOptions ?? requirementOptions;
   const labelById = new Map(options.map((o) => [o.id, o.label]));
 
+  // Measured from the cell itself rather than the column's nominal width —
+  // table-fixed still stretches columns proportionally to fill any extra
+  // table width beyond the colgroup's specified totals, so the rendered
+  // cell is usually wider than the raw column-width value.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [menuWidth, setMenuWidth] = useState<number | null>(null);
+
   return (
-    <div className="space-y-1.5">
+    <div ref={containerRef} className="space-y-1.5">
       {row.links.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {row.links.map((link, index) => {
@@ -280,6 +287,7 @@ function LinkPicker({
       <DropdownMenu
         onOpenChange={(open) => {
           if (!open) return;
+          setMenuWidth(containerRef.current?.getBoundingClientRect().width ?? null);
           getSolutionRequirementOptions(planId)
             .then(setLiveOptions)
             .catch(() => {
@@ -299,11 +307,15 @@ function LinkPicker({
             </Button>
           }
         />
-        <DropdownMenuContent>
+        <DropdownMenuContent
+          style={menuWidth ? { width: menuWidth, minWidth: menuWidth } : undefined}
+          className="text-xs"
+        >
           {options.length ? (
             options.map((option) => (
               <DropdownMenuCheckboxItem
                 key={option.id}
+                className="text-xs"
                 checked={row.links.some(
                   (l) => l.type === "ref" && l.targetId === option.id
                 )}
@@ -313,7 +325,9 @@ function LinkPicker({
               </DropdownMenuCheckboxItem>
             ))
           ) : (
-            <DropdownMenuItem disabled>No 3A requirements yet</DropdownMenuItem>
+            <DropdownMenuItem disabled className="text-xs">
+              No 3A requirements yet
+            </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
