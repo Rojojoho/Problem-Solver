@@ -15,9 +15,15 @@ import { FeedbackPanel } from "@/components/plan/feedback-panel";
 import { KbPanel } from "@/components/plan/kb-panel";
 import { AskPanel } from "@/components/plan/ask-panel";
 
+// The Summary tab isn't a real CCPS stage (it's a rollup of several), but it
+// still gets a side panel — "summary" is a sentinel for that case, handled
+// specially wherever it actually matters (currently just FeedbackPanel,
+// which treats it as general/no-stage feedback).
+export type PanelStage = CcpsStage | "summary";
+
 interface SidePanelProps {
   planId: string;
-  stage: CcpsStage;
+  stage: PanelStage;
   stageLabel: string;
   stageHasFields: boolean;
   checklist: ChecklistItemData[];

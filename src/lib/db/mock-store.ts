@@ -35,7 +35,7 @@ interface MockPlan {
 interface MockFeedback {
   id: string;
   plan_id: string;
-  stage: CcpsStage;
+  stage: CcpsStage | null;
   author_name: string;
   body: string;
   created_at: string;
@@ -651,7 +651,7 @@ export function mockGetFeedback(planId: string) {
 
 export function mockAddFeedback(
   planId: string,
-  stage: CcpsStage,
+  stage: CcpsStage | null,
   body: string
 ) {
   feedback.push({

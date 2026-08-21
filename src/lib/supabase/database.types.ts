@@ -251,7 +251,7 @@ export interface Database {
         Row: {
           id: string;
           plan_id: string;
-          stage: CcpsStage;
+          stage: CcpsStage | null;
           author_id: string;
           body: string;
           created_at: string;
@@ -263,7 +263,6 @@ export interface Database {
           Database["public"]["Tables"]["feedback_comments"]["Row"]
         > & {
           plan_id: string;
-          stage: CcpsStage;
           author_id: string;
           body: string;
         };

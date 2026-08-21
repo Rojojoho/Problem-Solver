@@ -161,7 +161,7 @@ export function PlanWorkspace({
     });
   }
 
-  const showPanel = stage !== "details" && stage !== "summary";
+  const showPanel = stage !== "details";
 
   return (
     <div className="relative">
@@ -280,11 +280,15 @@ export function PlanWorkspace({
               <SidePanel
                 planId={planId}
                 stage={stage}
-                stageLabel={stages.find((s) => s.key === stage)?.label ?? stage}
-                stageHasFields={Boolean(bundles[stage]?.fields.length)}
-                checklist={bundles[stage]?.checklist ?? []}
-                exemplars={bundles[stage]?.exemplars ?? []}
-                fields={bundles[stage]?.fields ?? []}
+                stageLabel={
+                  stage === "summary"
+                    ? "Summary"
+                    : (stages.find((s) => s.key === stage)?.label ?? stage)
+                }
+                stageHasFields={stage !== "summary" && Boolean(bundles[stage]?.fields.length)}
+                checklist={stage !== "summary" ? (bundles[stage]?.checklist ?? []) : []}
+                exemplars={stage !== "summary" ? (bundles[stage]?.exemplars ?? []) : []}
+                fields={stage !== "summary" ? (bundles[stage]?.fields ?? []) : []}
                 feedback={feedback}
                 kbArticles={kbArticles}
               />

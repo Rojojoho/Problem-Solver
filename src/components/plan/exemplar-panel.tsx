@@ -9,11 +9,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { docToParagraphs } from "@/lib/ccps/doc-to-text";
-import type { CcpsStage } from "@/lib/supabase/database.types";
 import type { ExemplarData, StageFieldSummary } from "@/lib/ccps/types";
+import type { PanelStage } from "@/components/plan/side-panel";
 
 interface ExemplarPanelProps {
-  stage: CcpsStage;
+  stage: PanelStage;
   exemplars: ExemplarData[];
   fields: StageFieldSummary[];
 }

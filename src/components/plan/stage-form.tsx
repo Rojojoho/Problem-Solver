@@ -19,6 +19,7 @@ import {
   CONSOLIDATED_HYPOTHESES_FIELD_KEY,
   EMPTY_DOC,
   IMPLEMENTATION_MONITORING_FIELD_KEY,
+  IMPLEMENTATION_ROW_ORDER_FIELD_KEY,
   IMPACT_MEASURES_FIELD_KEY,
   IMPACT_OUTCOME_GROUPS_FIELD_KEY,
   MEASURES_FIELD_KEY,
@@ -146,6 +147,9 @@ export function StageForm({
                 initialStrategyRows={asRowArray<SolutionStrategyRow>(strategyRows)}
                 initialRows={asRowArray<ImplementationRow>(
                   initialResponses[IMPLEMENTATION_MONITORING_FIELD_KEY]
+                )}
+                initialOrder={asRowArray<string>(
+                  initialResponses[IMPLEMENTATION_ROW_ORDER_FIELD_KEY]
                 )}
               />
             ) : field.field_key === IMPACT_MEASURES_FIELD_KEY ? (

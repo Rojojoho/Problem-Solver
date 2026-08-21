@@ -63,6 +63,13 @@ export const SOLUTION_STRATEGIES_FIELD_KEY = "ss_solution_strategies";
 // stored here, keyed by the 3B row's id.
 export const IMPLEMENTATION_MONITORING_FIELD_KEY = "im_implementation_monitoring";
 
+// Stage 4's rows are a mix of ones mirrored live from Stage 3B (no stable
+// storage of their own until touched) and standalone extra rows — neither
+// array alone captures a user-chosen display order across both, so the
+// order the user drags rows into is persisted separately here as a flat
+// list of row ids.
+export const IMPLEMENTATION_ROW_ORDER_FIELD_KEY = "im_implementation_row_order";
+
 // Stage 5 (5.1): also a structured table rendered instead of a Tiptap
 // editor — see stage-form.tsx. Rows are pulled in from Stage 1's Measures
 // table on demand (an explicit "Import" button, not a live mirror) and can

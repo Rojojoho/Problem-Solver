@@ -16,12 +16,12 @@ import {
   ComboboxPopup,
 } from "@/components/ui/combobox";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   getSolutionRequirementSuggestions,
   saveSolutionRequirementRows,
@@ -45,25 +45,28 @@ interface SolutionRequirementsTableProps {
   onDataChanged?: () => void;
 }
 
-const NONE = "__none__";
-
 function blankRow(shortId: string): SolutionRequirementRow {
-  return { id: crypto.randomUUID(), shortId, requirement: "", links: [], type: null };
+  return { id: crypto.randomUUID(), shortId, requirement: "", links: [], types: [] };
 }
 
 // Old rows lack `shortId` (added after the fact) — default it the same way a
 // freshly-added row would get one, keyed off its position among the rows
 // being normalized so existing plans don't all collapse to "Requirement 1".
 // Links used to be plain strings (before ref/text links existed) — treat any
-// of those as a `text` link so nothing silently disappears.
+// of those as a `text` link so nothing silently disappears. `type` used to
+// be a single value before multi-select tags existed — fold it into `types`.
 function normalizeRows(rows: SolutionRequirementRow[]): SolutionRequirementRow[] {
-  return rows.map((row, i) => ({
-    ...row,
-    shortId: row.shortId || `Requirement ${i + 1}`,
-    links: (row.links ?? []).map((link) =>
-      typeof link === "string" ? { type: "text", value: link } : link
-    ),
-  }));
+  return rows.map((row, i) => {
+    const legacyType = (row as unknown as { type?: string | null }).type;
+    return {
+      ...row,
+      shortId: row.shortId || `Requirement ${i + 1}`,
+      links: (row.links ?? []).map((link) =>
+        typeof link === "string" ? { type: "text", value: link } : link
+      ),
+      types: Array.isArray(row.types) ? row.types : legacyType ? [legacyType] : [],
+    };
+  });
 }
 
 const COLUMN_WIDTHS = [
@@ -147,6 +150,20 @@ export function SolutionRequirementsTable({
       rowsRef.current.map((r) =>
         r.id === id ? { ...r, links: r.links.filter((_, i) => i !== index) } : r
       )
+    );
+  }
+
+  function toggleType(id: string, typeLabel: string, checked: boolean) {
+    persist(
+      rowsRef.current.map((r) => {
+        if (r.id !== id) return r;
+        const has = r.types.includes(typeLabel);
+        if (checked === has) return r;
+        return {
+          ...r,
+          types: checked ? [...r.types, typeLabel] : r.types.filter((t) => t !== typeLabel),
+        };
+      })
     );
   }
 
@@ -259,29 +276,12 @@ export function SolutionRequirementsTable({
                   onRemove={(index) => removeLink(row.id, index)}
                 />
               </td>
-              <td className="border-r border-border p-1">
-                <Select
-                  value={row.type ?? NONE}
-                  onValueChange={(v) =>
-                    persist(
-                      rowsRef.current.map((r) =>
-                        r.id === row.id ? { ...r, type: v === NONE ? null : v } : r
-                      )
-                    )
-                  }
-                >
-                  <SelectTrigger className="w-full" size="sm">
-                    <SelectValue>{(v: string) => (v === NONE ? "—" : v)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>—</SelectItem>
-                    {requirementTypes.map((option) => (
-                      <SelectItem key={option.id} value={option.label}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <td className="border-r border-border p-1.5">
+                <TypeCell
+                  types={row.types}
+                  requirementTypes={requirementTypes}
+                  onToggle={(typeLabel, checked) => toggleType(row.id, typeLabel, checked)}
+                />
               </td>
               <td className="p-0 text-center">
                 <button
@@ -353,8 +353,21 @@ function LinkCell({
     : options.measureSuggestions;
 
   function commitText() {
-    if (!text.trim()) return;
-    onAdd({ type: "text", value: text.trim() });
+    const trimmed = text.trim();
+    // Selecting a combobox option (click or Enter) fires both onValueChange
+    // (which adds the real ref/text link and clears text) and this
+    // component's own Enter handler in the same keystroke — and Base UI
+    // mirrors the selected item's raw `value` (e.g. "cause:<id>") into the
+    // input via onInputValueChange around the same time. If that lands
+    // after onValueChange's setText(""), `text` here is that raw encoded
+    // value rather than empty, and would otherwise get added a second time
+    // as a bogus free-text link. Never commit our own internal encodings.
+    if (trimmed.startsWith("cause:") || trimmed.startsWith("measure:")) {
+      setText("");
+      return;
+    }
+    if (!trimmed) return;
+    onAdd({ type: "text", value: trimmed });
     setText("");
   }
 
@@ -392,7 +405,19 @@ function LinkCell({
       )}
       <Combobox
         inputValue={text}
-        onInputValueChange={(value) => setText(value)}
+        onInputValueChange={(value) => {
+          // After selecting an option, Base UI mirrors its raw internal
+          // value (e.g. "cause:<id>") into the input for display — but we
+          // don't have a display-label mapping wired up, so left as-is
+          // that raw string would sit visibly in the box. Selection itself
+          // is handled by onValueChange below; here we just want the
+          // input cleared, not showing internal plumbing.
+          if (value.startsWith("cause:") || value.startsWith("measure:")) {
+            setText("");
+            return;
+          }
+          setText(value);
+        }}
         onValueChange={(value) => {
           if (typeof value !== "string" || !value) return;
           if (value.startsWith("cause:")) {
@@ -415,7 +440,13 @@ function LinkCell({
           <ComboboxInput
             placeholder="Type or select…"
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              // Enter is only "commit as free text" when there's nothing to
+              // select (matches the ComboboxEmpty hint below). When options
+              // are showing, Enter is the combobox's own "select the
+              // highlighted option" key — also treating it as a free-text
+              // commit here double-added a link (the typed query as a
+              // bogus text link, alongside the real selected one).
+              if (e.key === "Enter" && !filteredCauses.length && !filteredMeasures.length) {
                 e.preventDefault();
                 commitText();
               }
@@ -449,6 +480,90 @@ function LinkCell({
           )}
         </ComboboxPopup>
       </Combobox>
+    </div>
+  );
+}
+
+function TypeCell({
+  types,
+  requirementTypes,
+  onToggle,
+}: {
+  types: string[];
+  requirementTypes: LabeledOption[];
+  onToggle: (typeLabel: string, checked: boolean) => void;
+}) {
+  // Measured from the cell itself rather than the column's nominal width —
+  // table-fixed still stretches columns proportionally to fill any extra
+  // table width beyond the colgroup's specified totals, so the rendered
+  // cell is usually wider than the raw column-width value (same fix
+  // applied to 3.2's Link column picker).
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [menuWidth, setMenuWidth] = useState<number | null>(null);
+
+  return (
+    <div ref={containerRef} className="space-y-1.5">
+      {types.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {types.map((typeLabel) => (
+            <Badge
+              key={typeLabel}
+              variant="outline"
+              className="h-auto max-w-full items-start gap-1 py-1 whitespace-normal break-words"
+            >
+              <span className="min-w-0">{typeLabel}</span>
+              <button
+                type="button"
+                aria-label="Remove type"
+                onClick={() => onToggle(typeLabel, false)}
+                className="ml-0.5 shrink-0 hover:text-destructive"
+              >
+                ×
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (!open) return;
+          setMenuWidth(containerRef.current?.getBoundingClientRect().width ?? null);
+        }}
+      >
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="outline"
+              aria-label="Add type"
+            >
+              <Plus className="size-3.5" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent
+          style={menuWidth ? { width: menuWidth, minWidth: menuWidth } : undefined}
+          className="text-xs"
+        >
+          {requirementTypes.length ? (
+            requirementTypes.map((option) => (
+              <DropdownMenuCheckboxItem
+                key={option.id}
+                className="text-xs"
+                checked={types.includes(option.label)}
+                onCheckedChange={(checked) => onToggle(option.label, checked === true)}
+              >
+                {option.label}
+              </DropdownMenuCheckboxItem>
+            ))
+          ) : (
+            <DropdownMenuItem disabled className="text-xs">
+              No requirement types defined
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

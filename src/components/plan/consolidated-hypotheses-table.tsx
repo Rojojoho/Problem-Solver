@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { GripVertical, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { saveConsolidatedHypothesisRows } from "@/app/plans/[id]/actions";
@@ -46,6 +46,7 @@ export function ConsolidatedHypothesesTable({
   // the blur fires before React has re-rendered with a fresh `commitRows`
   // closure — e.g. switching tabs right after an edit.
   const rowsRef = useRef<ConsolidatedHypothesisRow[]>(rows);
+  const dragIndexRef = useRef<number | null>(null);
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:consolidated-hypotheses",
     COLUMN_WIDTHS
@@ -98,10 +99,36 @@ export function ConsolidatedHypothesesTable({
     persist(rowsRef.current.filter((_, i) => i !== index));
   }
 
+  function handleDragStart(index: number) {
+    return (e: React.DragEvent) => {
+      dragIndexRef.current = index;
+      e.dataTransfer.effectAllowed = "move";
+    };
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(index: number) {
+    return (e: React.DragEvent) => {
+      e.preventDefault();
+      const from = dragIndexRef.current;
+      dragIndexRef.current = null;
+      if (from === null || from === index) return;
+      const next = [...rowsRef.current];
+      const [moved] = next.splice(from, 1);
+      next.splice(index, 0, moved);
+      persist(next);
+    };
+  }
+
   return (
     <div className="overflow-x-auto rounded-md border border-border">
       <table className="w-full table-fixed border-collapse text-sm">
         <colgroup>
+          <col style={{ width: 28 }} />
           <col style={{ width: widths.hypothesis }} />
           <col style={{ width: widths.description }} />
           <col style={{ width: widths.validityTest }} />
@@ -110,6 +137,7 @@ export function ConsolidatedHypothesesTable({
         </colgroup>
         <thead>
           <tr className="bg-muted/50">
+            <th className="border-b border-border" />
             <ResizableTh
               isDragging={draggingKey === "hypothesis"}
               onPointerDown={handlePointerDown("hypothesis", 140)}
@@ -139,7 +167,23 @@ export function ConsolidatedHypothesesTable({
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={row.id} className="border-b border-border last:border-b-0">
+            <tr
+              key={row.id}
+              className="border-b border-border last:border-b-0"
+              onDragOver={handleDragOver}
+              onDrop={handleDrop(i)}
+            >
+              <td className="p-0 text-center align-top">
+                <button
+                  type="button"
+                  aria-label="Drag to reorder"
+                  draggable
+                  onDragStart={handleDragStart(i)}
+                  className="mt-2 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                >
+                  <GripVertical className="mx-auto size-3.5" />
+                </button>
+              </td>
               <td className="border-r border-border p-0 align-top">
                 <EditableCell
                   value={row.hypothesis}
@@ -209,7 +253,7 @@ export function ConsolidatedHypothesesTable({
             </tr>
           ))}
           <tr>
-            <td colSpan={5} className="p-0">
+            <td colSpan={6} className="p-0">
               <Button
                 type="button"
                 variant="ghost"

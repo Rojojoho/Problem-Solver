@@ -13,7 +13,9 @@ export interface ChecklistItemData {
 
 export interface FeedbackItemData {
   id: string;
-  stage: CcpsStage;
+  // null = general feedback, not tied to one stage (e.g. left from the
+  // Summary tab, which rolls up several stages rather than being one).
+  stage: CcpsStage | null;
   author_name: string;
   body: string;
   created_at: string;
@@ -98,7 +100,8 @@ export interface SolutionRequirementRow {
   requirement: string;
   // Refs point at a 2B ConsolidatedHypothesisRow's id.
   links: LinkRef[];
-  type: string | null;
+  // Multiple requirement types can apply to the same requirement.
+  types: string[];
 }
 
 export interface SolutionStrategyRow {

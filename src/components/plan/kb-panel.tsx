@@ -1,10 +1,10 @@
 import Link from "next/link";
-import type { CcpsStage } from "@/lib/supabase/database.types";
 import type { KbArticleData } from "@/lib/ccps/types";
+import type { PanelStage } from "@/components/plan/side-panel";
 import { TiptapEditor } from "@/components/tiptap-editor";
 
 interface KbPanelProps {
-  stage: CcpsStage;
+  stage: PanelStage;
   articles: KbArticleData[];
 }
 

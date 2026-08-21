@@ -12,6 +12,7 @@ import {
   SOLUTION_REQUIREMENTS_FIELD_KEY,
   SOLUTION_STRATEGIES_FIELD_KEY,
   IMPLEMENTATION_MONITORING_FIELD_KEY,
+  IMPLEMENTATION_ROW_ORDER_FIELD_KEY,
   IMPACT_MEASURES_FIELD_KEY,
   IMPACT_OUTCOME_GROUPS_FIELD_KEY,
 } from "@/lib/ccps/constants";
@@ -103,10 +104,15 @@ export interface PlanSummaryField {
   content: JSONContent;
 }
 
+export interface PlanSummaryStrategy {
+  strategy: string;
+  description: string;
+}
+
 export interface PlanSummaryData {
   fields: PlanSummaryField[];
   requirements: string[];
-  strategies: string[];
+  strategies: PlanSummaryStrategy[];
 }
 
 // Fixed set of fields the Summary tab surfaces, independent of whichever
@@ -154,8 +160,8 @@ export async function getPlanSummary(planId: string): Promise<PlanSummaryData> {
   const strategies = asRowArray<SolutionStrategyRow>(
     ssResponses[SOLUTION_STRATEGIES_FIELD_KEY]
   )
-    .map((r) => r.strategy)
-    .filter(Boolean);
+    .filter((r) => r.strategy)
+    .map((r) => ({ strategy: r.strategy, description: r.description }));
 
   return { fields, requirements, strategies };
 }
@@ -352,7 +358,7 @@ export async function toggleChecklistItem(
 
 export async function addFeedback(
   planId: string,
-  stage: CcpsStage,
+  stage: CcpsStage | null,
   body: string
 ) {
   const trimmed = body.trim();
@@ -540,6 +546,20 @@ export async function saveImplementationRows(
     "IM",
     IMPLEMENTATION_MONITORING_FIELD_KEY,
     rows as unknown as JSONContent,
+    userId
+  );
+}
+
+export async function saveImplementationRowOrder(
+  planId: string,
+  order: string[]
+) {
+  const userId = await getCurrentUserId();
+  await saveStageResponseRecord(
+    planId,
+    "IM",
+    IMPLEMENTATION_ROW_ORDER_FIELD_KEY,
+    order as unknown as JSONContent,
     userId
   );
 }

@@ -705,7 +705,7 @@ export async function toggleFeedbackResolvedRecord(
 
 export async function addFeedbackRecord(
   planId: string,
-  stage: CcpsStage,
+  stage: CcpsStage | null,
   body: string,
   userId: string
 ) {

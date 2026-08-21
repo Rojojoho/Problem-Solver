@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Plus, RefreshCw, X } from "lucide-react";
+import { GripVertical, Plus, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   getStrategyRows,
+  saveImplementationRowOrder,
   saveImplementationRows,
 } from "@/app/plans/[id]/actions";
 import type { ImplementationRow, SolutionStrategyRow } from "@/lib/ccps/types";
@@ -17,6 +18,7 @@ interface ImplementationMonitoringTableProps {
   planId: string;
   initialStrategyRows: SolutionStrategyRow[];
   initialRows: ImplementationRow[];
+  initialOrder: string[];
 }
 
 type EditableKey =
@@ -53,6 +55,7 @@ export function ImplementationMonitoringTable({
   planId,
   initialStrategyRows,
   initialRows,
+  initialOrder,
 }: ImplementationMonitoringTableProps) {
   const [strategyRows, setStrategyRows] =
     useState<SolutionStrategyRow[]>(initialStrategyRows);
@@ -62,6 +65,12 @@ export function ImplementationMonitoringTable({
   // the blur fires before React has re-rendered with a fresh `commitRows`
   // closure — e.g. switching tabs right after an edit.
   const rowsRef = useRef<ImplementationRow[]>(rows);
+  // Rows here are a mix of ones mirrored live from Stage 3B (which have no
+  // storage of their own until touched) and standalone extra rows, so
+  // neither array captures a user-chosen display order on its own — that
+  // order is tracked separately as a flat list of row ids.
+  const [order, setOrder] = useState<string[]>(initialOrder);
+  const dragIndexRef = useRef<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { widths, draggingKey, handlePointerDown } = useColumnWidths(
     "ccps:col-widths:implementation-monitoring",
@@ -70,6 +79,10 @@ export function ImplementationMonitoringTable({
   const save = useSerializedSave<ImplementationRow[]>(
     (nextRows) => saveImplementationRows(planId, nextRows),
     () => toast.error("Couldn't save the implementation & monitoring table.")
+  );
+  const saveOrder = useSerializedSave<string[]>(
+    (nextOrder) => saveImplementationRowOrder(planId, nextOrder),
+    () => toast.error("Couldn't save the row order.")
   );
 
   function persist(nextRows: ImplementationRow[]) {
@@ -141,7 +154,43 @@ export function ImplementationMonitoringTable({
       implementationIndicators: r.implementationIndicators,
       monitor: r.monitor,
     }));
-  const displayRows = [...mirroredRows, ...extraRows];
+  // Sort by the persisted order; anything not yet in it (a strategy added
+  // in 3B since last reorder, or a brand-new extra row) sorts after
+  // everything that is, keeping the mirrored-then-extra default order
+  // among themselves since Array#sort is stable.
+  const orderIndex = new Map(order.map((id, i) => [id, i]));
+  const displayRows = [...mirroredRows, ...extraRows].sort((a, b) => {
+    const ai = orderIndex.get(a.rowId) ?? Infinity;
+    const bi = orderIndex.get(b.rowId) ?? Infinity;
+    return ai - bi;
+  });
+
+  function handleDragStart(index: number) {
+    return (e: React.DragEvent) => {
+      dragIndexRef.current = index;
+      e.dataTransfer.effectAllowed = "move";
+    };
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(index: number) {
+    return (e: React.DragEvent) => {
+      e.preventDefault();
+      const from = dragIndexRef.current;
+      dragIndexRef.current = null;
+      if (from === null || from === index) return;
+      const next = [...displayRows];
+      const [moved] = next.splice(from, 1);
+      next.splice(index, 0, moved);
+      const nextOrder = next.map((r) => r.rowId);
+      setOrder(nextOrder);
+      saveOrder(nextOrder);
+    };
+  }
 
   return (
     <div className="space-y-2">
@@ -170,6 +219,7 @@ export function ImplementationMonitoringTable({
       <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full table-fixed border-collapse text-sm">
             <colgroup>
+              <col style={{ width: 28 }} />
               <col style={{ width: widths.strategy }} />
               <col style={{ width: widths.description }} />
               <col style={{ width: widths.lead }} />
@@ -180,6 +230,7 @@ export function ImplementationMonitoringTable({
             </colgroup>
             <thead>
               <tr className="bg-muted/50">
+                <th className="border-b border-border" />
                 <ResizableTh
                   isDragging={draggingKey === "strategy"}
                   onPointerDown={handlePointerDown("strategy", 120)}
@@ -220,8 +271,24 @@ export function ImplementationMonitoringTable({
               </tr>
             </thead>
             <tbody>
-              {displayRows.map((row) => (
-                <tr key={row.rowId} className="border-b border-border last:border-b-0">
+              {displayRows.map((row, i) => (
+                <tr
+                  key={row.rowId}
+                  className="border-b border-border last:border-b-0"
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop(i)}
+                >
+                  <td className="p-0 text-center">
+                    <button
+                      type="button"
+                      aria-label="Drag to reorder"
+                      draggable
+                      onDragStart={handleDragStart(i)}
+                      className="mt-2 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                    >
+                      <GripVertical className="mx-auto size-3.5" />
+                    </button>
+                  </td>
                   <td className="border-r border-border p-0">
                     {row.editableStrategy ? (
                       <EditableCell
@@ -301,7 +368,7 @@ export function ImplementationMonitoringTable({
                 </tr>
               ))}
               <tr>
-                <td colSpan={7} className="p-0">
+                <td colSpan={8} className="p-0">
                   <Button
                     type="button"
                     variant="ghost"

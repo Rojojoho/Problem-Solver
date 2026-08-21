@@ -7,26 +7,29 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { addFeedback, toggleFeedbackResolved } from "@/app/plans/[id]/actions";
-import type { CcpsStage } from "@/lib/supabase/database.types";
 import type { FeedbackItemData } from "@/lib/ccps/types";
+import type { PanelStage } from "@/components/plan/side-panel";
 import { cn } from "@/lib/utils";
 
 interface FeedbackPanelProps {
   planId: string;
-  stage: CcpsStage;
+  stage: PanelStage;
   feedback: FeedbackItemData[];
 }
 
 export function FeedbackPanel({ planId, stage, feedback }: FeedbackPanelProps) {
   const [value, setValue] = useState("");
   const [isPending, startTransition] = useTransition();
-  const stageFeedback = feedback.filter((f) => f.stage === stage);
+  // Summary isn't a real stage — its feedback is filed as general (no
+  // stage), the same "not tied to one stage" concept KB articles already use.
+  const dbStage = stage === "summary" ? null : stage;
+  const stageFeedback = feedback.filter((f) => f.stage === dbStage);
 
   function handleSubmit() {
     if (!value.trim()) return;
     startTransition(async () => {
       try {
-        await addFeedback(planId, stage, value);
+        await addFeedback(planId, dbStage, value);
         setValue("");
       } catch {
         toast.error("Couldn't post feedback.");
