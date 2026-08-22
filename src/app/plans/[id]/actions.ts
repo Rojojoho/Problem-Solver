@@ -223,7 +223,7 @@ export async function getSolutionRequirementOptions(
 
 export interface TraceCauseNode {
   id: string; // ConsolidatedHypothesisRow.id for causes; measure name for measures; synthetic for dangling — lets the diagram dedupe a cause shared by multiple requirements into one box
-  kind: "cause" | "measure" | "dangling";
+  kind: "cause" | "measure" | "dangling" | "text";
   label: string;
   detail?: string;
 }
@@ -274,6 +274,7 @@ export async function getSolutionStrategyTraceability(
 
   const causeById = new Map(causeRows.map((c) => [c.id, c]));
   const measureByName = new Map(measureRows.map((m) => [m.measure, m]));
+  const causeByHypothesis = new Map(causeRows.map((c) => [c.hypothesis, c]));
   const requirementById = new Map(requirementRows.map((r) => [r.id, r]));
 
   const strategyRow = strategyRows.find((s) => s.id === strategyId) ?? null;
@@ -292,15 +293,31 @@ export async function getSolutionStrategyTraceability(
           ? { id: cause.id, kind: "cause", label: cause.hypothesis, detail: cause.description || undefined }
           : { id: `dangling:${l.targetId}`, kind: "dangling", label: "Deleted item" };
       }
+      // Text links are usually 1.2 measures (the only thing the Link
+      // column ever creates a text link for) — but a user can also type a
+      // cause's exact wording as free text instead of picking it from the
+      // suggestions, so check for that match too before assuming "measure".
       const measure = measureByName.get(l.value);
-      return {
-        id: `measure:${l.value}`,
-        kind: "measure",
-        label: l.value,
-        detail: measure && (measure.baseline || measure.target)
-          ? `${measure.baseline || "—"} → ${measure.target || "—"}`
-          : undefined,
-      };
+      if (measure) {
+        return {
+          id: `measure:${l.value}`,
+          kind: "measure",
+          label: l.value,
+          detail: measure.baseline || measure.target
+            ? `${measure.baseline || "—"} → ${measure.target || "—"}`
+            : undefined,
+        };
+      }
+      const matchedCause = causeByHypothesis.get(l.value);
+      if (matchedCause) {
+        return {
+          id: matchedCause.id,
+          kind: "cause",
+          label: matchedCause.hypothesis,
+          detail: matchedCause.description || undefined,
+        };
+      }
+      return { id: `text:${l.value}`, kind: "text", label: l.value };
     });
 
     return {

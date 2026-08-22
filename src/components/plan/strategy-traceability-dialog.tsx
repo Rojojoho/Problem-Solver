@@ -82,7 +82,7 @@ export function StrategyTraceabilityDialog({
 
 // --- diagram ---------------------------------------------------------
 
-type NodeKind = "strategy" | "requirement" | "cause" | "measure" | "dangling" | "problem";
+type NodeKind = "strategy" | "requirement" | "cause" | "measure" | "text" | "dangling" | "problem";
 
 interface DiagramNode {
   key: string;
