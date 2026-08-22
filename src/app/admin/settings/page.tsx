@@ -83,6 +83,19 @@ export default function AdminSettingsPage() {
           </Card>
         </Link>
 
+        <Link href="/admin/settings/diagram-headings">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Connections diagram headings</CardTitle>
+              <CardDescription>
+                Manage the 4 column headings shown on the 3.2
+                &quot;Connections&quot; popup. Changes apply immediately
+                across all plans.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
       </div>
     </div>
   );

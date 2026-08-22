@@ -20,6 +20,7 @@ import { docToParagraphs } from "@/lib/ccps/doc-to-text";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
   ConsolidatedHypothesisRow,
+  DiagramHeadings,
   HypothesisRow,
   ImplementationRow,
   ImpactMeasureRow,
@@ -49,6 +50,7 @@ import {
   listValidationOptions,
   listRequirementTypes,
   listImpactMeasureTypes,
+  getDiagramHeadings,
   getPlan,
   getPlanTags,
   listStages,
@@ -240,6 +242,7 @@ export interface StrategyTraceability {
   strategy: { name: string; description: string } | null;
   problemStatement: string[];
   requirements: TraceRequirement[];
+  headings: DiagramHeadings;
 }
 
 // Powers the 3.2 "trace" popup: walks a strategy's links down to the
@@ -254,11 +257,12 @@ export async function getSolutionStrategyTraceability(
   planId: string,
   strategyId: string
 ): Promise<StrategyTraceability> {
-  const [piResponses, cvResponses, srResponses, ssResponses] = await Promise.all([
+  const [piResponses, cvResponses, srResponses, ssResponses, headings] = await Promise.all([
     getStageResponses(planId, "PI"),
     getStageResponses(planId, "CV"),
     getStageResponses(planId, "SR"),
     getStageResponses(planId, "SS"),
+    getDiagramHeadings(),
   ]);
 
   const measureRows = asRowArray<MeasureRow>(piResponses[MEASURES_FIELD_KEY]);
@@ -336,6 +340,7 @@ export async function getSolutionStrategyTraceability(
       : null,
     problemStatement,
     requirements,
+    headings,
   };
 }
 

@@ -9,6 +9,7 @@ import type {
   PublishedStatus,
 } from "@/lib/supabase/database.types";
 import type {
+  DiagramHeadings,
   ExemplarData,
   FeedbackItemData,
   KbArticleData,
@@ -466,6 +467,51 @@ export async function deleteValidationOptionRecord(id: string) {
 // Requirement types — global, admin-editable "Type" options selectable per
 // solution requirement on Stage 3A. Same shape/pattern as validation_options.
 // ---------------------------------------------------------------------------
+
+const DEFAULT_DIAGRAM_HEADINGS: DiagramHeadings = {
+  problem: "The problem to be solved is",
+  causes: "The agreed causes that contribute to this problem are",
+  requirements: "A solution will need to meet the following requirements",
+  strategy: "A solution strategy is",
+};
+
+export async function getDiagramHeadings(): Promise<DiagramHeadings> {
+  if (DEV_MOCK) return mock.mockGetDiagramHeadings();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("diagram_settings")
+    .select("problem_heading, causes_heading, requirements_heading, strategy_heading")
+    .single();
+  if (!data) return DEFAULT_DIAGRAM_HEADINGS;
+  return {
+    problem: data.problem_heading,
+    causes: data.causes_heading,
+    requirements: data.requirements_heading,
+    strategy: data.strategy_heading,
+  };
+}
+
+export async function updateDiagramHeadingsRecord(updates: Partial<DiagramHeadings>) {
+  if (DEV_MOCK) {
+    mock.mockUpdateDiagramHeadings(updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("diagram_settings")
+    .update({
+      ...(updates.problem !== undefined ? { problem_heading: updates.problem } : {}),
+      ...(updates.causes !== undefined ? { causes_heading: updates.causes } : {}),
+      ...(updates.requirements !== undefined
+        ? { requirements_heading: updates.requirements }
+        : {}),
+      ...(updates.strategy !== undefined ? { strategy_heading: updates.strategy } : {}),
+    })
+    .eq("id", true);
+  if (error) throw new Error(error.message);
+}
 
 export async function listRequirementTypes(): Promise<LabeledOption[]> {
   if (DEV_MOCK) return mock.mockListRequirementTypes();

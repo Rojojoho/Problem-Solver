@@ -6,6 +6,7 @@ import type {
   PublishedStatus,
 } from "@/lib/supabase/database.types";
 import type {
+  DiagramHeadings,
   KbArticleData,
   PublishedPlanSummary,
   TagData,
@@ -573,6 +574,23 @@ interface MockLabeledOption {
   id: string;
   label: string;
   sort_order: number;
+}
+
+// The mock stand-in for the global, admin-editable singleton
+// `diagram_settings` row.
+let diagramHeadings: DiagramHeadings = {
+  problem: "The problem to be solved is",
+  causes: "The agreed causes that contribute to this problem are",
+  requirements: "A solution will need to meet the following requirements",
+  strategy: "A solution strategy is",
+};
+
+export function mockGetDiagramHeadings(): DiagramHeadings {
+  return { ...diagramHeadings };
+}
+
+export function mockUpdateDiagramHeadings(updates: Partial<DiagramHeadings>) {
+  diagramHeadings = { ...diagramHeadings, ...updates };
 }
 
 // The mock stand-in for the global, admin-editable `requirement_types` table.

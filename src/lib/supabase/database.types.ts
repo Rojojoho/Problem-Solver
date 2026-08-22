@@ -122,6 +122,18 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["requirement_types"]["Row"]>;
       };
+      diagram_settings: {
+        Row: {
+          id: boolean;
+          problem_heading: string;
+          causes_heading: string;
+          requirements_heading: string;
+          strategy_heading: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["diagram_settings"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["diagram_settings"]["Row"]>;
+      };
       solution_strategy_statuses: {
         Row: {
           id: string;

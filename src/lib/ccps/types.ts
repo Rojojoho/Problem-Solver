@@ -63,6 +63,17 @@ export interface ConsolidatedHypothesisRow {
   notes: string;
 }
 
+// Admin-configurable column headings for the 3.2 "Connections" traceability
+// diagram popup — a single set of labels for the whole app, not a per-item
+// list, so this is one object rather than a list-with-ids like the option
+// tables below.
+export interface DiagramHeadings {
+  problem: string;
+  causes: string;
+  requirements: string;
+  strategy: string;
+}
+
 export interface ValidationOption {
   id: string;
   label: string;
