@@ -6,10 +6,11 @@
 -- Depends on 0001_init.sql (plans, plan_stage_responses, stages),
 -- 0009_plan_details.sql (background, plan_tags), 0010_stage_field_templates.sql
 -- (stage_fields).
+-- Safe to re-run: every statement below is idempotent.
 
 alter table public.plans
-  add column share_token uuid unique,
-  add column share_enabled boolean not null default false;
+  add column if not exists share_token uuid unique,
+  add column if not exists share_enabled boolean not null default false;
 
 -- Single security-definer function returning everything the public viewer
 -- needs as one JSON blob. This is the ONLY thing granted to the `anon` role
@@ -19,7 +20,7 @@ alter table public.plans
 -- internally) but only ever returns data for a plan matching a valid,
 -- currently-enabled share token — an anonymous caller who doesn't have the
 -- token can't use this to list or browse other plans.
-create function public.get_public_plan_bundle(p_token uuid)
+create or replace function public.get_public_plan_bundle(p_token uuid)
 returns jsonb
 language plpgsql
 security definer

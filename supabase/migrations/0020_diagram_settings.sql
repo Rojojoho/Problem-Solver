@@ -4,8 +4,9 @@
 -- admin settings tables.
 -- Run this in the Supabase SQL editor, or via `supabase db push`.
 -- Depends on 0004_admin.sql (admins).
+-- Safe to re-run: every statement below is idempotent.
 
-create table public.diagram_settings (
+create table if not exists public.diagram_settings (
   id boolean primary key default true,
   problem_heading text not null default 'The problem to be solved is',
   causes_heading text not null default 'The agreed causes that contribute to this problem are',
@@ -15,15 +16,18 @@ create table public.diagram_settings (
   constraint diagram_settings_singleton check (id)
 );
 
-insert into public.diagram_settings (id) values (true);
+insert into public.diagram_settings (id) values (true)
+  on conflict (id) do nothing;
 
 alter table public.diagram_settings enable row level security;
 
+drop policy if exists "Authenticated users can view diagram settings" on public.diagram_settings;
 create policy "Authenticated users can view diagram settings"
   on public.diagram_settings for select
   to authenticated
   using (true);
 
+drop policy if exists "Admins can update diagram settings" on public.diagram_settings;
 create policy "Admins can update diagram settings"
   on public.diagram_settings for update
   using (exists (select 1 from public.admins where user_id = auth.uid()));
