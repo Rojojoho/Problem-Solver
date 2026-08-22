@@ -36,6 +36,8 @@ import {
   addFeedbackRecord,
   toggleFeedbackResolvedRecord,
   renamePlanRecord,
+  enablePlanShareRecord,
+  disablePlanShareRecord,
   saveBackgroundRecord,
   addPlanTagRecord,
   removePlanTagRecord,
@@ -413,6 +415,21 @@ export async function renamePlan(planId: string, name: string) {
 
 export async function saveBackground(planId: string, content: JSONContent) {
   await saveBackgroundRecord(planId, content);
+}
+
+// "Share" (a public, no-login read-only link) is a distinct concept from
+// "Publish" (publishPlan above, which snapshots into a review queue for
+// other logged-in schools) — see the plan-sharing migration's comment.
+export async function enablePlanSharing(planId: string): Promise<string> {
+  const token = await enablePlanShareRecord(planId);
+  if (!token) throw new Error("Couldn't enable sharing for this plan.");
+  revalidatePath(`/plans/${planId}`);
+  return token;
+}
+
+export async function disablePlanSharing(planId: string) {
+  await disablePlanShareRecord(planId);
+  revalidatePath(`/plans/${planId}`);
 }
 
 export async function addPlanTag(planId: string, tag: string) {

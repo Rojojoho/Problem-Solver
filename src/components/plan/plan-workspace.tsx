@@ -16,6 +16,7 @@ import { StageForm } from "@/components/plan/stage-form";
 import { StagePlaceholder } from "@/components/plan/stage-placeholder";
 import { SidePanel } from "@/components/plan/side-panel";
 import { PublishButton } from "@/components/plan/publish-button";
+import { PublicShareDialog } from "@/components/plan/public-share-dialog";
 import { ExportPlanButton } from "@/components/plan/export-plan-button";
 import { PlanDetailsForm } from "@/components/plan/plan-details-form";
 import { SummaryTab } from "@/components/plan/summary-tab";
@@ -45,6 +46,8 @@ interface PlanWorkspaceProps {
   feedback: FeedbackItemData[];
   publishStatus: PublishedStatus | null;
   kbArticles: KbArticleData[];
+  shareEnabled: boolean;
+  shareToken: string | null;
 }
 
 export function PlanWorkspace({
@@ -58,6 +61,8 @@ export function PlanWorkspace({
   feedback,
   publishStatus,
   kbArticles,
+  shareEnabled,
+  shareToken,
 }: PlanWorkspaceProps) {
   const [stage, setStage] = useState<WorkspaceTab>(initialStage);
   const [bundles, setBundles] = useState<Partial<Record<CcpsStage, StageBundle>>>({
@@ -177,6 +182,11 @@ export function PlanWorkspace({
           <div className="mb-4 flex items-center justify-between gap-4">
             <h1 className="text-2xl font-semibold">{planName}</h1>
             <div className="flex items-center gap-2">
+              <PublicShareDialog
+                planId={planId}
+                initialShareEnabled={shareEnabled}
+                initialShareToken={shareToken}
+              />
               <ExportPlanButton planId={planId} planName={planName} />
               <PublishButton planId={planId} status={publishStatus} />
             </div>

@@ -31,6 +31,8 @@ interface MockPlan {
   background: JSONContent | null;
   created_at: string;
   updated_at: string;
+  share_token: string | null;
+  share_enabled: boolean;
 }
 
 interface MockFeedback {
@@ -360,6 +362,8 @@ export function mockCreatePlan(orgId: string, name: string) {
     background: null,
     created_at: timestamp,
     updated_at: timestamp,
+    share_token: null,
+    share_enabled: false,
   });
   // Snapshot the current checklist template, same as the real createPlanRecord does.
   planChecklistItems.set(id, checklistTemplate.map((item) => ({ ...item })));
@@ -368,6 +372,42 @@ export function mockCreatePlan(orgId: string, name: string) {
 
 export function mockGetPlan(id: string) {
   return plans.get(id) ?? null;
+}
+
+export function mockEnablePlanShare(id: string): string | null {
+  const plan = plans.get(id);
+  if (!plan) return null;
+  const token = crypto.randomUUID();
+  plan.share_token = token;
+  plan.share_enabled = true;
+  return token;
+}
+
+export function mockDisablePlanShare(id: string) {
+  const plan = plans.get(id);
+  if (!plan) return;
+  plan.share_enabled = false;
+  plan.share_token = null;
+}
+
+export function mockGetPublicPlanBundle(token: string) {
+  const plan = Array.from(plans.values()).find(
+    (p) => p.share_token === token && p.share_enabled
+  );
+  if (!plan) return null;
+
+  return {
+    id: plan.id,
+    name: plan.name,
+    background: plan.background ?? { type: "doc", content: [] },
+    tags: mockGetPlanTags(plan.id),
+    stages: mockListStages().map((s) => ({
+      key: s.key,
+      label: s.label,
+      fields: mockGetStageFields(s.key as CcpsStage),
+      responses: mockGetStageResponses(plan.id, s.key as CcpsStage),
+    })),
+  };
 }
 
 export function mockRenamePlan(id: string, name: string) {

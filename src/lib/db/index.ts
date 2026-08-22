@@ -14,6 +14,7 @@ import type {
   FeedbackItemData,
   KbArticleData,
   LabeledOption,
+  PublicPlanBundle,
   PublishedPlanSummary,
   StageData,
   StageFieldSummary,
@@ -148,11 +149,51 @@ export async function getPlan(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("plans")
-    .select("id, name, current_stage, background")
+    .select("id, name, current_stage, background, share_token, share_enabled")
     .eq("id", id)
     .single();
   if (!data) return null;
   return { ...data, background: data.background as JSONContent | null };
+}
+
+export async function enablePlanShareRecord(planId: string): Promise<string | null> {
+  if (DEV_MOCK) return mock.mockEnablePlanShare(planId);
+
+  const token = crypto.randomUUID();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("plans")
+    .update({ share_token: token, share_enabled: true })
+    .eq("id", planId);
+  if (error) throw new Error(error.message);
+  return token;
+}
+
+export async function disablePlanShareRecord(planId: string) {
+  if (DEV_MOCK) {
+    mock.mockDisablePlanShare(planId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("plans")
+    .update({ share_enabled: false, share_token: null })
+    .eq("id", planId);
+  if (error) throw new Error(error.message);
+}
+
+export async function getPublicPlanBundle(
+  token: string
+): Promise<PublicPlanBundle | null> {
+  if (DEV_MOCK) return mock.mockGetPublicPlanBundle(token);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_public_plan_bundle", {
+    p_token: token,
+  });
+  if (error || !data) return null;
+  return data as unknown as PublicPlanBundle;
 }
 
 export async function getStageResponses(

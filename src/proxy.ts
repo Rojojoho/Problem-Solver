@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { DEV_MOCK } from "@/lib/dev-mode";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback"];
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/public"];
 
 export async function proxy(request: NextRequest) {
   if (DEV_MOCK) {

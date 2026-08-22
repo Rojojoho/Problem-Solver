@@ -55,6 +55,8 @@ export interface Database {
           background: unknown | null;
           created_at: string;
           updated_at: string;
+          share_token: string | null;
+          share_enabled: boolean;
         };
         Insert: Partial<Database["public"]["Tables"]["plans"]["Row"]> & {
           org_id: string;

@@ -114,6 +114,8 @@ export default async function PlanPage({
       feedback={feedback}
       publishStatus={latestPublished?.status ?? null}
       kbArticles={kbArticles}
+      shareEnabled={plan.share_enabled}
+      shareToken={plan.share_token}
     />
   );
 }

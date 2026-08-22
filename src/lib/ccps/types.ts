@@ -46,6 +46,32 @@ export interface StageFieldSummary {
   sort_order: number;
 }
 
+// Everything the public, no-login plan viewer needs — assembled once (either
+// by the `get_public_plan_bundle` Postgres function or its DEV_MOCK
+// equivalent), deliberately excluding anything side-panel-only (feedback,
+// checklist state, exemplars) since that view never shows the side panel.
+export interface PublicStageBundle {
+  key: string;
+  label: string;
+  fields: {
+    field_key: string;
+    internal_id: string;
+    full_prompt: string;
+    helper_text: string | null;
+    default_content: JSONContent | null;
+    sort_order: number;
+  }[];
+  responses: Record<string, JSONContent>;
+}
+
+export interface PublicPlanBundle {
+  id: string;
+  name: string;
+  background: JSONContent;
+  tags: string[];
+  stages: PublicStageBundle[];
+}
+
 export interface StageData {
   key: string;
   label: string;
