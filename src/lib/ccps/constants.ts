@@ -76,3 +76,17 @@ export const IMPLEMENTATION_ROW_ORDER_FIELD_KEY = "im_implementation_row_order";
 // be clustered into outcome groups, stored separately under their own key.
 export const IMPACT_MEASURES_FIELD_KEY = "ei_impact_measures";
 export const IMPACT_OUTCOME_GROUPS_FIELD_KEY = "ei_impact_outcome_groups";
+
+// Fixed set of fields the Summary tab surfaces, independent of whichever
+// stage tabs the user has actually visited this session. Lives here (not in
+// plans/[id]/actions.ts) because that file has a top-level "use server"
+// directive, and Next.js requires every export from such a file to be an
+// async function — a plain constant isn't allowed there. Used by both the
+// in-app getPlanSummary and the public (no-login) viewer, which builds the
+// same summary shape from its own already-fetched bundle instead of
+// re-fetching via the authenticated-only getPlanSummary.
+export const SUMMARY_FIELD_KEYS = [
+  "pi_problem_description", // 1.1
+  "pi_educational_argument", // 1.3
+  "cv_validated_causal_story", // 2.4
+] as const;

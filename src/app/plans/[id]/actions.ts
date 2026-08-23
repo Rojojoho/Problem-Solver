@@ -15,6 +15,7 @@ import {
   IMPLEMENTATION_ROW_ORDER_FIELD_KEY,
   IMPACT_MEASURES_FIELD_KEY,
   IMPACT_OUTCOME_GROUPS_FIELD_KEY,
+  SUMMARY_FIELD_KEYS,
 } from "@/lib/ccps/constants";
 import { docToParagraphs } from "@/lib/ccps/doc-to-text";
 import type { CcpsStage } from "@/lib/supabase/database.types";
@@ -119,13 +120,6 @@ export interface PlanSummaryData {
   strategies: PlanSummaryStrategy[];
 }
 
-// Fixed set of fields the Summary tab surfaces, independent of whichever
-// stage tabs the user has actually visited this session.
-const SUMMARY_FIELD_KEYS = [
-  "pi_problem_description", // 1.1
-  "pi_educational_argument", // 1.3
-  "cv_validated_causal_story", // 2.4
-] as const;
 
 // Read-only rollup of a plan's key content — pulled fresh every time the
 // Summary tab is opened (same live-fetch reasoning as the cross-stage

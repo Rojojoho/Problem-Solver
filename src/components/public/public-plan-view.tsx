@@ -15,6 +15,7 @@ import {
   IMPLEMENTATION_MONITORING_FIELD_KEY,
   IMPLEMENTATION_ROW_ORDER_FIELD_KEY,
   IMPACT_MEASURES_FIELD_KEY,
+  SUMMARY_FIELD_KEYS,
 } from "@/lib/ccps/constants";
 import type {
   ConsolidatedHypothesisRow,
@@ -29,17 +30,51 @@ import type {
 } from "@/lib/ccps/types";
 import type { PlanSummaryData } from "@/app/plans/[id]/actions";
 
+// Builds the same shape the in-app Summary tab uses, but from the bundle
+// already fetched via the security-definer RPC — NOT by calling
+// getPlanSummary (which reads via the normal authenticated Supabase client
+// and would come back empty for an anonymous visitor, since RLS blocks it).
+function buildPublicSummary(bundle: PublicPlanBundle): PlanSummaryData {
+  const allFields = bundle.stages.flatMap((s) => s.fields);
+  const allResponses: Record<string, JSONContent> = Object.assign(
+    {},
+    ...bundle.stages.map((s) => s.responses)
+  );
+
+  const fields = SUMMARY_FIELD_KEYS.map((fieldKey) => {
+    const meta = allFields.find((f) => f.field_key === fieldKey);
+    return {
+      fieldKey,
+      internalId: meta?.internal_id ?? "",
+      label: meta?.full_prompt ?? fieldKey,
+      content: allResponses[fieldKey] ?? EMPTY_DOC,
+    };
+  });
+
+  const srResponses = bundle.stages.find((s) => s.key === "SR")?.responses;
+  const ssResponses = bundle.stages.find((s) => s.key === "SS")?.responses;
+
+  const requirements = asRowArray<SolutionRequirementRow>(
+    srResponses?.[SOLUTION_REQUIREMENTS_FIELD_KEY]
+  )
+    .map((r) => r.requirement)
+    .filter(Boolean);
+
+  const strategies = asRowArray<SolutionStrategyRow>(
+    ssResponses?.[SOLUTION_STRATEGIES_FIELD_KEY]
+  )
+    .filter((r) => r.strategy)
+    .map((r) => ({ strategy: r.strategy, description: r.description }));
+
+  return { fields, requirements, strategies };
+}
+
 // Deliberately its own, purely-presentational component tree — not the
 // interactive stage-form/table components used in the logged-in workspace.
 // Nothing here imports a mutating server action; this is what's rendered
 // for anonymous, unauthenticated visitors via a public share link.
-export function PublicPlanView({
-  bundle,
-  summary,
-}: {
-  bundle: PublicPlanBundle;
-  summary: PlanSummaryData;
-}) {
+export function PublicPlanView({ bundle }: { bundle: PublicPlanBundle }) {
+  const summary = buildPublicSummary(bundle);
   const responsesByStage: Record<string, Record<string, JSONContent>> = Object.fromEntries(
     bundle.stages.map((s) => [s.key, s.responses])
   );
