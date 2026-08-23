@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
-import { getPublicPlanBundle, getDiagramHeadings } from "@/lib/db";
+import {
+  getPublicPlanBundle,
+  getDiagramHeadings,
+  getWorkspaceTabPositions,
+} from "@/lib/db";
 import { PublicPlanView } from "@/components/public/public-plan-view";
 
 // This page has no cookies/headers/searchParams for Next to key dynamic
@@ -22,6 +26,9 @@ export default async function PublicPlanPage({
   }
 
   const headings = await getDiagramHeadings();
+  const tabPositions = await getWorkspaceTabPositions();
 
-  return <PublicPlanView bundle={bundle} headings={headings} />;
+  return (
+    <PublicPlanView bundle={bundle} headings={headings} tabPositions={tabPositions} />
+  );
 }

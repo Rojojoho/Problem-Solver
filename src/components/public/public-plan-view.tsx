@@ -39,6 +39,7 @@ import type {
   PublicPlanBundle,
   SolutionRequirementRow,
   SolutionStrategyRow,
+  WorkspaceTabPositions,
 } from "@/lib/ccps/types";
 import type {
   PlanSummaryData,
@@ -218,14 +219,29 @@ function StrategyConnectionsCell({
 // interactive stage-form/table components used in the logged-in workspace.
 // Nothing here imports a mutating server action; this is what's rendered
 // for anonymous, unauthenticated visitors via a public share link.
+type TabOrderEntry =
+  | { kind: "details"; sortOrder: number }
+  | { kind: "summary"; sortOrder: number }
+  | { kind: "stage"; sortOrder: number; stage: PublicPlanBundle["stages"][number] };
+
 export function PublicPlanView({
   bundle,
   headings,
+  tabPositions,
 }: {
   bundle: PublicPlanBundle;
   headings: DiagramHeadings;
+  tabPositions: WorkspaceTabPositions;
 }) {
   const summary = buildPublicSummary(bundle);
+
+  const tabOrder: TabOrderEntry[] = [
+    { kind: "details", sortOrder: tabPositions.details } satisfies TabOrderEntry,
+    { kind: "summary", sortOrder: tabPositions.summary } satisfies TabOrderEntry,
+    ...bundle.stages.map(
+      (s): TabOrderEntry => ({ kind: "stage", sortOrder: s.sort_order, stage: s })
+    ),
+  ].sort((a, b) => a.sortOrder - b.sortOrder);
   const responsesByStage: Record<string, Record<string, JSONContent>> = Object.fromEntries(
     bundle.stages.map((s) => [s.key, s.responses])
   );
@@ -265,62 +281,75 @@ export function PublicPlanView({
 
       <Tabs defaultValue="details">
         <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
-          <TabsTrigger value="details" className="whitespace-nowrap">
-            Plan Details
-          </TabsTrigger>
-          <TabsTrigger value="summary" className="whitespace-nowrap">
-            Summary
-          </TabsTrigger>
-          {bundle.stages.map((s) => (
-            <TabsTrigger key={s.key} value={s.key} className="whitespace-nowrap">
-              {s.label}
-            </TabsTrigger>
-          ))}
+          {tabOrder.map((t) =>
+            t.kind === "details" ? (
+              <TabsTrigger key="details" value="details" className="whitespace-nowrap">
+                Plan Details
+              </TabsTrigger>
+            ) : t.kind === "summary" ? (
+              <TabsTrigger key="summary" value="summary" className="whitespace-nowrap">
+                Summary
+              </TabsTrigger>
+            ) : (
+              <TabsTrigger key={t.stage.key} value={t.stage.key} className="whitespace-nowrap">
+                {t.stage.label}
+              </TabsTrigger>
+            )
+          )}
         </TabsList>
 
-        <TabsContent value="details" className="mt-6">
-          <TiptapEditor content={bundle.background} editable={false} />
-        </TabsContent>
-
-        <TabsContent value="summary" className="mt-6">
-          <SummaryTab {...summary} />
-        </TabsContent>
-
-        {bundle.stages.map((s) => (
-          <TabsContent key={s.key} value={s.key} className="mt-6 space-y-6">
-            <h2 className="text-xl font-bold tracking-tight">{s.label}</h2>
-            {[...s.fields]
-              .sort((a, b) => a.sort_order - b.sort_order)
-              .map((field) => (
-                <div key={field.field_key} className="space-y-1.5">
-                  <p className="flex items-center gap-2 text-sm font-medium">
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {field.internal_id}
-                    </span>
-                    {field.full_prompt}
-                  </p>
-                  {field.helper_text && (
-                    <p className="text-xs text-muted-foreground">{field.helper_text}</p>
-                  )}
-                  {renderField(field.field_key, s.responses, {
-                    causeLabelById,
-                    requirementLabelById,
-                    formatLinks,
-                    responsesByStage,
-                    bundle,
-                    headings,
-                  })}
-                  {field.field_key === "pi_outcome_data" && (
-                    <ReadOnlyRowTable
-                      columns={MEASURE_COLUMNS}
-                      rows={asRowArray<MeasureRow>(s.responses[MEASURES_FIELD_KEY])}
-                      emptyMessage="No measures added yet."
-                    />
-                  )}
-                </div>
-              ))}
-          </TabsContent>
-        ))}
+        {tabOrder.map((t) => {
+          if (t.kind === "details") {
+            return (
+              <TabsContent key="details" value="details" className="mt-6">
+                <TiptapEditor content={bundle.background} editable={false} />
+              </TabsContent>
+            );
+          }
+          if (t.kind === "summary") {
+            return (
+              <TabsContent key="summary" value="summary" className="mt-6">
+                <SummaryTab {...summary} />
+              </TabsContent>
+            );
+          }
+          const s = t.stage;
+          return (
+            <TabsContent key={s.key} value={s.key} className="mt-6 space-y-6">
+              <h2 className="text-xl font-bold tracking-tight">{s.label}</h2>
+              {[...s.fields]
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map((field) => (
+                  <div key={field.field_key} className="space-y-1.5">
+                    <p className="flex items-center gap-2 text-sm font-medium">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {field.internal_id}
+                      </span>
+                      {field.full_prompt}
+                    </p>
+                    {field.helper_text && (
+                      <p className="text-xs text-muted-foreground">{field.helper_text}</p>
+                    )}
+                    {renderField(field.field_key, s.responses, {
+                      causeLabelById,
+                      requirementLabelById,
+                      formatLinks,
+                      responsesByStage,
+                      bundle,
+                      headings,
+                    })}
+                    {field.field_key === "pi_outcome_data" && (
+                      <ReadOnlyRowTable
+                        columns={MEASURE_COLUMNS}
+                        rows={asRowArray<MeasureRow>(s.responses[MEASURES_FIELD_KEY])}
+                        emptyMessage="No measures added yet."
+                      />
+                    )}
+                  </div>
+                ))}
+            </TabsContent>
+          );
+        })}
       </Tabs>
     </div>
   );

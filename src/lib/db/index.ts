@@ -20,6 +20,7 @@ import type {
   StageFieldSummary,
   TagData,
   ValidationOption,
+  WorkspaceTabPositions,
 } from "@/lib/ccps/types";
 import * as mock from "@/lib/db/mock-store";
 
@@ -256,21 +257,28 @@ export async function getChecklistItems(planId: string, stage: CcpsStage) {
 // Stage fields are a small global reference table, not a per-plan snapshot
 // — the set of fields and their field_key values are fixed in the migration
 // seed (matching plan_stage_responses/exemplar_fields exactly); only the
-// display text (short_name/full_prompt/helper_text/sort_order) is editable,
-// from /admin/settings/fields.
+// display text (short_name/full_prompt/helper_text/sort_order) plus
+// whether it's hidden is editable, from /admin/settings/fields.
+// Hidden fields are excluded by default (every plan-rendering call site —
+// the live plan page, stage-bundle fetch, and Summary rollup — wants this);
+// pass includeHidden so the admin editor can still see and un-hide them.
 export async function getStageFields(
-  stage: CcpsStage
+  stage: CcpsStage,
+  { includeHidden = false }: { includeHidden?: boolean } = {}
 ): Promise<StageFieldSummary[]> {
-  if (DEV_MOCK) return mock.mockGetStageFields(stage);
+  if (DEV_MOCK) return mock.mockGetStageFields(stage, { includeHidden });
 
   const supabase = await createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("stage_fields")
     .select(
-      "field_key, internal_id, short_name, full_prompt, helper_text, default_content, sort_order"
+      "field_key, internal_id, short_name, full_prompt, helper_text, default_content, sort_order, hidden"
     )
-    .eq("stage", stage)
-    .order("sort_order");
+    .eq("stage", stage);
+  if (!includeHidden) {
+    query = query.eq("hidden", false);
+  }
+  const { data } = await query.order("sort_order");
   return (data ?? []).map((f) => ({
     ...f,
     default_content: f.default_content as JSONContent | null,
@@ -359,6 +367,7 @@ export async function updateStageFieldRecord(
     helperText?: string | null;
     defaultContent?: JSONContent | null;
     sortOrder?: number;
+    hidden?: boolean;
   }
 ) {
   if (DEV_MOCK) {
@@ -377,6 +386,7 @@ export async function updateStageFieldRecord(
         ? { default_content: updates.defaultContent }
         : {}),
       ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+      ...(updates.hidden !== undefined ? { hidden: updates.hidden } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("field_key", fieldKey);
@@ -435,6 +445,48 @@ export async function updateStageRecord(
       ...(updates.label !== undefined ? { label: updates.label } : {}),
       ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
     })
+    .eq("key", key);
+  if (error) throw new Error(error.message);
+}
+
+// The sort position of the "Plan Details" and "Summary" tabs — kept
+// separate from the `stages` table (see 0023_workspace_tab_positions.sql)
+// so those two pseudo-tabs don't leak into the several places that assume
+// `stages` is exactly the 7 real content stages. Merged with `stages` only
+// at render time, in plan-workspace.tsx / public-plan-view.tsx and their
+// admin editor equivalent.
+const DEFAULT_WORKSPACE_TAB_POSITIONS: WorkspaceTabPositions = {
+  details: -2,
+  summary: -1,
+};
+
+export async function getWorkspaceTabPositions(): Promise<WorkspaceTabPositions> {
+  if (DEV_MOCK) return mock.mockGetWorkspaceTabPositions();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("workspace_tab_positions")
+    .select("key, sort_order");
+  const byKey = new Map((data ?? []).map((row) => [row.key, row.sort_order]));
+  return {
+    details: byKey.get("details") ?? DEFAULT_WORKSPACE_TAB_POSITIONS.details,
+    summary: byKey.get("summary") ?? DEFAULT_WORKSPACE_TAB_POSITIONS.summary,
+  };
+}
+
+export async function updateWorkspaceTabPositionRecord(
+  key: "details" | "summary",
+  sortOrder: number
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateWorkspaceTabPosition(key, sortOrder);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("workspace_tab_positions")
+    .update({ sort_order: sortOrder })
     .eq("key", key);
   if (error) throw new Error(error.message);
 }

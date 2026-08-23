@@ -94,12 +94,14 @@ interface MockStageField {
   helper_text: string | null;
   default_content: JSONContent | null;
   sort_order: number;
+  hidden: boolean;
 }
 
 // The mock stand-in for the global `stage_fields` reference table — a fixed
 // set of fields (matching the real migration seed), with admin-editable
 // display text. Not a per-plan snapshot.
-const stageFields: MockStageField[] = [
+const stageFields: MockStageField[] = (
+  [
   {
     field_key: "pi_problem_description",
     internal_id: "1.1",
@@ -254,7 +256,8 @@ const stageFields: MockStageField[] = [
     default_content: null,
     sort_order: 1,
   },
-];
+  ] as Omit<MockStageField, "hidden">[]
+).map((f) => ({ ...f, hidden: false }));
 
 interface MockStage {
   key: string;
@@ -290,6 +293,26 @@ export function mockUpdateStage(
   if (!stage) return;
   if (updates.label !== undefined) stage.label = updates.label;
   if (updates.sortOrder !== undefined) stage.sort_order = updates.sortOrder;
+}
+
+// The mock stand-in for the `workspace_tab_positions` table — kept
+// separate from `stages` (see 0023_workspace_tab_positions.sql) so
+// "Plan Details"/"Summary" don't leak into the places that assume
+// `stages` is exactly the 7 real content stages.
+const workspaceTabPositions: { details: number; summary: number } = {
+  details: -2,
+  summary: -1,
+};
+
+export function mockGetWorkspaceTabPositions() {
+  return { ...workspaceTabPositions };
+}
+
+export function mockUpdateWorkspaceTabPosition(
+  key: "details" | "summary",
+  sortOrder: number
+) {
+  workspaceTabPositions[key] = sortOrder;
 }
 
 interface MockValidationOption {
@@ -404,6 +427,7 @@ export function mockGetPublicPlanBundle(token: string) {
     stages: mockListStages().map((s) => ({
       key: s.key,
       label: s.label,
+      sort_order: s.sort_order,
       fields: mockGetStageFields(s.key as CcpsStage),
       responses: mockGetStageResponses(plan.id, s.key as CcpsStage),
     })),
@@ -536,9 +560,12 @@ export function mockDeleteChecklistTemplateItem(id: string) {
   checklistTemplate = checklistTemplate.filter((i) => i.id !== id);
 }
 
-export function mockGetStageFields(stage: CcpsStage) {
+export function mockGetStageFields(
+  stage: CcpsStage,
+  { includeHidden = false }: { includeHidden?: boolean } = {}
+) {
   return stageFields
-    .filter((field) => field.stage === stage)
+    .filter((field) => field.stage === stage && (includeHidden || !field.hidden))
     .sort((a, b) => a.sort_order - b.sort_order)
     .map(
       ({
@@ -549,6 +576,7 @@ export function mockGetStageFields(stage: CcpsStage) {
         helper_text,
         default_content,
         sort_order,
+        hidden,
       }) => ({
         field_key,
         internal_id,
@@ -557,6 +585,7 @@ export function mockGetStageFields(stage: CcpsStage) {
         helper_text,
         default_content,
         sort_order,
+        hidden,
       })
     );
 }
@@ -569,6 +598,7 @@ export function mockUpdateStageField(
     helperText?: string | null;
     defaultContent?: JSONContent | null;
     sortOrder?: number;
+    hidden?: boolean;
   }
 ) {
   const field = stageFields.find((f) => f.field_key === fieldKey);
@@ -578,6 +608,7 @@ export function mockUpdateStageField(
   if (updates.helperText !== undefined) field.helper_text = updates.helperText;
   if (updates.defaultContent !== undefined) field.default_content = updates.defaultContent;
   if (updates.sortOrder !== undefined) field.sort_order = updates.sortOrder;
+  if (updates.hidden !== undefined) field.hidden = updates.hidden;
 }
 
 export function mockListValidationOptions() {

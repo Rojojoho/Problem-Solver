@@ -2,13 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { docToParagraphs } from "@/lib/ccps/doc-to-text";
 import { updateStageField } from "@/app/admin/settings/fields/actions";
+import { cn } from "@/lib/utils";
 import type { StageData, StageFieldSummary } from "@/lib/ccps/types";
 
 type TemplateField = StageFieldSummary;
@@ -55,6 +58,7 @@ function StageFieldRow({ field }: { field: TemplateField }) {
     docToParagraphs(field.default_content ?? undefined).join("\n")
   );
   const [sortOrder, setSortOrder] = useState(field.sort_order);
+  const [hidden, setHidden] = useState(field.hidden ?? false);
   const [isPending, startTransition] = useTransition();
 
   function handleSave() {
@@ -66,7 +70,8 @@ function StageFieldRow({ field }: { field: TemplateField }) {
           fullPrompt,
           helperText,
           defaultContentText,
-          sortOrder
+          sortOrder,
+          hidden
         );
         toast.success("Saved.");
       } catch {
@@ -76,11 +81,12 @@ function StageFieldRow({ field }: { field: TemplateField }) {
   }
 
   return (
-    <div className="space-y-2 border-b border-border py-3 last:border-b-0">
+    <div className={cn("space-y-2 border-b border-border py-3 last:border-b-0", hidden && "opacity-60")}>
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="font-mono">{field.internal_id}</span>
         <span>·</span>
         <span className="font-mono">{field.field_key}</span>
+        {hidden && <Badge variant="outline">Hidden</Badge>}
       </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
         <div>
@@ -129,10 +135,14 @@ function StageFieldRow({ field }: { field: TemplateField }) {
           className="mt-1"
         />
       </div>
-      <div>
+      <div className="flex items-center gap-3">
         <Button size="sm" variant="outline" onClick={handleSave} disabled={isPending}>
           Save
         </Button>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Checkbox checked={hidden} onCheckedChange={(checked) => setHidden(checked === true)} />
+          Hide from plans
+        </label>
       </div>
     </div>
   );

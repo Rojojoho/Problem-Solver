@@ -11,7 +11,8 @@ export async function updateStageField(
   fullPrompt: string,
   helperText: string,
   defaultContentText: string,
-  sortOrder: number
+  sortOrder: number,
+  hidden: boolean
 ) {
   await requireAdmin();
   const trimmedShortName = shortName.trim();
@@ -31,6 +32,7 @@ export async function updateStageField(
     helperText: helperText.trim() || null,
     defaultContent: defaultContentLines.length ? paragraphDoc(...defaultContentLines) : null,
     sortOrder,
+    hidden,
   });
   revalidatePath("/admin/settings/fields");
 }

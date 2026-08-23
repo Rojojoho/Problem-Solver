@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin";
 import { slugify } from "@/lib/ccps/slugify";
-import { listStages, createStageRecord, updateStageRecord } from "@/lib/db";
+import {
+  listStages,
+  createStageRecord,
+  updateStageRecord,
+  updateWorkspaceTabPositionRecord,
+} from "@/lib/db";
 
 export async function createStage(formData: FormData) {
   await requireAdmin();
@@ -33,5 +38,14 @@ export async function updateStage(key: string, label: string, sortOrder: number)
   if (!trimmed) throw new Error("Label is required.");
 
   await updateStageRecord(key, { label: trimmed, sortOrder });
+  revalidatePath("/admin/settings/stages");
+}
+
+export async function updateWorkspaceTabPosition(
+  key: "details" | "summary",
+  sortOrder: number
+) {
+  await requireAdmin();
+  await updateWorkspaceTabPositionRecord(key, sortOrder);
   revalidatePath("/admin/settings/stages");
 }

@@ -11,6 +11,7 @@ import type {
   KbArticleData,
   StageBundle,
   StageData,
+  WorkspaceTabPositions,
 } from "@/lib/ccps/types";
 import { StageForm } from "@/components/plan/stage-form";
 import { StagePlaceholder } from "@/components/plan/stage-placeholder";
@@ -48,6 +49,7 @@ interface PlanWorkspaceProps {
   kbArticles: KbArticleData[];
   shareEnabled: boolean;
   shareToken: string | null;
+  tabPositions: WorkspaceTabPositions;
 }
 
 export function PlanWorkspace({
@@ -63,6 +65,7 @@ export function PlanWorkspace({
   kbArticles,
   shareEnabled,
   shareToken,
+  tabPositions,
 }: PlanWorkspaceProps) {
   const [stage, setStage] = useState<WorkspaceTab>(initialStage);
   const [bundles, setBundles] = useState<Partial<Record<CcpsStage, StageBundle>>>({
@@ -168,6 +171,26 @@ export function PlanWorkspace({
 
   const showPanel = stage !== "details";
 
+  // Plan Details/Summary aren't rows in the `stages` table (see
+  // 0023_workspace_tab_positions.sql), but they're merged into the same
+  // sort order here for display purposes only — everything about how each
+  // one's content is fetched/rendered stays exactly as it was, keyed off
+  // `kind` below.
+  type TabOrderEntry = { key: WorkspaceTab; kind: "details" | "summary" | "stage" };
+  const tabOrder: TabOrderEntry[] = [
+    { key: "details", kind: "details" } satisfies TabOrderEntry,
+    { key: "summary", kind: "summary" } satisfies TabOrderEntry,
+    ...stages.map((s): TabOrderEntry => ({ key: s.key, kind: "stage" })),
+  ].sort((a, b) => {
+    const sortOrderOf = (t: { key: WorkspaceTab; kind: "details" | "summary" | "stage" }) =>
+      t.kind === "details"
+        ? tabPositions.details
+        : t.kind === "summary"
+          ? tabPositions.summary
+          : (stages.find((s) => s.key === t.key)?.sort_order ?? 0);
+    return sortOrderOf(a) - sortOrderOf(b);
+  });
+
   return (
     <div className="relative">
       <div
@@ -192,47 +215,69 @@ export function PlanWorkspace({
             </div>
           </div>
           <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
-            <TabsTrigger
-              value="details"
-              className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
-            >
-              Plan Details
-            </TabsTrigger>
-            <TabsTrigger
-              value="summary"
-              className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
-            >
-              {summaryLoading && <Loader2 className="size-3 animate-spin" />}
-              Summary
-            </TabsTrigger>
-            {stages.map((s) => (
-              <TabsTrigger
-                key={s.key}
-                value={s.key}
-                className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
-              >
-                {loadingStage === s.key && <Loader2 className="size-3 animate-spin" />}
-                {s.label}
-              </TabsTrigger>
-            ))}
+            {tabOrder.map((t) => {
+              if (t.kind === "details") {
+                return (
+                  <TabsTrigger
+                    key="details"
+                    value="details"
+                    className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+                  >
+                    Plan Details
+                  </TabsTrigger>
+                );
+              }
+              if (t.kind === "summary") {
+                return (
+                  <TabsTrigger
+                    key="summary"
+                    value="summary"
+                    className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+                  >
+                    {summaryLoading && <Loader2 className="size-3 animate-spin" />}
+                    Summary
+                  </TabsTrigger>
+                );
+              }
+              const s = stages.find((st) => st.key === t.key);
+              if (!s) return null;
+              return (
+                <TabsTrigger
+                  key={s.key}
+                  value={s.key}
+                  className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+                >
+                  {loadingStage === s.key && <Loader2 className="size-3 animate-spin" />}
+                  {s.label}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
 
-          <TabsContent value="details" className="mt-6" keepMounted>
-            <PlanDetailsForm planId={planId} background={background} tags={tags} />
-          </TabsContent>
-
-          <TabsContent value="summary" className="mt-6" keepMounted>
-            {summaryData ? (
-              <SummaryTab {...summaryData} />
-            ) : summaryLoading ? (
-              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                Loading…
-              </div>
-            ) : null}
-          </TabsContent>
-
-          {stages.map((s) => {
+          {tabOrder.map((t) => {
+            if (t.kind === "details") {
+              return (
+                <TabsContent key="details" value="details" className="mt-6" keepMounted>
+                  <PlanDetailsForm planId={planId} background={background} tags={tags} />
+                </TabsContent>
+              );
+            }
+            if (t.kind === "summary") {
+              return (
+                <TabsContent key="summary" value="summary" className="mt-6" keepMounted>
+                  {summaryData ? (
+                    <SummaryTab {...summaryData} />
+                  ) : summaryLoading ? (
+                    <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                      Loading…
+                    </div>
+                  ) : null}
+                </TabsContent>
+              );
+            }
+            const s = stages.find((st) => st.key === t.key);
+            if (!s) return null;
             const bundle = bundles[s.key];
             return (
               <TabsContent key={s.key} value={s.key} className="mt-6" keepMounted>

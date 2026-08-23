@@ -213,6 +213,7 @@ export interface Database {
           helper_text: string | null;
           default_content: unknown | null;
           sort_order: number;
+          hidden: boolean;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["stage_fields"]["Row"]> & {
@@ -223,6 +224,13 @@ export interface Database {
           full_prompt: string;
         };
         Update: Partial<Database["public"]["Tables"]["stage_fields"]["Row"]>;
+      };
+      workspace_tab_positions: {
+        Row: { key: string; sort_order: number };
+        Insert: Database["public"]["Tables"]["workspace_tab_positions"]["Row"];
+        Update: Partial<
+          Database["public"]["Tables"]["workspace_tab_positions"]["Row"]
+        >;
       };
       plan_checklist_state: {
         Row: {

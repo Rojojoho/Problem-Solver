@@ -44,6 +44,18 @@ export interface StageFieldSummary {
   helper_text: string | null;
   default_content: JSONContent | null;
   sort_order: number;
+  // Only ever true when fetched with includeHidden — the plan-rendering
+  // call sites already exclude hidden fields at the query level, so this
+  // flag is really only meaningful in the admin fields editor.
+  hidden?: boolean;
+}
+
+// The sort position of the "Plan Details" and "Summary" tabs, admin-edited
+// independently of the `stages` table (see 0023_workspace_tab_positions.sql
+// for why they aren't just rows in that table).
+export interface WorkspaceTabPositions {
+  details: number;
+  summary: number;
 }
 
 // Everything the public, no-login plan viewer needs — assembled once (either
@@ -53,6 +65,7 @@ export interface StageFieldSummary {
 export interface PublicStageBundle {
   key: string;
   label: string;
+  sort_order: number;
   fields: {
     field_key: string;
     internal_id: string;
