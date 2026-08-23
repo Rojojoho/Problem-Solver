@@ -186,7 +186,7 @@ function buildDiagram(data: StrategyTraceability) {
   };
 }
 
-function TraceabilityDiagram({ data }: { data: StrategyTraceability }) {
+export function TraceabilityDiagram({ data }: { data: StrategyTraceability }) {
   const diagram = buildDiagram(data);
   const containerRef = useRef<HTMLDivElement>(null);
   const boxRefs = useRef(new Map<string, HTMLDivElement>());

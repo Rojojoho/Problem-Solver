@@ -22,7 +22,7 @@ export function StageFieldTemplateEditor({
 }) {
   return (
     <Tabs defaultValue={stages[0]?.key}>
-      <TabsList className="w-full justify-start overflow-x-auto">
+      <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
         {stages.map((s) => (
           <TabsTrigger key={s.key} value={s.key} className="whitespace-nowrap">
             {s.label}

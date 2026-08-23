@@ -1,8 +1,18 @@
 import type { JSONContent } from "@tiptap/react";
+import { Waypoints } from "lucide-react";
 import { TiptapEditor } from "@/components/tiptap-editor";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SummaryTab } from "@/components/plan/summary-tab";
+import { TraceabilityDiagram } from "@/components/plan/strategy-traceability-dialog";
 import { ReadOnlyRowTable, type ReadOnlyColumn } from "@/components/public/read-only-row-table";
 import {
   asRowArray,
@@ -17,8 +27,10 @@ import {
   IMPACT_MEASURES_FIELD_KEY,
   SUMMARY_FIELD_KEYS,
 } from "@/lib/ccps/constants";
+import { docToParagraphs } from "@/lib/ccps/doc-to-text";
 import type {
   ConsolidatedHypothesisRow,
+  DiagramHeadings,
   HypothesisRow,
   ImplementationRow,
   ImpactMeasureRow,
@@ -28,7 +40,12 @@ import type {
   SolutionRequirementRow,
   SolutionStrategyRow,
 } from "@/lib/ccps/types";
-import type { PlanSummaryData } from "@/app/plans/[id]/actions";
+import type {
+  PlanSummaryData,
+  StrategyTraceability,
+  TraceCauseNode,
+  TraceRequirement,
+} from "@/app/plans/[id]/actions";
 
 // Builds the same shape the in-app Summary tab uses, but from the bundle
 // already fetched via the security-definer RPC — NOT by calling
@@ -69,11 +86,145 @@ function buildPublicSummary(bundle: PublicPlanBundle): PlanSummaryData {
   return { fields, requirements, strategies };
 }
 
+// Builds the same shape strategy-traceability-dialog.tsx's
+// getSolutionStrategyTraceability produces, but from the bundle already
+// fetched via the RPC — that action reads live via the normal authenticated
+// client (blocked by RLS for an anonymous visitor), and needs no live
+// re-fetch here anyway since the public bundle already has everything.
+function buildStrategyTraceability(
+  bundle: PublicPlanBundle,
+  strategyId: string,
+  headings: DiagramHeadings
+): StrategyTraceability {
+  const piResponses = bundle.stages.find((s) => s.key === "PI")?.responses ?? {};
+  const cvResponses = bundle.stages.find((s) => s.key === "CV")?.responses ?? {};
+  const srResponses = bundle.stages.find((s) => s.key === "SR")?.responses ?? {};
+  const ssResponses = bundle.stages.find((s) => s.key === "SS")?.responses ?? {};
+
+  const measureRows = asRowArray<MeasureRow>(piResponses[MEASURES_FIELD_KEY]);
+  const causeRows = asRowArray<ConsolidatedHypothesisRow>(
+    cvResponses[CONSOLIDATED_HYPOTHESES_FIELD_KEY]
+  );
+  const requirementRows = asRowArray<SolutionRequirementRow>(
+    srResponses[SOLUTION_REQUIREMENTS_FIELD_KEY]
+  );
+  const strategyRows = asRowArray<SolutionStrategyRow>(
+    ssResponses[SOLUTION_STRATEGIES_FIELD_KEY]
+  );
+
+  const causeById = new Map(causeRows.map((c) => [c.id, c]));
+  const measureByName = new Map(measureRows.map((m) => [m.measure, m]));
+  const causeByHypothesis = new Map(causeRows.map((c) => [c.hypothesis, c]));
+  const requirementById = new Map(requirementRows.map((r) => [r.id, r]));
+
+  const strategyRow = strategyRows.find((s) => s.id === strategyId) ?? null;
+
+  const requirements: TraceRequirement[] = (strategyRow?.links ?? []).map((link) => {
+    const requirement = link.type === "ref" ? requirementById.get(link.targetId) : undefined;
+    if (!requirement) {
+      const label = link.type === "text" ? link.value : "Deleted requirement";
+      return {
+        id: link.type === "ref" ? link.targetId : label,
+        shortId: label,
+        requirement: "",
+        dangling: true,
+        causes: [],
+      };
+    }
+
+    const causes: TraceCauseNode[] = requirement.links.map((l): TraceCauseNode => {
+      if (l.type === "ref") {
+        const cause = causeById.get(l.targetId);
+        return cause
+          ? { id: cause.id, kind: "cause", label: cause.hypothesis, detail: cause.description || undefined }
+          : { id: `dangling:${l.targetId}`, kind: "dangling", label: "Deleted item" };
+      }
+      const measure = measureByName.get(l.value);
+      if (measure) {
+        return {
+          id: `measure:${l.value}`,
+          kind: "measure",
+          label: l.value,
+          detail: measure.baseline || measure.target
+            ? `${measure.baseline || "—"} → ${measure.target || "—"}`
+            : undefined,
+        };
+      }
+      const matchedCause = causeByHypothesis.get(l.value);
+      if (matchedCause) {
+        return {
+          id: matchedCause.id,
+          kind: "cause",
+          label: matchedCause.hypothesis,
+          detail: matchedCause.description || undefined,
+        };
+      }
+      return { id: `text:${l.value}`, kind: "text", label: l.value };
+    });
+
+    return {
+      id: requirement.id,
+      shortId: requirement.shortId,
+      requirement: requirement.requirement,
+      causes,
+    };
+  });
+
+  const problemStatement = docToParagraphs(piResponses["pi_problem_description"]);
+
+  return {
+    strategy: strategyRow
+      ? { name: strategyRow.strategy || "Untitled strategy", description: strategyRow.description }
+      : null,
+    problemStatement,
+    requirements,
+    headings,
+  };
+}
+
+function StrategyConnectionsCell({
+  bundle,
+  headings,
+  strategyId,
+  strategyLabel,
+}: {
+  bundle: PublicPlanBundle;
+  headings: DiagramHeadings;
+  strategyId: string;
+  strategyLabel: string;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={
+          <Button type="button" size="icon-xs" variant="outline" aria-label="View connections">
+            <Waypoints className="size-3.5" />
+          </Button>
+        }
+      />
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[95vw]">
+        <DialogHeader>
+          <DialogTitle>
+            Connections{strategyLabel ? ` — ${strategyLabel}` : ""}
+          </DialogTitle>
+        </DialogHeader>
+        <TraceabilityDiagram data={buildStrategyTraceability(bundle, strategyId, headings)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Deliberately its own, purely-presentational component tree — not the
 // interactive stage-form/table components used in the logged-in workspace.
 // Nothing here imports a mutating server action; this is what's rendered
 // for anonymous, unauthenticated visitors via a public share link.
-export function PublicPlanView({ bundle }: { bundle: PublicPlanBundle }) {
+export function PublicPlanView({
+  bundle,
+  headings,
+}: {
+  bundle: PublicPlanBundle;
+  headings: DiagramHeadings;
+}) {
   const summary = buildPublicSummary(bundle);
   const responsesByStage: Record<string, Record<string, JSONContent>> = Object.fromEntries(
     bundle.stages.map((s) => [s.key, s.responses])
@@ -113,7 +264,7 @@ export function PublicPlanView({ bundle }: { bundle: PublicPlanBundle }) {
       </div>
 
       <Tabs defaultValue="details">
-        <TabsList className="w-full justify-start overflow-x-auto">
+        <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
           <TabsTrigger value="details" className="whitespace-nowrap">
             Plan Details
           </TabsTrigger>
@@ -224,7 +375,9 @@ function requirementColumns(
 
 function strategyColumns(
   requirementLabelById: Map<string, string>,
-  formatLinks: (links: LinkRef[], labelById: Map<string, string>) => string
+  formatLinks: (links: LinkRef[], labelById: Map<string, string>) => string,
+  bundle: PublicPlanBundle,
+  headings: DiagramHeadings
 ): ReadOnlyColumn<SolutionStrategyRow>[] {
   return [
     { key: "strategy", label: "Solution strategy" },
@@ -233,6 +386,18 @@ function strategyColumns(
       key: "links",
       label: "Link",
       render: (row) => formatLinks(row.links, requirementLabelById),
+    },
+    {
+      key: "connections",
+      label: "",
+      render: (row) => (
+        <StrategyConnectionsCell
+          bundle={bundle}
+          headings={headings}
+          strategyId={row.id}
+          strategyLabel={row.strategy}
+        />
+      ),
     },
   ];
 }
@@ -274,6 +439,8 @@ function renderField(
     requirementLabelById: Map<string, string>;
     formatLinks: (links: LinkRef[], labelById: Map<string, string>) => string;
     responsesByStage: Record<string, Record<string, JSONContent>>;
+    bundle: PublicPlanBundle;
+    headings: DiagramHeadings;
   }
 ) {
   switch (fieldKey) {
@@ -304,7 +471,7 @@ function renderField(
     case SOLUTION_STRATEGIES_FIELD_KEY:
       return (
         <ReadOnlyRowTable
-          columns={strategyColumns(ctx.requirementLabelById, ctx.formatLinks)}
+          columns={strategyColumns(ctx.requirementLabelById, ctx.formatLinks, ctx.bundle, ctx.headings)}
           rows={asRowArray<SolutionStrategyRow>(responses[fieldKey])}
           emptyMessage="No solution strategies added yet."
         />

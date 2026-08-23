@@ -191,7 +191,7 @@ export function PlanWorkspace({
               <PublishButton planId={planId} status={publishStatus} />
             </div>
           </div>
-          <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
             <TabsTrigger
               value="details"
               className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
