@@ -307,6 +307,8 @@ export function PublicPlanView({
                     requirementLabelById,
                     formatLinks,
                     responsesByStage,
+                    bundle,
+                    headings,
                   })}
                   {field.field_key === "pi_outcome_data" && (
                     <ReadOnlyRowTable
