@@ -5,7 +5,9 @@
 -- Run this in the Supabase SQL editor, or via `supabase db push`.
 -- Depends on 0001_init.sql (plans, plan_stage_responses, stages),
 -- 0009_plan_details.sql (background, plan_tags), 0010_stage_field_templates.sql
--- (stage_fields).
+-- (stage_fields). Stage columns are plain `text` (0013_configurable_stages.sql
+-- dropped the old ccps_stage enum in favour of admin-editable stages), so no
+-- enum cast is needed anywhere below.
 -- Safe to re-run: every statement below is idempotent.
 
 alter table public.plans
@@ -65,12 +67,12 @@ begin
               ) order by sf.sort_order
             )
             from public.stage_fields sf
-            where sf.stage = s.key::ccps_stage
+            where sf.stage = s.key
           ), '[]'::jsonb),
           'responses', coalesce((
             select jsonb_object_agg(psr.field_key, psr.content)
             from public.plan_stage_responses psr
-            where psr.plan_id = v_plan.id and psr.stage = s.key::ccps_stage
+            where psr.plan_id = v_plan.id and psr.stage = s.key
           ), '{}'::jsonb)
         ) order by s.sort_order
       )
