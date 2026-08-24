@@ -26,7 +26,20 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["profiles"]["Row"]>;
       };
       organisations: {
-        Row: { id: string; name: string; created_at: string };
+        Row: {
+          id: string;
+          name: string;
+          created_at: string;
+          join_code: string;
+          primary_contact_name: string | null;
+          primary_contact_email: string | null;
+          accounts_email: string | null;
+          admin_user_code: string | null;
+          subscription_until: string | null;
+          yearly_charge: number | null;
+          sales_contact: string | null;
+          notes: string | null;
+        };
         Insert: Partial<Database["public"]["Tables"]["organisations"]["Row"]> & {
           name: string;
         };

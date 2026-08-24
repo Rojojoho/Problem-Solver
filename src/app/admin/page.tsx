@@ -12,6 +12,18 @@ export default function AdminPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/admin/schools">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Schools</CardTitle>
+              <CardDescription>
+                Add and manage schools — contacts, subscriptions, and each
+                school&apos;s users.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
         <Link href="/admin/review">
           <Card className="h-full transition-colors hover:border-foreground/30">
             <CardHeader>

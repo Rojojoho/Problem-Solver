@@ -216,6 +216,29 @@ export interface TagData {
   name: string;
 }
 
+export interface SchoolSummary {
+  id: string;
+  name: string;
+  joinCode: string;
+  primaryContactName: string | null;
+  primaryContactEmail: string | null;
+  accountsEmail: string | null;
+  adminUserCode: string | null;
+  // ISO date (yyyy-mm-dd), not a full timestamp — subscriptions are tracked
+  // by calendar day, not time of day.
+  subscriptionUntil: string | null;
+  yearlyCharge: number | null;
+  salesContact: string | null;
+  notes: string | null;
+}
+
+export interface OrgMemberSummary {
+  userId: string;
+  role: "owner" | "contributor";
+  displayName: string;
+  email: string;
+}
+
 export interface PublishedPlanSummary {
   id: string;
   sourceOrgName: string | null;

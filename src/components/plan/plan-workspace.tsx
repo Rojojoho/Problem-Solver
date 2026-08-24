@@ -19,6 +19,7 @@ import { SidePanel } from "@/components/plan/side-panel";
 import { PublishButton } from "@/components/plan/publish-button";
 import { PublicShareDialog } from "@/components/plan/public-share-dialog";
 import { ExportPlanButton } from "@/components/plan/export-plan-button";
+import { ExportPlanTextButton } from "@/components/plan/export-plan-text-button";
 import { PlanDetailsForm } from "@/components/plan/plan-details-form";
 import { SummaryTab } from "@/components/plan/summary-tab";
 import {
@@ -210,6 +211,7 @@ export function PlanWorkspace({
                 initialShareEnabled={shareEnabled}
                 initialShareToken={shareToken}
               />
+              <ExportPlanTextButton planId={planId} planName={planName} />
               <ExportPlanButton planId={planId} planName={planName} />
               <PublishButton planId={planId} status={publishStatus} />
             </div>

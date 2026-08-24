@@ -18,6 +18,7 @@ import {
   SUMMARY_FIELD_KEYS,
 } from "@/lib/ccps/constants";
 import { docToParagraphs } from "@/lib/ccps/doc-to-text";
+import { buildPlanMarkdown } from "@/lib/ccps/markdown-export";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
   ConsolidatedHypothesisRow,
@@ -100,6 +101,34 @@ export async function exportPlan(planId: string): Promise<PlanExport> {
     tags,
     responses,
   };
+}
+
+// A durable, human-readable record of a plan — unlike exportPlan() above
+// (round-trip JSON, not meant to be read), this is a full Markdown document
+// a school can keep as proof of their work even if they never open Resolve
+// again. See buildPlanMarkdown for the actual rendering.
+export async function exportPlanAsText(planId: string): Promise<string> {
+  const plan = await getPlan(planId);
+  if (!plan) throw new Error("Plan not found.");
+
+  const [stages, tags] = await Promise.all([listStages(), getPlanTags(planId)]);
+
+  const stageBundles = await Promise.all(
+    stages.map(async (stage) => {
+      const [fields, responses] = await Promise.all([
+        getStageFields(stage.key as CcpsStage),
+        getStageResponses(planId, stage.key as CcpsStage),
+      ]);
+      return { key: stage.key, label: stage.label, fields, responses };
+    })
+  );
+
+  return buildPlanMarkdown({
+    name: plan.name,
+    tags,
+    background: plan.background ?? EMPTY_DOC,
+    stages: stageBundles,
+  });
 }
 
 export interface PlanSummaryField {

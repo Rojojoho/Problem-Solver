@@ -14,8 +14,10 @@ import type {
   FeedbackItemData,
   KbArticleData,
   LabeledOption,
+  OrgMemberSummary,
   PublicPlanBundle,
   PublishedPlanSummary,
+  SchoolSummary,
   StageData,
   StageFieldSummary,
   TagData,
@@ -32,12 +34,9 @@ import * as mock from "@/lib/db/mock-store";
 
 export async function getCurrentOrg() {
   if (DEV_MOCK) {
-    return {
-      orgId: mock.MOCK_ORG_ID,
-      role: "owner" as const,
-      orgName: "Dev Organisation (mock)",
-      userId: mock.MOCK_USER_ID,
-    };
+    const current = mock.mockGetCurrentOrgForUser(mock.MOCK_USER_ID);
+    if (!current) throw new Error("No organisation found for the current user.");
+    return { ...current, userId: mock.MOCK_USER_ID };
   }
 
   const supabase = await createClient();
@@ -51,7 +50,7 @@ export async function getCurrentOrg() {
 
   const { data: membership, error } = await supabase
     .from("org_members")
-    .select("org_id, role, organisations(id, name)")
+    .select("org_id, role, organisations(id, name, join_code)")
     .eq("user_id", user.id)
     .limit(1)
     .single();
@@ -64,6 +63,7 @@ export async function getCurrentOrg() {
     orgId: membership.org_id,
     role: membership.role,
     orgName: (membership.organisations as unknown as { name: string })?.name,
+    joinCode: (membership.organisations as unknown as { join_code: string })?.join_code,
     userId: user.id,
   };
 }
@@ -88,6 +88,209 @@ export async function isAdmin(userId: string | null): Promise<boolean> {
     .eq("user_id", userId)
     .maybeSingle();
   return Boolean(data);
+}
+
+// ---------------------------------------------------------------------------
+// Schools (organisations) — the admin CRM list, join codes, and per-org
+// membership. See 0025_school_crm_and_join_codes.sql.
+// ---------------------------------------------------------------------------
+
+function generateJoinCode() {
+  return Math.random().toString(36).slice(2, 10).toUpperCase();
+}
+
+export async function listSchoolsForAdmin(): Promise<SchoolSummary[]> {
+  if (DEV_MOCK) {
+    return mock.mockListSchools().map((o) => ({
+      id: o.id,
+      name: o.name,
+      joinCode: o.join_code,
+      primaryContactName: o.primary_contact_name,
+      primaryContactEmail: o.primary_contact_email,
+      accountsEmail: o.accounts_email,
+      adminUserCode: o.admin_user_code,
+      subscriptionUntil: o.subscription_until,
+      yearlyCharge: o.yearly_charge,
+      salesContact: o.sales_contact,
+      notes: o.notes,
+    }));
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("organisations")
+    .select(
+      "id, name, join_code, primary_contact_name, primary_contact_email, accounts_email, admin_user_code, subscription_until, yearly_charge, sales_contact, notes"
+    )
+    .order("name");
+  return (data ?? []).map((o) => ({
+    id: o.id,
+    name: o.name,
+    joinCode: o.join_code,
+    primaryContactName: o.primary_contact_name,
+    primaryContactEmail: o.primary_contact_email,
+    accountsEmail: o.accounts_email,
+    adminUserCode: o.admin_user_code,
+    subscriptionUntil: o.subscription_until,
+    yearlyCharge: o.yearly_charge,
+    salesContact: o.sales_contact,
+    notes: o.notes,
+  }));
+}
+
+export interface SchoolCrmInput {
+  name: string;
+  primaryContactName: string | null;
+  primaryContactEmail: string | null;
+  accountsEmail: string | null;
+  adminUserCode: string | null;
+  subscriptionUntil: string | null;
+  yearlyCharge: number | null;
+  salesContact: string | null;
+  notes: string | null;
+}
+
+export async function createSchoolRecord(input: SchoolCrmInput): Promise<SchoolSummary> {
+  if (DEV_MOCK) {
+    const o = mock.mockCreateSchool(input);
+    return {
+      id: o.id,
+      name: o.name,
+      joinCode: o.join_code,
+      primaryContactName: o.primary_contact_name,
+      primaryContactEmail: o.primary_contact_email,
+      accountsEmail: o.accounts_email,
+      adminUserCode: o.admin_user_code,
+      subscriptionUntil: o.subscription_until,
+      yearlyCharge: o.yearly_charge,
+      salesContact: o.sales_contact,
+      notes: o.notes,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("organisations")
+    .insert({
+      name: input.name,
+      join_code: generateJoinCode(),
+      primary_contact_name: input.primaryContactName,
+      primary_contact_email: input.primaryContactEmail,
+      accounts_email: input.accountsEmail,
+      admin_user_code: input.adminUserCode,
+      subscription_until: input.subscriptionUntil,
+      yearly_charge: input.yearlyCharge,
+      sales_contact: input.salesContact,
+      notes: input.notes,
+    })
+    .select(
+      "id, name, join_code, primary_contact_name, primary_contact_email, accounts_email, admin_user_code, subscription_until, yearly_charge, sales_contact, notes"
+    )
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Couldn't create that school.");
+  return {
+    id: data.id,
+    name: data.name,
+    joinCode: data.join_code,
+    primaryContactName: data.primary_contact_name,
+    primaryContactEmail: data.primary_contact_email,
+    accountsEmail: data.accounts_email,
+    adminUserCode: data.admin_user_code,
+    subscriptionUntil: data.subscription_until,
+    yearlyCharge: data.yearly_charge,
+    salesContact: data.sales_contact,
+    notes: data.notes,
+  };
+}
+
+export async function updateSchoolRecord(
+  orgId: string,
+  input: SchoolCrmInput
+): Promise<void> {
+  if (DEV_MOCK) {
+    mock.mockUpdateSchool(orgId, {
+      name: input.name,
+      primary_contact_name: input.primaryContactName,
+      primary_contact_email: input.primaryContactEmail,
+      accounts_email: input.accountsEmail,
+      admin_user_code: input.adminUserCode,
+      subscription_until: input.subscriptionUntil,
+      yearly_charge: input.yearlyCharge,
+      sales_contact: input.salesContact,
+      notes: input.notes,
+    });
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("organisations")
+    .update({
+      name: input.name,
+      primary_contact_name: input.primaryContactName,
+      primary_contact_email: input.primaryContactEmail,
+      accounts_email: input.accountsEmail,
+      admin_user_code: input.adminUserCode,
+      subscription_until: input.subscriptionUntil,
+      yearly_charge: input.yearlyCharge,
+      sales_contact: input.salesContact,
+      notes: input.notes,
+    })
+    .eq("id", orgId);
+  if (error) throw new Error(error.message);
+}
+
+export async function regenerateJoinCodeRecord(orgId: string): Promise<string> {
+  if (DEV_MOCK) return mock.mockRegenerateJoinCode(orgId);
+
+  const supabase = await createClient();
+  const joinCode = generateJoinCode();
+  const { error } = await supabase
+    .from("organisations")
+    .update({ join_code: joinCode })
+    .eq("id", orgId);
+  if (error) throw new Error(error.message);
+  return joinCode;
+}
+
+export async function listOrgMembers(orgId: string): Promise<OrgMemberSummary[]> {
+  if (DEV_MOCK) return mock.mockListOrgMembers(orgId).map((m) => ({
+    userId: m.user_id,
+    role: m.role,
+    displayName: m.display_name,
+    email: m.email,
+  }));
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("list_org_members", { p_org_id: orgId });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as OrgMemberSummary[];
+}
+
+export async function removeOrgMemberRecord(orgId: string, userId: string): Promise<void> {
+  if (DEV_MOCK) {
+    mock.mockRemoveOrgMember(orgId, userId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("org_members")
+    .delete()
+    .eq("org_id", orgId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function joinOrgByCodeRecord(
+  code: string
+): Promise<{ orgId: string; orgName: string }> {
+  if (DEV_MOCK) return mock.mockJoinOrgByCode(code, mock.MOCK_USER_ID);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("join_org_by_code", { p_code: code });
+  if (error) throw new Error(error.message);
+  return data as unknown as { orgId: string; orgName: string };
 }
 
 export async function listPlans(orgId: string) {

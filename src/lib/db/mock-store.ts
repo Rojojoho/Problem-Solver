@@ -23,6 +23,184 @@ export function mockIsAdmin(userId: string) {
   return admins.has(userId);
 }
 
+interface MockOrg {
+  id: string;
+  name: string;
+  created_at: string;
+  join_code: string;
+  primary_contact_name: string | null;
+  primary_contact_email: string | null;
+  accounts_email: string | null;
+  admin_user_code: string | null;
+  subscription_until: string | null;
+  yearly_charge: number | null;
+  sales_contact: string | null;
+  notes: string | null;
+}
+
+interface MockOrgMember {
+  org_id: string;
+  user_id: string;
+  role: "owner" | "contributor";
+  // DEV_MOCK only ever really drives `MOCK_USER_ID` through the UI, so
+  // these extra rows exist purely so the "Schools" admin/members pages
+  // have something to list — not full multi-user simulation.
+  display_name: string;
+  email: string;
+}
+
+const organisations = new Map<string, MockOrg>([
+  [
+    MOCK_ORG_ID,
+    {
+      id: MOCK_ORG_ID,
+      name: "Dev Organisation (mock)",
+      created_at: new Date().toISOString(),
+      join_code: "DEVMOCK1",
+      primary_contact_name: null,
+      primary_contact_email: null,
+      accounts_email: null,
+      admin_user_code: null,
+      subscription_until: null,
+      yearly_charge: null,
+      sales_contact: null,
+      notes: null,
+    },
+  ],
+]);
+
+const orgMembers: MockOrgMember[] = [
+  {
+    org_id: MOCK_ORG_ID,
+    user_id: MOCK_USER_ID,
+    role: "owner",
+    display_name: "Dev User",
+    email: "dev@example.com",
+  },
+];
+
+export function mockListSchools() {
+  return Array.from(organisations.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function mockCreateSchool(input: {
+  name: string;
+  primaryContactName: string | null;
+  primaryContactEmail: string | null;
+  accountsEmail: string | null;
+  adminUserCode: string | null;
+  subscriptionUntil: string | null;
+  yearlyCharge: number | null;
+  salesContact: string | null;
+  notes: string | null;
+}) {
+  const id = `org-${Math.random().toString(36).slice(2, 10)}`;
+  const org: MockOrg = {
+    id,
+    name: input.name,
+    created_at: new Date().toISOString(),
+    join_code: Math.random().toString(36).slice(2, 10).toUpperCase(),
+    primary_contact_name: input.primaryContactName,
+    primary_contact_email: input.primaryContactEmail,
+    accounts_email: input.accountsEmail,
+    admin_user_code: input.adminUserCode,
+    subscription_until: input.subscriptionUntil,
+    yearly_charge: input.yearlyCharge,
+    sales_contact: input.salesContact,
+    notes: input.notes,
+  };
+  organisations.set(id, org);
+  return org;
+}
+
+export function mockUpdateSchool(
+  orgId: string,
+  updates: Partial<
+    Pick<
+      MockOrg,
+      | "name"
+      | "primary_contact_name"
+      | "primary_contact_email"
+      | "accounts_email"
+      | "admin_user_code"
+      | "subscription_until"
+      | "yearly_charge"
+      | "sales_contact"
+      | "notes"
+    >
+  >
+) {
+  const org = organisations.get(orgId);
+  if (!org) return;
+  Object.assign(org, updates);
+}
+
+export function mockGetOrg(orgId: string) {
+  return organisations.get(orgId) ?? null;
+}
+
+export function mockRegenerateJoinCode(orgId: string) {
+  const org = organisations.get(orgId);
+  if (!org) throw new Error("Organisation not found.");
+  org.join_code = Math.random().toString(36).slice(2, 10).toUpperCase();
+  return org.join_code;
+}
+
+export function mockListOrgMembers(orgId: string) {
+  return orgMembers.filter((m) => m.org_id === orgId);
+}
+
+export function mockRemoveOrgMember(orgId: string, userId: string) {
+  const idx = orgMembers.findIndex((m) => m.org_id === orgId && m.user_id === userId);
+  if (idx !== -1) orgMembers.splice(idx, 1);
+}
+
+export function mockJoinOrgByCode(code: string, userId: string) {
+  const org = Array.from(organisations.values()).find(
+    (o) => o.join_code === code.trim().toUpperCase()
+  );
+  if (!org) throw new Error("No school found for that code.");
+
+  const alreadyMember = orgMembers.some((m) => m.org_id === org.id && m.user_id === userId);
+  const oldMembership = orgMembers.find((m) => m.user_id === userId);
+
+  if (!alreadyMember) {
+    orgMembers.push({
+      org_id: org.id,
+      user_id: userId,
+      role: "contributor",
+      display_name: "Dev User",
+      email: "dev@example.com",
+    });
+  }
+
+  // Mirrors join_org_by_code() in 0025_school_crm_and_join_codes.sql: leave
+  // the org the user was in before, and delete it too if that won't
+  // destroy anyone's real work.
+  if (oldMembership && oldMembership.org_id !== org.id) {
+    const oldOrgId = oldMembership.org_id;
+    const oldOrgPlanCount = Array.from(plans.values()).filter((p) => p.org_id === oldOrgId).length;
+    const oldOrgMemberCount = orgMembers.filter((m) => m.org_id === oldOrgId).length;
+
+    const idx = orgMembers.findIndex((m) => m.org_id === oldOrgId && m.user_id === userId);
+    if (idx !== -1) orgMembers.splice(idx, 1);
+
+    if (oldOrgPlanCount === 0 && oldOrgMemberCount === 1) {
+      organisations.delete(oldOrgId);
+    }
+  }
+
+  return { orgId: org.id, orgName: org.name };
+}
+
+export function mockGetCurrentOrgForUser(userId: string) {
+  const membership = orgMembers.find((m) => m.user_id === userId);
+  if (!membership) return null;
+  const org = organisations.get(membership.org_id);
+  if (!org) return null;
+  return { orgId: org.id, orgName: org.name, role: membership.role, joinCode: org.join_code };
+}
+
 interface MockPlan {
   id: string;
   org_id: string;
