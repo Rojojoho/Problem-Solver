@@ -72,7 +72,11 @@ export function PlanWorkspace({
   const [bundles, setBundles] = useState<Partial<Record<CcpsStage, StageBundle>>>({
     [initialStage]: initialBundle,
   });
-  const [loadingStage, setLoadingStage] = useState<CcpsStage | null>(null);
+  // A map (not a single value) so two overlapping fetches — e.g. clicking
+  // two uncached stage tabs before the first one resolves — each only ever
+  // clear their own entry in `finally`, instead of racing to stomp on a
+  // single shared "currently loading" value.
+  const [loadingStages, setLoadingStages] = useState<Partial<Record<CcpsStage, boolean>>>({});
   const [summaryData, setSummaryData] = useState<PlanSummaryData | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [, startTransition] = useTransition();
@@ -144,7 +148,7 @@ export function PlanWorkspace({
     // Only fetch a stage's data the first time it's visited — once cached,
     // switching back and forth is instant with no extra round trip.
     if (next !== "details" && !bundles[next]) {
-      setLoadingStage(next);
+      setLoadingStages((prev) => ({ ...prev, [next]: true }));
       startTransition(async () => {
         try {
           const bundle = await getStageBundle(planId, next);
@@ -152,7 +156,11 @@ export function PlanWorkspace({
         } catch {
           toast.error("Couldn't load that stage.");
         } finally {
-          setLoadingStage(null);
+          setLoadingStages((prev) => {
+            const rest = { ...prev };
+            delete rest[next];
+            return rest;
+          });
         }
       });
     }
@@ -170,7 +178,10 @@ export function PlanWorkspace({
     });
   }
 
-  const showPanel = stage !== "details";
+  // Every tab (including Plan Details, which uses it for Tags) gets a side
+  // panel now — kept as a named constant rather than inlining `true` since
+  // it reads better at each of its two call sites below.
+  const showPanel = true;
 
   // Plan Details/Summary aren't rows in the `stages` table (see
   // 0023_workspace_tab_positions.sql), but they're merged into the same
@@ -249,7 +260,7 @@ export function PlanWorkspace({
                   value={s.key}
                   className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
                 >
-                  {loadingStage === s.key && <Loader2 className="size-3 animate-spin" />}
+                  {loadingStages[s.key] && <Loader2 className="size-3 animate-spin" />}
                   {s.label}
                 </TabsTrigger>
               );
@@ -260,7 +271,7 @@ export function PlanWorkspace({
             if (t.kind === "details") {
               return (
                 <TabsContent key="details" value="details" className="mt-6" keepMounted>
-                  <PlanDetailsForm planId={planId} background={background} tags={tags} />
+                  <PlanDetailsForm planId={planId} background={background} />
                 </TabsContent>
               );
             }
@@ -303,7 +314,7 @@ export function PlanWorkspace({
                   ) : (
                     <StagePlaceholder label={s.label} />
                   )
-                ) : loadingStage === s.key ? (
+                ) : loadingStages[s.key] ? (
                   <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />
                     Loading…
@@ -340,7 +351,9 @@ export function PlanWorkspace({
                 stageLabel={
                   stage === "summary"
                     ? "Summary"
-                    : (stages.find((s) => s.key === stage)?.label ?? stage)
+                    : stage === "details"
+                      ? "Plan Details"
+                      : (stages.find((s) => s.key === stage)?.label ?? stage)
                 }
                 stageHasFields={stage !== "summary" && Boolean(bundles[stage]?.fields.length)}
                 checklist={stage !== "summary" ? (bundles[stage]?.checklist ?? []) : []}
@@ -348,6 +361,7 @@ export function PlanWorkspace({
                 fields={stage !== "summary" ? (bundles[stage]?.fields ?? []) : []}
                 feedback={feedback}
                 kbArticles={kbArticles}
+                tags={tags}
               />
             </div>
           </aside>

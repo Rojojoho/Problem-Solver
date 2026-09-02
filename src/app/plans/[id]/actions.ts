@@ -16,6 +16,7 @@ import {
   IMPACT_MEASURES_FIELD_KEY,
   IMPACT_OUTCOME_GROUPS_FIELD_KEY,
   SUMMARY_FIELD_KEYS,
+  PARKED_VALIDATION_LABEL,
 } from "@/lib/ccps/constants";
 import { docToParagraphs } from "@/lib/ccps/doc-to-text";
 import { buildPlanMarkdown } from "@/lib/ccps/markdown-export";
@@ -522,7 +523,7 @@ export async function consolidateCausalHypotheses(
 
   const grouped = new Map<string, string[]>();
   for (const row of causalRows) {
-    if (row.validation === "Parked" || !row.text.trim()) continue;
+    if (row.validation === PARKED_VALIDATION_LABEL || !row.text.trim()) continue;
     const tags = row.categories.length ? row.categories : ["Untagged"];
     for (const tag of tags) {
       if (!grouped.has(tag)) grouped.set(tag, []);

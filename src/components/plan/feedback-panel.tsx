@@ -20,9 +20,10 @@ interface FeedbackPanelProps {
 export function FeedbackPanel({ planId, stage, feedback }: FeedbackPanelProps) {
   const [value, setValue] = useState("");
   const [isPending, startTransition] = useTransition();
-  // Summary isn't a real stage — its feedback is filed as general (no
-  // stage), the same "not tied to one stage" concept KB articles already use.
-  const dbStage = stage === "summary" ? null : stage;
+  // Summary and Plan Details aren't real stages — their feedback is filed
+  // as general (no stage), the same "not tied to one stage" concept KB
+  // articles already use.
+  const dbStage = stage === "summary" || stage === "details" ? null : stage;
   const stageFeedback = feedback.filter((f) => f.stage === dbStage);
 
   function handleSubmit() {

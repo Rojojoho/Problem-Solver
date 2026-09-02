@@ -16,7 +16,7 @@ export async function createImpactMeasureType(formData: FormData) {
   if (!label) throw new Error("Label is required.");
 
   const existing = await listImpactMeasureTypes();
-  const nextSortOrder = existing.length + 1;
+  const nextSortOrder = Math.max(0, ...existing.map((o) => o.sort_order)) + 1;
 
   await createImpactMeasureTypeRecord(label, nextSortOrder);
   revalidatePath("/admin/settings/impact-measure-types");

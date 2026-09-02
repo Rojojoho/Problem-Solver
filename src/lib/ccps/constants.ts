@@ -44,6 +44,17 @@ export const CAUSAL_HYPOTHESES_FIELD_KEY = "pc_causal_hypotheses";
 export const CAUSAL_HYPOTHESES_CATEGORIES_FIELD_KEY =
   "pc_causal_hypotheses_categories";
 
+// A causal hypothesis whose `validation` equals this exact label gets
+// special treatment (strikethrough in the table, excluded from Consolidate)
+// — a single shared constant so hypotheses-table.tsx's rendering and
+// consolidateCausalHypotheses' filter can never drift apart from each
+// other. Kept as a plain string match (not a ValidationOption id) since
+// `validation` stores a free-text copy of the label, not a live reference;
+// the admin Validation Options editor blocks renaming/deleting whichever
+// option currently has this label, so the special behavior can't silently
+// stop matching.
+export const PARKED_VALIDATION_LABEL = "Parked";
+
 // Stage 2B (2.3): also a structured table rendered instead of a Tiptap
 // editor — see stage-form.tsx.
 export const CONSOLIDATED_HYPOTHESES_FIELD_KEY = "cv_consolidated_hypotheses";

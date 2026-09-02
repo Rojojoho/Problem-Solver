@@ -1134,9 +1134,17 @@ export async function addPlanTagRecord(planId: string, tag: string) {
   }
 
   const supabase = await createClient();
+  // plan_tags has no columns beyond its (plan_id, tag) primary key, so
+  // there's nothing to update on conflict — ignoreDuplicates compiles to
+  // `on conflict do nothing`, which only needs INSERT privilege (matching
+  // the table's actual grant) instead of the UPDATE privilege a default
+  // upsert would require for no benefit.
   const { error } = await supabase
     .from("plan_tags")
-    .upsert({ plan_id: planId, tag }, { onConflict: "plan_id,tag" });
+    .upsert(
+      { plan_id: planId, tag },
+      { onConflict: "plan_id,tag", ignoreDuplicates: true }
+    );
   if (error) throw new Error(error.message);
 }
 

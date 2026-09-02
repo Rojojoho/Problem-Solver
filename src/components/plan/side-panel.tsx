@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
@@ -14,12 +15,14 @@ import { ExemplarPanel } from "@/components/plan/exemplar-panel";
 import { FeedbackPanel } from "@/components/plan/feedback-panel";
 import { KbPanel } from "@/components/plan/kb-panel";
 import { AskPanel } from "@/components/plan/ask-panel";
+import { TagsPanel } from "@/components/plan/tags-panel";
 
-// The Summary tab isn't a real CCPS stage (it's a rollup of several), but it
-// still gets a side panel — "summary" is a sentinel for that case, handled
-// specially wherever it actually matters (currently just FeedbackPanel,
-// which treats it as general/no-stage feedback).
-export type PanelStage = CcpsStage | "summary";
+// The Summary tab isn't a real CCPS stage (it's a rollup of several), and
+// "details" isn't one either (it's the plan-wide Background/Tags tab) — both
+// are sentinels handled specially wherever it actually matters (currently
+// FeedbackPanel, which treats "summary" as general/no-stage feedback, and
+// the Tags tab below, which only appears for "details").
+export type PanelStage = CcpsStage | "summary" | "details";
 
 interface SidePanelProps {
   planId: string;
@@ -31,6 +34,7 @@ interface SidePanelProps {
   fields: StageFieldSummary[];
   feedback: FeedbackItemData[];
   kbArticles: KbArticleData[];
+  tags: string[];
 }
 
 export function SidePanel({
@@ -43,10 +47,32 @@ export function SidePanel({
   fields,
   feedback,
   kbArticles,
+  tags,
 }: SidePanelProps) {
+  const isDetails = stage === "details";
+  // `defaultValue` alone only applies at mount, and a plan almost never
+  // opens directly on Plan Details — so it'd lock onto "checklist" and
+  // never switch to "tags" just because the user later clicks over to
+  // Plan Details. This resets the active panel tab only when actually
+  // entering/leaving Plan Details, leaving it alone on every other stage
+  // switch so an open Feedback draft etc. isn't disturbed in between.
+  const [panelTab, setPanelTab] = useState(isDetails ? "tags" : "checklist");
+  const wasDetailsRef = useRef(isDetails);
+  useEffect(() => {
+    if (isDetails !== wasDetailsRef.current) {
+      wasDetailsRef.current = isDetails;
+      setPanelTab(isDetails ? "tags" : "checklist");
+    }
+  }, [isDetails]);
+
   return (
-    <Tabs defaultValue="checklist">
+    <Tabs value={panelTab} onValueChange={(value) => setPanelTab(value ?? panelTab)}>
       <TabsList variant="line" className="w-full flex-wrap">
+        {isDetails && (
+          <TabsTrigger value="tags" className="flex-1">
+            Tags
+          </TabsTrigger>
+        )}
         <TabsTrigger value="checklist" className="flex-1">
           Checklist
         </TabsTrigger>
@@ -64,9 +90,19 @@ export function SidePanel({
         </TabsTrigger>
       </TabsList>
 
+      {isDetails && (
+        <TabsContent value="tags" className="mt-4">
+          <TagsPanel planId={planId} tags={tags} />
+        </TabsContent>
+      )}
+
       <TabsContent value="checklist" className="mt-4">
         {stageHasFields ? (
-          <ChecklistPanel planId={planId} stageLabel={stageLabel} items={checklist} />
+          // Keyed by stage: ChecklistPanel seeds its checked-state map from
+          // `items` only once (in useState), so without a key change here
+          // it would keep showing the previous stage's checklist state
+          // after switching tabs while this panel stays mounted.
+          <ChecklistPanel key={stage} planId={planId} stageLabel={stageLabel} items={checklist} />
         ) : (
           <NotAvailable />
         )}
@@ -74,7 +110,9 @@ export function SidePanel({
 
       <TabsContent value="exemplar" className="mt-4">
         {stageHasFields ? (
-          <ExemplarPanel stage={stage} exemplars={exemplars} fields={fields} />
+          // Same reasoning as ChecklistPanel above — its selected-exemplar
+          // state is also seeded once and needs to reset per stage.
+          <ExemplarPanel key={stage} stage={stage} exemplars={exemplars} fields={fields} />
         ) : (
           <NotAvailable />
         )}

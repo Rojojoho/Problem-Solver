@@ -16,7 +16,7 @@ export async function createRequirementType(formData: FormData) {
   if (!label) throw new Error("Label is required.");
 
   const existing = await listRequirementTypes();
-  const nextSortOrder = existing.length + 1;
+  const nextSortOrder = Math.max(0, ...existing.map((o) => o.sort_order)) + 1;
 
   await createRequirementTypeRecord(label, nextSortOrder);
   revalidatePath("/admin/settings/requirement-types");

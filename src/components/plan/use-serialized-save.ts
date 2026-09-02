@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // Every table in this app autosaves by sending its *entire* current array
 // to the server on every single edit, with nothing waiting for the
@@ -22,25 +22,40 @@ export function useSerializedSave<T>(
   const pendingRef = useRef<T | undefined>(undefined);
   const hasPendingRef = useRef(false);
   const inFlightRef = useRef(false);
+  // saveFn/onError are read through refs, kept current via an effect
+  // (mutating a ref during render itself isn't allowed) so the returned
+  // `save` callback below can have a stable identity across renders via an
+  // empty dependency array — every table that consumes this hook can then
+  // safely pass `save` to a memoized row component without it forcing a
+  // re-render on every parent render regardless of memo.
+  const saveFnRef = useRef(saveFn);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    saveFnRef.current = saveFn;
+    onErrorRef.current = onError;
+  }, [saveFn, onError]);
 
-  function flush() {
-    if (inFlightRef.current || !hasPendingRef.current) return;
-    const value = pendingRef.current as T;
-    hasPendingRef.current = false;
-    inFlightRef.current = true;
-    saveFn(value)
-      .catch(() => onError?.(value))
-      .finally(() => {
-        inFlightRef.current = false;
-        flush();
-      });
-  }
-
-  function save(value: T) {
+  const save = useCallback((value: T) => {
     pendingRef.current = value;
     hasPendingRef.current = true;
-    flush();
-  }
+    // A named function expression (not the outer `const`) so the
+    // recursive call in `.finally()` below resolves to this function's own
+    // name binding rather than the outer binding, which wouldn't be
+    // initialized yet the first time this runs synchronously.
+    (function flush() {
+      if (inFlightRef.current || !hasPendingRef.current) return;
+      const next = pendingRef.current as T;
+      hasPendingRef.current = false;
+      inFlightRef.current = true;
+      saveFnRef
+        .current(next)
+        .catch(() => onErrorRef.current?.(next))
+        .finally(() => {
+          inFlightRef.current = false;
+          flush();
+        });
+    })();
+  }, []);
 
   return save;
 }
@@ -58,38 +73,39 @@ export function useKeyedSerializedSave<T>(
     new Map<string, { pending?: T; hasPending: boolean; inFlight: boolean }>()
   );
   const [activeCount, setActiveCount] = useState(0);
+  const saveFnRef = useRef(saveFn);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    saveFnRef.current = saveFn;
+    onErrorRef.current = onError;
+  }, [saveFn, onError]);
 
-  function getQueue(key: string) {
+  const save = useCallback((key: string, value: T) => {
     let q = queuesRef.current.get(key);
     if (!q) {
       q = { hasPending: false, inFlight: false };
       queuesRef.current.set(key, q);
     }
-    return q;
-  }
-
-  function flush(key: string) {
-    const q = queuesRef.current.get(key);
-    if (!q || q.inFlight || !q.hasPending) return;
-    const value = q.pending as T;
-    q.hasPending = false;
-    q.inFlight = true;
-    setActiveCount((n) => n + 1);
-    saveFn(key, value)
-      .catch(() => onError?.(key, value))
-      .finally(() => {
-        q.inFlight = false;
-        setActiveCount((n) => n - 1);
-        flush(key);
-      });
-  }
-
-  function save(key: string, value: T) {
-    const q = getQueue(key);
     q.pending = value;
     q.hasPending = true;
-    flush(key);
-  }
+
+    (function flush() {
+      const current = queuesRef.current.get(key);
+      if (!current || current.inFlight || !current.hasPending) return;
+      const next = current.pending as T;
+      current.hasPending = false;
+      current.inFlight = true;
+      setActiveCount((n) => n + 1);
+      saveFnRef
+        .current(key, next)
+        .catch(() => onErrorRef.current?.(key, next))
+        .finally(() => {
+          current.inFlight = false;
+          setActiveCount((n) => n - 1);
+          flush();
+        });
+    })();
+  }, []);
 
   return { save, isSaving: activeCount > 0 };
 }

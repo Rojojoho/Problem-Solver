@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { ArrowUpDown, Plus, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,7 @@ import {
   saveCausalHypothesisRows,
 } from "@/app/plans/[id]/actions";
 import type { HypothesisRow, ValidationOption } from "@/lib/ccps/types";
+import { PARKED_VALIDATION_LABEL } from "@/lib/ccps/constants";
 import { cn } from "@/lib/utils";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
@@ -52,7 +53,7 @@ interface HypothesesTableProps {
 }
 
 const NONE = "__none__";
-const PARKED = "Parked";
+const PARKED = PARKED_VALIDATION_LABEL;
 type SortKey = "validation";
 type SortDir = "asc" | "desc";
 
@@ -112,11 +113,14 @@ export function HypothesesTable({
     () => toast.error("Couldn't save categories.")
   );
 
-  function persistRows(nextRows: HypothesisRow[]) {
-    rowsRef.current = nextRows;
-    setRows(nextRows);
-    saveRows(nextRows);
-  }
+  const persistRows = useCallback(
+    (nextRows: HypothesisRow[]) => {
+      rowsRef.current = nextRows;
+      setRows(nextRows);
+      saveRows(nextRows);
+    },
+    [saveRows]
+  );
 
   function persistCategories(nextCategories: string[]) {
     categoriesRef.current = nextCategories;
@@ -124,41 +128,57 @@ export function HypothesesTable({
     saveCategories(nextCategories);
   }
 
-  function updateRow(id: string, updates: Partial<HypothesisRow>) {
+  // Stable (useCallback) so the memoized row component below only
+  // re-renders the one row actually being edited, not every row in the
+  // table, on each keystroke — see HypothesisRowView.
+  const updateRow = useCallback((id: string, updates: Partial<HypothesisRow>) => {
     setRows((prev) => {
       const next = prev.map((r) => (r.id === id ? { ...r, ...updates } : r));
       rowsRef.current = next;
       return next;
     });
-  }
+  }, []);
 
-  function commitRows() {
+  const commitRows = useCallback(() => {
     persistRows(rowsRef.current);
-  }
+  }, [persistRows]);
 
-  function removeRow(id: string) {
-    persistRows(rowsRef.current.filter((r) => r.id !== id));
-    setSelected((prev) => {
-      if (!prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-  }
+  const removeRow = useCallback(
+    (id: string) => {
+      persistRows(rowsRef.current.filter((r) => r.id !== id));
+      setSelected((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    },
+    [persistRows]
+  );
 
-  function toggleRowTag(id: string, tag: string, checked: boolean) {
-    persistRows(
-      rowsRef.current.map((r) => {
-        if (r.id !== id) return r;
-        const has = r.categories.includes(tag);
-        if (checked === has) return r;
-        return {
-          ...r,
-          categories: checked ? [...r.categories, tag] : r.categories.filter((c) => c !== tag),
-        };
-      })
-    );
-  }
+  const toggleRowTag = useCallback(
+    (id: string, tag: string, checked: boolean) => {
+      persistRows(
+        rowsRef.current.map((r) => {
+          if (r.id !== id) return r;
+          const has = r.categories.includes(tag);
+          if (checked === has) return r;
+          return {
+            ...r,
+            categories: checked ? [...r.categories, tag] : r.categories.filter((c) => c !== tag),
+          };
+        })
+      );
+    },
+    [persistRows]
+  );
+
+  const updateRowValidation = useCallback(
+    (id: string, next: string | null) => {
+      persistRows(rowsRef.current.map((r) => (r.id === id ? { ...r, validation: next } : r)));
+    },
+    [persistRows]
+  );
 
   function addBulkHypotheses() {
     const lines = bulkText
@@ -207,14 +227,14 @@ export function HypothesesTable({
     });
   }
 
-  function toggleSelected(id: string) {
+  const toggleSelected = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }
+  }, []);
 
   function toggleSelectAll() {
     setSelected((prev) => (prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.id))));
@@ -402,104 +422,21 @@ export function HypothesesTable({
             </tr>
           </thead>
           <tbody>
-            {displayRows.map((row) => {
-              const isParked = row.validation === PARKED;
-              return (
-                <tr key={row.id} className="border-b border-border last:border-b-0">
-                  <td className="border-r border-border p-1 text-center">
-                    <Checkbox
-                      checked={selected.has(row.id)}
-                      onCheckedChange={() => toggleSelected(row.id)}
-                      aria-label={`Select ${row.text || "hypothesis"}`}
-                    />
-                  </td>
-                  <td className="border-r border-border p-0">
-                    <EditableCell
-                      value={row.text}
-                      onChange={(value) => updateRow(row.id, { text: value })}
-                      onBlur={commitRows}
-                      className={cn(isParked && "text-muted-foreground line-through")}
-                    />
-                  </td>
-                  <td className="border-r border-border p-1">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <button
-                            type="button"
-                            className="flex min-h-7 w-full flex-wrap items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-muted/50"
-                          />
-                        }
-                      >
-                        {row.categories.length ? (
-                          row.categories.map((c) => (
-                            <Badge key={c} variant="secondary" className="text-[10px]">
-                              {c}
-                            </Badge>
-                          ))
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        {categories.length ? (
-                          categories.map((c) => (
-                            <DropdownMenuCheckboxItem
-                              key={c}
-                              checked={row.categories.includes(c)}
-                              onCheckedChange={(checked) =>
-                                toggleRowTag(row.id, c, checked === true)
-                              }
-                            >
-                              {c}
-                            </DropdownMenuCheckboxItem>
-                          ))
-                        ) : (
-                          <DropdownMenuItem disabled>No tags yet</DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                  <td className="border-r border-border p-1">
-                    <Select
-                      value={row.validation ?? NONE}
-                      onValueChange={(v) => {
-                        const next = v === NONE ? null : v;
-                        persistRows(
-                          rowsRef.current.map((r) =>
-                            r.id === row.id ? { ...r, validation: next } : r
-                          )
-                        );
-                      }}
-                    >
-                      <SelectTrigger className="w-full" size="sm">
-                        <SelectValue>
-                          {(v: string) => (v === NONE ? "—" : v)}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>—</SelectItem>
-                        {validationOptions.map((option) => (
-                          <SelectItem key={option.id} value={option.label}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-0 text-center">
-                    <button
-                      type="button"
-                      aria-label="Delete hypothesis"
-                      onClick={() => removeRow(row.id)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="mx-auto size-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+            {displayRows.map((row) => (
+              <HypothesisRowView
+                key={row.id}
+                row={row}
+                isSelected={selected.has(row.id)}
+                categories={categories}
+                validationOptions={validationOptions}
+                onToggleSelected={toggleSelected}
+                onChangeText={updateRow}
+                onCommitRows={commitRows}
+                onToggleTag={toggleRowTag}
+                onChangeValidation={updateRowValidation}
+                onRemove={removeRow}
+              />
+            ))}
             <tr>
               <td colSpan={5} className="p-0">
                 <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
@@ -548,3 +485,122 @@ export function HypothesesTable({
     </div>
   );
 }
+
+interface HypothesisRowViewProps {
+  row: HypothesisRow;
+  isSelected: boolean;
+  categories: string[];
+  validationOptions: ValidationOption[];
+  onToggleSelected: (id: string) => void;
+  onChangeText: (id: string, updates: Partial<HypothesisRow>) => void;
+  onCommitRows: () => void;
+  onToggleTag: (id: string, tag: string, checked: boolean) => void;
+  onChangeValidation: (id: string, next: string | null) => void;
+  onRemove: (id: string) => void;
+}
+
+// Memoized so editing one row (which only replaces that row's object in
+// the parent's `rows` array — see updateRow) doesn't force every other
+// row's Select/DropdownMenu/EditableCell to re-render on each keystroke.
+// Every prop here must stay referentially stable across unrelated parent
+// re-renders for that to actually pay off — see the useCallback-wrapped
+// handlers above and useSerializedSave's stabilized `save`.
+const HypothesisRowView = memo(function HypothesisRowView({
+  row,
+  isSelected,
+  categories,
+  validationOptions,
+  onToggleSelected,
+  onChangeText,
+  onCommitRows,
+  onToggleTag,
+  onChangeValidation,
+  onRemove,
+}: HypothesisRowViewProps) {
+  const isParked = row.validation === PARKED;
+
+  return (
+    <tr className="border-b border-border last:border-b-0">
+      <td className="border-r border-border p-1 text-center">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelected(row.id)}
+          aria-label={`Select ${row.text || "hypothesis"}`}
+        />
+      </td>
+      <td className="border-r border-border p-0">
+        <EditableCell
+          value={row.text}
+          onChange={(value) => onChangeText(row.id, { text: value })}
+          onBlur={onCommitRows}
+          className={cn(isParked && "text-muted-foreground line-through")}
+        />
+      </td>
+      <td className="border-r border-border p-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="flex min-h-7 w-full flex-wrap items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-muted/50"
+              />
+            }
+          >
+            {row.categories.length ? (
+              row.categories.map((c) => (
+                <Badge key={c} variant="secondary" className="text-[10px]">
+                  {c}
+                </Badge>
+              ))
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {categories.length ? (
+              categories.map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c}
+                  checked={row.categories.includes(c)}
+                  onCheckedChange={(checked) => onToggleTag(row.id, c, checked === true)}
+                >
+                  {c}
+                </DropdownMenuCheckboxItem>
+              ))
+            ) : (
+              <DropdownMenuItem disabled>No tags yet</DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </td>
+      <td className="border-r border-border p-1">
+        <Select
+          value={row.validation ?? NONE}
+          onValueChange={(v) => onChangeValidation(row.id, v === NONE ? null : v)}
+        >
+          <SelectTrigger className="w-full" size="sm">
+            <SelectValue>{(v: string) => (v === NONE ? "—" : v)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>—</SelectItem>
+            {validationOptions.map((option) => (
+              <SelectItem key={option.id} value={option.label}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
+      <td className="p-0 text-center">
+        <button
+          type="button"
+          aria-label="Delete hypothesis"
+          onClick={() => onRemove(row.id)}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          <X className="mx-auto size-3.5" />
+        </button>
+      </td>
+    </tr>
+  );
+});
