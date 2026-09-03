@@ -1,15 +1,29 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ListChecks, ShieldCheck, BookOpen, School } from "lucide-react";
+import { ListChecks, ShieldCheck, BookOpen, School, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/sign-out-button";
 import { DEV_MOCK } from "@/lib/dev-mode";
-import { getCurrentUserId, isAdmin } from "@/lib/db";
+import { getCurrentUserId, isAdmin, getCurrentOrg } from "@/lib/db";
 
 export async function TopNav() {
   const email = DEV_MOCK ? null : await getUserEmail();
   const userId = await getCurrentUserId();
   const admin = await isAdmin(userId);
+
+  // TopNav only ever renders inside the authenticated (app) layout, so a
+  // session always exists here — but guarded anyway (skip entirely if
+  // somehow no user, fall back to false on any lookup error) since a
+  // missing/broken org shouldn't be able to take down the whole nav bar.
+  let isOrgOwner = false;
+  if (userId) {
+    try {
+      const org = await getCurrentOrg();
+      isOrgOwner = org.role === "owner";
+    } catch {
+      isOrgOwner = false;
+    }
+  }
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 h-14 border-b border-nav-foreground/10 bg-nav">
@@ -39,6 +53,12 @@ export async function TopNav() {
               <School className="size-4" />
               School
             </Link>
+            {isOrgOwner && (
+              <Link href="/school/users" className="flex items-center gap-1.5 hover:text-white">
+                <Users className="size-4" />
+                Users
+              </Link>
+            )}
             {admin && (
               <Link href="/admin" className="flex items-center gap-1.5 hover:text-white">
                 <ShieldCheck className="size-4" />

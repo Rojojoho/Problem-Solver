@@ -236,6 +236,20 @@ export interface OrgMemberSummary {
   role: "owner" | "contributor";
   displayName: string;
   email: string;
+  nickname: string | null;
+}
+
+// An allow-list entry created by a school (or site) admin — a Google
+// sign-in only succeeds once a matching pending_invites row exists (see
+// 0030_invite_only_signup.sql). No email is sent; the admin tells the
+// invited person out-of-band to sign in with this exact address.
+export interface PendingInvite {
+  id: string;
+  email: string;
+  fullName: string | null;
+  nickname: string | null;
+  role: "owner" | "contributor";
+  createdAt: string;
 }
 
 export interface PublishedPlanSummary {

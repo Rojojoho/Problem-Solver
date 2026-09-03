@@ -7,6 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { OrgMemberSummary } from "@/lib/ccps/types";
 
+const ROLE_LABEL: Record<OrgMemberSummary["role"], string> = {
+  owner: "Admin",
+  contributor: "User",
+};
+
 export function OrgMembersList({
   members,
   canRemove,
@@ -46,11 +51,18 @@ export function OrgMembersList({
         <tbody>
           {members.map((member) => (
             <tr key={member.userId} className="border-b border-border last:border-b-0">
-              <td className="px-4 py-3 font-medium">{member.displayName}</td>
+              <td className="px-4 py-3 font-medium">
+                {member.displayName}
+                {member.nickname && (
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                    ({member.nickname})
+                  </span>
+                )}
+              </td>
               <td className="px-4 py-3">{member.email}</td>
               <td className="px-4 py-3">
                 <Badge variant={member.role === "owner" ? "default" : "secondary"}>
-                  {member.role}
+                  {ROLE_LABEL[member.role]}
                 </Badge>
               </td>
               {canRemove && (

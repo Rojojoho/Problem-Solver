@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
-import { listSchoolsForAdmin, listOrgMembers } from "@/lib/db";
-import { OrgMembersList } from "@/components/admin/org-members-list";
-import { removeSchoolMember } from "@/app/(app)/admin/schools/actions";
+import { listSchoolsForAdmin, listOrgMembers, listPendingInvites } from "@/lib/db";
+import { UsersView } from "@/components/school/users-view";
+import {
+  removeSchoolMember,
+  inviteSchoolUser,
+  cancelSchoolInvite,
+} from "@/app/(app)/admin/schools/actions";
 
 export default async function AdminSchoolUsersPage({
   params,
@@ -13,9 +17,10 @@ export default async function AdminSchoolUsersPage({
   await requireAdmin();
   const { orgId } = await params;
 
-  const [schools, members] = await Promise.all([
+  const [schools, members, invites] = await Promise.all([
     listSchoolsForAdmin(),
     listOrgMembers(orgId),
+    listPendingInvites(orgId),
   ]);
   const school = schools.find((s) => s.id === orgId);
   if (!school) notFound();
@@ -35,15 +40,16 @@ export default async function AdminSchoolUsersPage({
           <span className="font-mono font-medium text-foreground">
             {school.joinCode}
           </span>{" "}
-          — hand this to the school&apos;s first user so they land directly
-          in this account when they sign up.
+          — or invite their first user below directly.
         </p>
       </div>
 
-      <OrgMembersList
+      <UsersView
         members={members}
-        canRemove
-        removeAction={removeSchoolMember.bind(null, orgId)}
+        invites={invites}
+        onInvite={inviteSchoolUser.bind(null, orgId)}
+        onCancelInvite={cancelSchoolInvite.bind(null, orgId)}
+        onRemoveMember={removeSchoolMember.bind(null, orgId)}
       />
     </div>
   );

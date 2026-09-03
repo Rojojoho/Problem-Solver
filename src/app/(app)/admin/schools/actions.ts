@@ -7,6 +7,8 @@ import {
   updateSchoolRecord,
   regenerateJoinCodeRecord,
   removeOrgMemberRecord,
+  createInviteRecord,
+  deleteInviteRecord,
   type SchoolCrmInput,
 } from "@/lib/db";
 
@@ -52,5 +54,28 @@ export async function regenerateSchoolJoinCode(orgId: string) {
 export async function removeSchoolMember(orgId: string, userId: string) {
   await requireAdmin();
   await removeOrgMemberRecord(orgId, userId);
+  revalidatePath(`/admin/schools/${orgId}/users`);
+}
+
+export async function inviteSchoolUser(
+  orgId: string,
+  input: { email: string; fullName: string; nickname: string; role: "owner" | "contributor" }
+) {
+  await requireAdmin();
+  const email = input.email.trim();
+  if (!email) throw new Error("Email is required.");
+
+  await createInviteRecord(orgId, {
+    email,
+    fullName: input.fullName.trim() || null,
+    nickname: input.nickname.trim() || null,
+    role: input.role,
+  });
+  revalidatePath(`/admin/schools/${orgId}/users`);
+}
+
+export async function cancelSchoolInvite(orgId: string, inviteId: string) {
+  await requireAdmin();
+  await deleteInviteRecord(inviteId);
   revalidatePath(`/admin/schools/${orgId}/users`);
 }

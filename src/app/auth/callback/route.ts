@@ -24,6 +24,14 @@ export async function GET(request: Request) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+
+    // handle_new_user() (0030_invite_only_signup.sql) raises this exact
+    // exception when the signing-in email has no matching pending invite —
+    // surfaced here so login can show a specific, actionable message
+    // instead of a generic failure.
+    if (error.message?.toLowerCase().includes("not_invited")) {
+      return NextResponse.redirect(`${origin}/login?error=not_invited`);
+    }
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth_failed`);

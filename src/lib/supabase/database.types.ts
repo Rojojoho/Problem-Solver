@@ -18,6 +18,7 @@ export interface Database {
           id: string;
           full_name: string | null;
           avatar_url: string | null;
+          nickname: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["profiles"]["Row"]> & {
@@ -57,6 +58,23 @@ export interface Database {
           user_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["org_members"]["Row"]>;
+      };
+      pending_invites: {
+        Row: {
+          id: string;
+          org_id: string;
+          email: string;
+          full_name: string | null;
+          nickname: string | null;
+          role: OrgRole;
+          invited_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["pending_invites"]["Row"]> & {
+          org_id: string;
+          email: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["pending_invites"]["Row"]>;
       };
       plans: {
         Row: {

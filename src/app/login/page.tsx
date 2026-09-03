@@ -1,11 +1,22 @@
 "use client";
 
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  not_invited:
+    "This Google account hasn't been added to a school yet — ask your school administrator to add you, then try again.",
+  auth_failed: "Sign-in failed. Please try again.",
+};
+
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
+  const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.auth_failed) : null;
+
   async function signInWithGoogle() {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
@@ -33,7 +44,12 @@ export default function LoginPage() {
             Sign in to create and continue your CCPS problem-solving plans.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {errorMessage && (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {errorMessage}
+            </p>
+          )}
           <Button className="w-full" onClick={signInWithGoogle}>
             Continue with Google
           </Button>

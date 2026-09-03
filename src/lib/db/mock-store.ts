@@ -48,6 +48,17 @@ interface MockOrgMember {
   // have something to list — not full multi-user simulation.
   display_name: string;
   email: string;
+  nickname: string | null;
+}
+
+interface MockPendingInvite {
+  id: string;
+  org_id: string;
+  email: string;
+  full_name: string | null;
+  nickname: string | null;
+  role: "owner" | "contributor";
+  created_at: string;
 }
 
 const organisations = new Map<string, MockOrg>([
@@ -77,8 +88,11 @@ const orgMembers: MockOrgMember[] = [
     role: "owner",
     display_name: "Dev User",
     email: "dev@example.com",
+    nickname: null,
   },
 ];
+
+const pendingInvites: MockPendingInvite[] = [];
 
 export function mockListSchools() {
   return Array.from(organisations.values()).sort((a, b) => a.name.localeCompare(b.name));
@@ -156,6 +170,48 @@ export function mockRemoveOrgMember(orgId: string, userId: string) {
   if (idx !== -1) orgMembers.splice(idx, 1);
 }
 
+export function mockListPendingInvites(orgId: string) {
+  return pendingInvites
+    .filter((i) => i.org_id === orgId)
+    .map((i) => ({
+      id: i.id,
+      email: i.email,
+      fullName: i.full_name,
+      nickname: i.nickname,
+      role: i.role,
+      createdAt: i.created_at,
+    }));
+}
+
+export function mockCreateInvite(
+  orgId: string,
+  input: { email: string; fullName: string | null; nickname: string | null; role: "owner" | "contributor" }
+) {
+  const email = input.email.trim().toLowerCase();
+  const existing = pendingInvites.find((i) => i.email === email);
+  if (existing) {
+    existing.org_id = orgId;
+    existing.full_name = input.fullName;
+    existing.nickname = input.nickname;
+    existing.role = input.role;
+    return;
+  }
+  pendingInvites.push({
+    id: crypto.randomUUID(),
+    org_id: orgId,
+    email,
+    full_name: input.fullName,
+    nickname: input.nickname,
+    role: input.role,
+    created_at: now(),
+  });
+}
+
+export function mockDeleteInvite(inviteId: string) {
+  const idx = pendingInvites.findIndex((i) => i.id === inviteId);
+  if (idx !== -1) pendingInvites.splice(idx, 1);
+}
+
 export function mockJoinOrgByCode(code: string, userId: string) {
   const org = Array.from(organisations.values()).find(
     (o) => o.join_code === code.trim().toUpperCase()
@@ -172,6 +228,7 @@ export function mockJoinOrgByCode(code: string, userId: string) {
       role: "contributor",
       display_name: "Dev User",
       email: "dev@example.com",
+      nickname: null,
     });
   }
 

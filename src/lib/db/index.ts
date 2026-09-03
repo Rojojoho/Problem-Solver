@@ -17,6 +17,7 @@ import type {
   KbArticleData,
   LabeledOption,
   OrgMemberSummary,
+  PendingInvite,
   PublicPlanBundle,
   PublishedPlanSummary,
   SchoolSummary,
@@ -261,6 +262,7 @@ export async function listOrgMembers(orgId: string): Promise<OrgMemberSummary[]>
     role: m.role,
     displayName: m.display_name,
     email: m.email,
+    nickname: m.nickname,
   }));
 
   const supabase = await createClient();
@@ -270,6 +272,15 @@ export async function listOrgMembers(orgId: string): Promise<OrgMemberSummary[]>
 }
 
 export async function removeOrgMemberRecord(orgId: string, userId: string): Promise<void> {
+  // A school should never end up with zero admins — check this at the app
+  // layer since DEV_MOCK has no RLS/constraint to enforce it either way.
+  const members = await listOrgMembers(orgId);
+  const target = members.find((m) => m.userId === userId);
+  const ownerCount = members.filter((m) => m.role === "owner").length;
+  if (target?.role === "owner" && ownerCount <= 1) {
+    throw new Error("Can't remove the only admin — promote someone else first.");
+  }
+
   if (DEV_MOCK) {
     mock.mockRemoveOrgMember(orgId, userId);
     return;
@@ -281,6 +292,69 @@ export async function removeOrgMemberRecord(orgId: string, userId: string): Prom
     .delete()
     .eq("org_id", orgId)
     .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function listPendingInvites(orgId: string): Promise<PendingInvite[]> {
+  if (DEV_MOCK) return mock.mockListPendingInvites(orgId);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("pending_invites")
+    .select("id, email, full_name, nickname, role, created_at")
+    .eq("org_id", orgId)
+    .order("created_at");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((i) => ({
+    id: i.id,
+    email: i.email,
+    fullName: i.full_name,
+    nickname: i.nickname,
+    role: i.role,
+    createdAt: i.created_at,
+  }));
+}
+
+export interface InviteInput {
+  email: string;
+  fullName: string | null;
+  nickname: string | null;
+  role: "owner" | "contributor";
+}
+
+export async function createInviteRecord(orgId: string, input: InviteInput): Promise<void> {
+  if (DEV_MOCK) {
+    mock.mockCreateInvite(orgId, input);
+    return;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase.from("pending_invites").upsert(
+    {
+      org_id: orgId,
+      email: input.email.trim().toLowerCase(),
+      full_name: input.fullName,
+      nickname: input.nickname,
+      role: input.role,
+      invited_by: user?.id ?? null,
+    },
+    { onConflict: "email" }
+  );
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteInviteRecord(inviteId: string): Promise<void> {
+  if (DEV_MOCK) {
+    mock.mockDeleteInvite(inviteId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("pending_invites").delete().eq("id", inviteId);
   if (error) throw new Error(error.message);
 }
 
