@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import type { JSONContent } from "@tiptap/react";
-import { makeTimer } from "@/lib/timing";
 import {
   asRowArray,
   EMPTY_DOC,
@@ -676,18 +675,14 @@ export async function publishPlan(planId: string) {
 //
 // The always-needed half (fields/responses/checklist/exemplars) is one
 // Postgres round trip via getStageBundleCore — see
-// 0029_get_stage_bundle_rpc.sql for why (timing instrumentation showed
-// these 5 separate queries queueing behind each other, adding 1-3+ seconds
-// per tab click). Only the stage-conditional extras below (at most one of
-// which ever actually queries anything for a given stage) are still
-// separate calls.
+// 0029_get_stage_bundle_rpc.sql for why (these used to be 5 separate
+// queries that queued behind each other). Only the stage-conditional
+// extras below (at most one of which ever actually queries anything for a
+// given stage) are still separate calls.
 export async function getStageBundle(
   planId: string,
   stage: CcpsStage
-): Promise<StageBundle & { _timings: Record<string, number> }> {
-  const totalStart = Date.now();
-  const { timed, timings } = makeTimer();
-
+): Promise<StageBundle> {
   const [
     core,
     validationOptions,
@@ -697,20 +692,16 @@ export async function getStageBundle(
     strategyRows,
     impactMeasureTypes,
   ] = await Promise.all([
-    timed("core", getStageBundleCore(planId, stage)),
-    timed("validationOptions", stage === "PC" ? listValidationOptions() : Promise.resolve([])),
-    timed("requirementTypes", stage === "SR" ? listRequirementTypes() : Promise.resolve([])),
-    timed(
-      "suggestions",
-      stage === "SR"
-        ? getSolutionRequirementSuggestions(planId)
-        : Promise.resolve({ causeOptions: [], measureSuggestions: [] })
-    ),
-    timed("requirementOptions", stage === "SS" ? getSolutionRequirementOptions(planId) : Promise.resolve([])),
-    timed("strategyRows", stage === "IM" ? getStrategyRows(planId) : Promise.resolve([])),
-    timed("impactMeasureTypes", stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([])),
+    getStageBundleCore(planId, stage),
+    stage === "PC" ? listValidationOptions() : Promise.resolve([]),
+    stage === "SR" ? listRequirementTypes() : Promise.resolve([]),
+    stage === "SR"
+      ? getSolutionRequirementSuggestions(planId)
+      : Promise.resolve({ causeOptions: [], measureSuggestions: [] }),
+    stage === "SS" ? getSolutionRequirementOptions(planId) : Promise.resolve([]),
+    stage === "IM" ? getStrategyRows(planId) : Promise.resolve([]),
+    stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([]),
   ]);
-  timings.TOTAL = Date.now() - totalStart;
 
   return {
     fields: core.fields,
@@ -724,7 +715,6 @@ export async function getStageBundle(
     requirementOptions,
     strategyRows,
     impactMeasureTypes,
-    _timings: timings,
   };
 }
 

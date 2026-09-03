@@ -20,7 +20,6 @@ import {
 import { EMPTY_DOC } from "@/lib/ccps/constants";
 import type { StageBundle } from "@/lib/ccps/types";
 import { PlanWorkspace } from "@/components/plan/plan-workspace";
-import { makeTimer } from "@/lib/timing";
 import {
   getSolutionRequirementSuggestions,
   getSolutionRequirementOptions,
@@ -33,9 +32,8 @@ export default async function PlanPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { timed, timings } = makeTimer();
 
-  const plan = await timed("getPlan", getPlan(id));
+  const plan = await getPlan(id);
   if (!plan) {
     notFound();
   }
@@ -46,7 +44,7 @@ export default async function PlanPage({
   // the stage actually has fields — chaining them off the (fast) fields
   // query lets a blank stage skip 3 queries entirely, while every
   // independent query below still starts immediately in parallel.
-  const fieldsPromise = timed("fields", getStageFields(stage));
+  const fieldsPromise = getStageFields(stage);
 
   const [
     fields,
@@ -67,39 +65,30 @@ export default async function PlanPage({
     stages,
     tabPositions,
     headings,
-  ] = await timed(
-    "PlanPage TOTAL",
-    Promise.all([
-      fieldsPromise,
-      timed("responses", getStageResponses(id, stage)),
-      timed("checklistItems", fieldsPromise.then((f) => (f.length ? getChecklistItems(id, stage) : []))),
-      timed("exemplars", fieldsPromise.then((f) => (f.length ? getExemplars(stage) : []))),
-      timed(
-        "checklistState",
-        fieldsPromise.then((f) =>
-          f.length ? getChecklistState(id) : Promise.resolve({} as Record<string, boolean>)
-        )
-      ),
-      timed("feedback", getFeedback(id)),
-      timed("latestPublished", getLatestPublishedPlanForSource(id)),
-      timed("kbArticles", listKbArticles(true)),
-      timed("tags", getPlanTags(id)),
-      timed("validationOptions", stage === "PC" ? listValidationOptions() : Promise.resolve([])),
-      timed("requirementTypes", stage === "SR" ? listRequirementTypes() : Promise.resolve([])),
-      timed(
-        "suggestions",
-        stage === "SR"
-          ? getSolutionRequirementSuggestions(id)
-          : Promise.resolve({ causeOptions: [], measureSuggestions: [] })
-      ),
-      timed("requirementOptions", stage === "SS" ? getSolutionRequirementOptions(id) : Promise.resolve([])),
-      timed("strategyRows", stage === "IM" ? getStrategyRows(id) : Promise.resolve([])),
-      timed("impactMeasureTypes", stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([])),
-      timed("stages", listStages()),
-      timed("tabPositions", getWorkspaceTabPositions()),
-      timed("headings", getDiagramHeadings()),
-    ])
-  );
+  ] = await Promise.all([
+    fieldsPromise,
+    getStageResponses(id, stage),
+    fieldsPromise.then((f) => (f.length ? getChecklistItems(id, stage) : [])),
+    fieldsPromise.then((f) => (f.length ? getExemplars(stage) : [])),
+    fieldsPromise.then((f) =>
+      f.length ? getChecklistState(id) : Promise.resolve({} as Record<string, boolean>)
+    ),
+    getFeedback(id),
+    getLatestPublishedPlanForSource(id),
+    listKbArticles(true),
+    getPlanTags(id),
+    stage === "PC" ? listValidationOptions() : Promise.resolve([]),
+    stage === "SR" ? listRequirementTypes() : Promise.resolve([]),
+    stage === "SR"
+      ? getSolutionRequirementSuggestions(id)
+      : Promise.resolve({ causeOptions: [], measureSuggestions: [] }),
+    stage === "SS" ? getSolutionRequirementOptions(id) : Promise.resolve([]),
+    stage === "IM" ? getStrategyRows(id) : Promise.resolve([]),
+    stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([]),
+    listStages(),
+    getWorkspaceTabPositions(),
+    getDiagramHeadings(),
+  ]);
 
   const initialBundle: StageBundle = {
     fields,
@@ -135,7 +124,6 @@ export default async function PlanPage({
       shareToken={plan.share_token}
       tabPositions={tabPositions}
       headings={headings}
-      initialLoadTimings={timings}
     />
   );
 }

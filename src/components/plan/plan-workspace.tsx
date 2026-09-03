@@ -53,7 +53,6 @@ interface PlanWorkspaceProps {
   shareToken: string | null;
   tabPositions: WorkspaceTabPositions;
   headings: DiagramHeadings;
-  initialLoadTimings: Record<string, number>;
 }
 
 export function PlanWorkspace({
@@ -71,18 +70,7 @@ export function PlanWorkspace({
   shareToken,
   tabPositions,
   headings,
-  initialLoadTimings,
 }: PlanWorkspaceProps) {
-  // Server-side console.log doesn't reach the browser console on a
-  // deployed build (only in local `next dev`) — logging the server-timed
-  // breakdown here, client-side, guarantees it's visible everywhere.
-  // Temporary, for the slow-tab-switch investigation.
-  useEffect(() => {
-    console.log("[timing] initial page load breakdown (table below, nothing hidden):");
-    console.table(initialLoadTimings);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- log once on mount only
-  }, []);
-
   const [stage, setStage] = useState<WorkspaceTab>(initialStage);
   const [bundles, setBundles] = useState<Partial<Record<CcpsStage, StageBundle>>>({
     [initialStage]: initialBundle,
@@ -148,15 +136,12 @@ export function PlanWorkspace({
       // content from four different stages, any of which could have
       // changed since the last time it was open.
       setSummaryLoading(true);
-      const timerLabel = `[timing] client: summary fetch`;
-      console.time(timerLabel);
       startTransition(async () => {
         try {
           setSummaryData(await getPlanSummary(planId));
         } catch {
           toast.error("Couldn't load the summary.");
         } finally {
-          console.timeEnd(timerLabel);
           setSummaryLoading(false);
         }
       });
@@ -167,18 +152,13 @@ export function PlanWorkspace({
     // switching back and forth is instant with no extra round trip.
     if (next !== "details" && !bundles[next]) {
       setLoadingStages((prev) => ({ ...prev, [next]: true }));
-      const timerLabel = `[timing] client: stage bundle fetch (${next})`;
-      console.time(timerLabel);
       startTransition(async () => {
         try {
           const bundle = await getStageBundle(planId, next);
-          console.log(`[timing] server breakdown for stage ${next} (table below, nothing hidden):`);
-          console.table(bundle._timings);
           setBundles((prev) => ({ ...prev, [next]: bundle }));
         } catch {
           toast.error("Couldn't load that stage.");
         } finally {
-          console.timeEnd(timerLabel);
           setLoadingStages((prev) => {
             const rest = { ...prev };
             delete rest[next];
