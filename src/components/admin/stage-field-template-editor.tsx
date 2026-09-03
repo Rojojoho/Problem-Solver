@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { docToParagraphs } from "@/lib/ccps/doc-to-text";
-import { updateStageField } from "@/app/admin/settings/fields/actions";
+import { updateStageField } from "@/app/(app)/admin/settings/fields/actions";
 import { cn } from "@/lib/utils";
 import type { StageData, StageFieldSummary } from "@/lib/ccps/types";
 

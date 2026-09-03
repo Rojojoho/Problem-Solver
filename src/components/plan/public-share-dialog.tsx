@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { enablePlanSharing, disablePlanSharing } from "@/app/plans/[id]/actions";
+import { enablePlanSharing, disablePlanSharing } from "@/app/(app)/plans/[id]/actions";
 
 // "Share" (a public, no-login read-only link) is a distinct concept from
 // "Publish" (publish-button.tsx, which snapshots a plan into a review queue

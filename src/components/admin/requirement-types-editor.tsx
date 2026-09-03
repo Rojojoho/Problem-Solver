@@ -10,7 +10,7 @@ import {
   createRequirementType,
   updateRequirementType,
   deleteRequirementType,
-} from "@/app/admin/settings/requirement-types/actions";
+} from "@/app/(app)/admin/settings/requirement-types/actions";
 
 export function RequirementTypesEditor({
   options,

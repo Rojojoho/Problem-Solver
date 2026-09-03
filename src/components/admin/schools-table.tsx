@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createSchool, updateSchool } from "@/app/admin/schools/actions";
+import { createSchool, updateSchool } from "@/app/(app)/admin/schools/actions";
 import type { SchoolSummary } from "@/lib/ccps/types";
 
 function subscriptionBadge(subscriptionUntil: string | null) {

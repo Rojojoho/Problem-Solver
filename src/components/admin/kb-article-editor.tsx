@@ -22,7 +22,7 @@ import {
   updateKbArticleMeta,
   setKbArticleStatus,
   deleteKbArticle,
-} from "@/app/admin/kb/actions";
+} from "@/app/(app)/admin/kb/actions";
 
 const GENERAL = "general";
 

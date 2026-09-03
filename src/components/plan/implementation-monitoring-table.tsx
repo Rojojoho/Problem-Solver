@@ -8,7 +8,7 @@ import {
   getStrategyRows,
   saveImplementationRowOrder,
   saveImplementationRows,
-} from "@/app/plans/[id]/actions";
+} from "@/app/(app)/plans/[id]/actions";
 import type { ImplementationRow, SolutionStrategyRow } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";

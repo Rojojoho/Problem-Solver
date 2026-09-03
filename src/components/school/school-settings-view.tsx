@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OrgMembersList } from "@/components/admin/org-members-list";
-import { regenerateMyJoinCode, removeMyOrgMember, joinSchool } from "@/app/school/actions";
+import { regenerateMyJoinCode, removeMyOrgMember, joinSchool } from "@/app/(app)/school/actions";
 import type { OrgMemberSummary } from "@/lib/ccps/types";
 
 export function SchoolSettingsView({

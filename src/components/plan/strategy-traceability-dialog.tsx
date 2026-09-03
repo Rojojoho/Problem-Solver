@@ -15,7 +15,7 @@ import {
   getSolutionStrategyTraceability,
   type StrategyTraceability,
   type TraceCauseNode,
-} from "@/app/plans/[id]/actions";
+} from "@/app/(app)/plans/[id]/actions";
 import { cn } from "@/lib/utils";
 
 interface StrategyTraceabilityDialogProps {

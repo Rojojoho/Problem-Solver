@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { addPlanTag, removePlanTag } from "@/app/plans/[id]/actions";
+import { addPlanTag, removePlanTag } from "@/app/(app)/plans/[id]/actions";
 
 interface TagsPanelProps {
   planId: string;

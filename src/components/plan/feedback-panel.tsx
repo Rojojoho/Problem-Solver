@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { addFeedback, toggleFeedbackResolved } from "@/app/plans/[id]/actions";
+import { addFeedback, toggleFeedbackResolved } from "@/app/(app)/plans/[id]/actions";
 import type { FeedbackItemData } from "@/lib/ccps/types";
 import type { PanelStage } from "@/components/plan/side-panel";
 import { cn } from "@/lib/utils";

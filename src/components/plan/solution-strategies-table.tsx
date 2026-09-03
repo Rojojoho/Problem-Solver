@@ -15,7 +15,7 @@ import {
 import {
   getSolutionRequirementOptions,
   saveSolutionStrategyRows,
-} from "@/app/plans/[id]/actions";
+} from "@/app/(app)/plans/[id]/actions";
 import type { LinkRef, SolutionStrategyRow } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { StrategyTraceabilityDialog } from "@/components/plan/strategy-traceability-dialog";

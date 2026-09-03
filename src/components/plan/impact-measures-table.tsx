@@ -15,7 +15,7 @@ import {
   getSourceMeasureRows,
   saveImpactMeasureRows,
   saveImpactOutcomeGroups,
-} from "@/app/plans/[id]/actions";
+} from "@/app/(app)/plans/[id]/actions";
 import type { ImpactMeasureRow, LabeledOption, OutcomeGroup } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";

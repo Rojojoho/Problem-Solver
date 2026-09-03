@@ -40,7 +40,7 @@ import type {
   StrategyTraceability,
   TraceCauseNode,
   TraceRequirement,
-} from "@/app/plans/[id]/actions";
+} from "@/app/(app)/plans/[id]/actions";
 
 // Everything here renders one field's *stored* content read-only, handling
 // every row-table type as well as plain rich text — shared by the public

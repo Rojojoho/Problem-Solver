@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import type { JSONContent } from "@tiptap/react";
 import { Label } from "@/components/ui/label";
 import { TiptapEditor } from "@/components/tiptap-editor";
-import { saveBackground } from "@/app/plans/[id]/actions";
+import { saveBackground } from "@/app/(app)/plans/[id]/actions";
 import { useSerializedSave } from "@/components/plan/use-serialized-save";
 
 interface PlanDetailsFormProps {

@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { DeletePlanButton } from "@/components/plan/delete-plan-button";
 import { DuplicatePlanButton } from "@/components/plan/duplicate-plan-button";
-import { deletePlans } from "@/app/plans/actions";
+import { deletePlans } from "@/app/(app)/plans/actions";
 import { cn } from "@/lib/utils";
 
 interface PlanSummary {

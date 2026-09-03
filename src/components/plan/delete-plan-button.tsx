@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { deletePlan } from "@/app/plans/actions";
+import { deletePlan } from "@/app/(app)/plans/actions";
 import { cn } from "@/lib/utils";
 
 export function DeletePlanButton({

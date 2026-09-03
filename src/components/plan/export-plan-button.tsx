@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { exportPlan } from "@/app/plans/[id]/actions";
+import { exportPlan } from "@/app/(app)/plans/[id]/actions";
 
 // Downloads a plan as JSON — the counterpart to ImportPlanDialog on the
 // plans list. Meant for quickly moving a plan between two environments

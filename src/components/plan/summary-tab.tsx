@@ -1,7 +1,7 @@
 "use client";
 
 import { TiptapEditor } from "@/components/tiptap-editor";
-import type { PlanSummaryData } from "@/app/plans/[id]/actions";
+import type { PlanSummaryData } from "@/app/(app)/plans/[id]/actions";
 
 export function SummaryTab({ fields, requirements, strategies }: PlanSummaryData) {
   return (

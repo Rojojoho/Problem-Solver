@@ -10,7 +10,7 @@ import {
   createStage,
   updateStage,
   updateWorkspaceTabPosition,
-} from "@/app/admin/settings/stages/actions";
+} from "@/app/(app)/admin/settings/stages/actions";
 
 type MergedRow =
   | { kind: "stage"; key: string; label: string; sortOrder: number }

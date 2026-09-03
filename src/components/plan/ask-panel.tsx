@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   askKnowledgeBase,
   type KnowledgeBaseAnswer,
-} from "@/app/plans/[id]/rag-actions";
+} from "@/app/(app)/plans/[id]/rag-actions";
 
 export function AskPanel() {
   const [question, setQuestion] = useState("");

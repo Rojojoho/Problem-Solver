@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { GripVertical, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { saveConsolidatedHypothesisRows } from "@/app/plans/[id]/actions";
+import { saveConsolidatedHypothesisRows } from "@/app/(app)/plans/[id]/actions";
 import type { ConsolidatedHypothesisRow } from "@/lib/ccps/types";
 import { cn } from "@/lib/utils";
 import { EditableCell } from "@/components/plan/editable-cell";

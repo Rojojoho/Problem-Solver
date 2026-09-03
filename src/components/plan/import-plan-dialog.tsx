@@ -14,7 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { importPlan } from "@/app/plans/actions";
+import { importPlan } from "@/app/(app)/plans/actions";
 
 // Counterpart to ExportPlanButton on a plan's own page — takes a
 // previously-exported JSON file and recreates it as a new plan here.

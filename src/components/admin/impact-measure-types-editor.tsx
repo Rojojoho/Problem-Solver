@@ -10,7 +10,7 @@ import {
   createImpactMeasureType,
   updateImpactMeasureType,
   deleteImpactMeasureType,
-} from "@/app/admin/settings/impact-measure-types/actions";
+} from "@/app/(app)/admin/settings/impact-measure-types/actions";
 
 export function ImpactMeasureTypesEditor({
   options,

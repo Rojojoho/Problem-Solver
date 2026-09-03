@@ -25,7 +25,7 @@ import {
 import {
   getSolutionRequirementSuggestions,
   saveSolutionRequirementRows,
-} from "@/app/plans/[id]/actions";
+} from "@/app/(app)/plans/[id]/actions";
 import type {
   LabeledOption,
   LinkRef,

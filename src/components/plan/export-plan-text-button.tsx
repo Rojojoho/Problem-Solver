@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { exportPlanAsText } from "@/app/plans/[id]/actions";
+import { exportPlanAsText } from "@/app/(app)/plans/[id]/actions";
 
 // Downloads a full Markdown document of the plan — every stage's fields,
 // answers, and tables — meant to be opened and read, unlike

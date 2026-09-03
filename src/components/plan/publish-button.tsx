@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { publishPlan } from "@/app/plans/[id]/actions";
+import { publishPlan } from "@/app/(app)/plans/[id]/actions";
 import type { PublishedStatus } from "@/lib/supabase/database.types";
 
 const STATUS_BADGE: Record<

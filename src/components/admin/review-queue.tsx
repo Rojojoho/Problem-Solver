@@ -15,7 +15,7 @@ import {
   setExemplarStatus,
   tagPublishedPlan,
   untagPublishedPlan,
-} from "@/app/admin/actions";
+} from "@/app/(app)/admin/actions";
 
 // toISOString() is UTC-based and locale-independent, so server and client
 // render the same string — avoids a hydration mismatch from

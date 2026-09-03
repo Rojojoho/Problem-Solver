@@ -27,7 +27,7 @@ import {
   getStageBundle,
   getPlanSummary,
   type PlanSummaryData,
-} from "@/app/plans/[id]/actions";
+} from "@/app/(app)/plans/[id]/actions";
 import { cn } from "@/lib/utils";
 
 type WorkspaceTab = CcpsStage | "details" | "summary";

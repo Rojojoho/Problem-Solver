@@ -36,7 +36,7 @@ import {
   consolidateCausalHypotheses,
   saveCausalHypothesisCategories,
   saveCausalHypothesisRows,
-} from "@/app/plans/[id]/actions";
+} from "@/app/(app)/plans/[id]/actions";
 import type { HypothesisRow, ValidationOption } from "@/lib/ccps/types";
 import { PARKED_VALIDATION_LABEL } from "@/lib/ccps/constants";
 import { cn } from "@/lib/utils";

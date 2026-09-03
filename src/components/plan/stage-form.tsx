@@ -40,7 +40,7 @@ import type {
   StageFieldSummary,
   ValidationOption,
 } from "@/lib/ccps/types";
-import { saveStageResponse } from "@/app/plans/[id]/actions";
+import { saveStageResponse } from "@/app/(app)/plans/[id]/actions";
 
 interface StageFormProps {
   planId: string;

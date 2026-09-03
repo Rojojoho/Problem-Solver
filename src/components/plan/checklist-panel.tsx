@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
-import { toggleChecklistItem } from "@/app/plans/[id]/actions";
+import { toggleChecklistItem } from "@/app/(app)/plans/[id]/actions";
 import type { ChecklistItemData } from "@/lib/ccps/types";
 
 interface ChecklistPanelProps {

@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { slugify } from "@/lib/ccps/slugify";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import { createChecklistTemplateItem } from "@/app/admin/settings/checklists/actions";
+import { createChecklistTemplateItem } from "@/app/(app)/admin/settings/checklists/actions";
 
 export function NewChecklistItemDialog({ stage }: { stage: CcpsStage }) {
   const router = useRouter();

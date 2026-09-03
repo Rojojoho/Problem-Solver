@@ -13,7 +13,7 @@ import {
   ReadOnlyFieldContent,
   buildFieldRenderContext,
 } from "@/components/plan/read-only-field-content";
-import { getExemplarBundle } from "@/app/plans/[id]/actions";
+import { getExemplarBundle } from "@/app/(app)/plans/[id]/actions";
 import type { DiagramHeadings, ExemplarData, PublicPlanBundle, StageFieldSummary } from "@/lib/ccps/types";
 import type { PanelStage } from "@/components/plan/side-panel";
 

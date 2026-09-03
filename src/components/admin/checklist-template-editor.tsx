@@ -11,7 +11,7 @@ import { NewChecklistItemDialog } from "@/components/admin/new-checklist-item-di
 import {
   updateChecklistTemplateItem,
   deleteChecklistTemplateItem,
-} from "@/app/admin/settings/checklists/actions";
+} from "@/app/(app)/admin/settings/checklists/actions";
 
 interface TemplateItem {
   id: string;

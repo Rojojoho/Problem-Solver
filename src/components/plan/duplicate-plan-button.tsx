@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { duplicatePlan } from "@/app/plans/actions";
+import { duplicatePlan } from "@/app/(app)/plans/actions";
 import { cn } from "@/lib/utils";
 
 export function DuplicatePlanButton({

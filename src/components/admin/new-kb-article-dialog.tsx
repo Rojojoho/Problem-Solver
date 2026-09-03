@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createKbArticle } from "@/app/admin/kb/actions";
+import { createKbArticle } from "@/app/(app)/admin/kb/actions";
 
 export function NewKbArticleDialog() {
   const [open, setOpen] = useState(false);

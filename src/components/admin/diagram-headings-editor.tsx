@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { DiagramHeadings } from "@/lib/ccps/types";
-import { updateDiagramHeadings } from "@/app/admin/settings/diagram-headings/actions";
+import { updateDiagramHeadings } from "@/app/(app)/admin/settings/diagram-headings/actions";
 
 const FIELDS: { key: keyof DiagramHeadings; label: string }[] = [
   { key: "problem", label: "Problem column (1.1)" },

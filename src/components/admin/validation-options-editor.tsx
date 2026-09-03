@@ -10,7 +10,7 @@ import {
   createValidationOption,
   updateValidationOption,
   deleteValidationOption,
-} from "@/app/admin/settings/validation-options/actions";
+} from "@/app/(app)/admin/settings/validation-options/actions";
 
 export function ValidationOptionsEditor({
   options,

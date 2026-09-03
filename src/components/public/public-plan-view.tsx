@@ -15,7 +15,7 @@ import type {
   SolutionStrategyRow,
   WorkspaceTabPositions,
 } from "@/lib/ccps/types";
-import type { PlanSummaryData } from "@/app/plans/[id]/actions";
+import type { PlanSummaryData } from "@/app/(app)/plans/[id]/actions";
 
 // Builds the same shape the in-app Summary tab uses, but from the bundle
 // already fetched via the security-definer RPC — NOT by calling
