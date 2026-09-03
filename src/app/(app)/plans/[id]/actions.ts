@@ -50,10 +50,8 @@ import {
   publishPlanRecord,
   getStageFields,
   getStageResponses,
-  getChecklistItems,
-  getChecklistState,
-  getExemplars,
   getExemplarDetail,
+  getStageBundleCore,
   listValidationOptions,
   listRequirementTypes,
   listImpactMeasureTypes,
@@ -675,25 +673,23 @@ export async function publishPlan(planId: string) {
 // switch (blocking the Promise.all below from even starting) to guard
 // against a value that can only ever come from a tab the UI already
 // rendered from that same stages list.
+//
+// The always-needed half (fields/responses/checklist/exemplars) is one
+// Postgres round trip via getStageBundleCore — see
+// 0029_get_stage_bundle_rpc.sql for why (timing instrumentation showed
+// these 5 separate queries queueing behind each other, adding 1-3+ seconds
+// per tab click). Only the stage-conditional extras below (at most one of
+// which ever actually queries anything for a given stage) are still
+// separate calls.
 export async function getStageBundle(
   planId: string,
   stage: CcpsStage
 ): Promise<StageBundle & { _timings: Record<string, number> }> {
-  // Checklist/checklist-state/exemplars are only ever displayed once we know
-  // the stage actually has fields (an empty-fields stage renders "Coming
-  // soon" and its side panel shows "Not available") — chaining them off the
-  // (fast) fields query lets a blank stage skip 3 queries entirely, while
-  // every independent query below still starts immediately in parallel.
   const totalStart = Date.now();
   const { timed, timings } = makeTimer();
-  const fieldsPromise = timed("fields", getStageFields(stage));
 
   const [
-    fields,
-    responses,
-    checklistItems,
-    checklistState,
-    exemplars,
+    core,
     validationOptions,
     requirementTypes,
     suggestions,
@@ -701,16 +697,7 @@ export async function getStageBundle(
     strategyRows,
     impactMeasureTypes,
   ] = await Promise.all([
-    fieldsPromise,
-    timed("responses", getStageResponses(planId, stage)),
-    timed("checklistItems", fieldsPromise.then((f) => (f.length ? getChecklistItems(planId, stage) : []))),
-    timed(
-      "checklistState",
-      fieldsPromise.then((f) =>
-        f.length ? getChecklistState(planId) : Promise.resolve({} as Record<string, boolean>)
-      )
-    ),
-    timed("exemplars", fieldsPromise.then((f) => (f.length ? getExemplars(stage) : []))),
+    timed("core", getStageBundleCore(planId, stage)),
     timed("validationOptions", stage === "PC" ? listValidationOptions() : Promise.resolve([])),
     timed("requirementTypes", stage === "SR" ? listRequirementTypes() : Promise.resolve([])),
     timed(
@@ -726,14 +713,10 @@ export async function getStageBundle(
   timings.TOTAL = Date.now() - totalStart;
 
   return {
-    fields,
-    responses,
-    checklist: checklistItems.map((item) => ({
-      item_key: item.item_key,
-      label: item.label,
-      checked: checklistState[item.item_key] ?? false,
-    })),
-    exemplars,
+    fields: core.fields,
+    responses: core.responses,
+    checklist: core.checklist,
+    exemplars: core.exemplars,
     validationOptions,
     requirementTypes,
     causeOptions: suggestions.causeOptions,

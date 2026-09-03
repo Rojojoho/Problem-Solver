@@ -10,6 +10,7 @@ import type {
   PublishedStatus,
 } from "@/lib/supabase/database.types";
 import type {
+  ChecklistItemData,
   DiagramHeadings,
   ExemplarData,
   FeedbackItemData,
@@ -969,6 +970,76 @@ export async function toggleChecklistItemRecord(
     { onConflict: "plan_id,item_key" }
   );
   if (error) throw new Error(error.message);
+}
+
+export interface StageBundleCore {
+  fields: StageFieldSummary[];
+  responses: Record<string, JSONContent>;
+  checklist: ChecklistItemData[];
+  exemplars: ExemplarData[];
+}
+
+// The always-fetched-every-stage-switch half of getStageBundle (see
+// web/src/app/(app)/plans/[id]/actions.ts) — fields, responses, checklist
+// items/state, and exemplars used to be 5 separate Supabase requests that
+// timing instrumentation showed queueing behind each other (1-3+ seconds
+// per tab click) rather than truly running in parallel. Consolidated into
+// one Postgres function call (0029_get_stage_bundle_rpc.sql) — same
+// bundling pattern already used for the public share view's
+// get_public_plan_bundle. The stage-conditional extras (validation
+// options, requirement types, etc.) stay as separate calls in
+// getStageBundle since at most one of them ever actually queries anything
+// for a given stage — folding them in here wouldn't meaningfully reduce
+// round trips, just add SQL complexity for no real gain.
+export async function getStageBundleCore(
+  planId: string,
+  stage: CcpsStage
+): Promise<StageBundleCore> {
+  if (DEV_MOCK) {
+    const [fields, responses, checklistItems, checklistState, exemplars] = await Promise.all([
+      mock.mockGetStageFields(stage),
+      mock.mockGetStageResponses(planId, stage),
+      mock.mockGetPlanChecklistItems(planId, stage),
+      mock.mockGetChecklistState(planId),
+      mock.mockGetExemplars(stage),
+    ]);
+    return {
+      fields,
+      responses,
+      checklist: checklistItems.map((item) => ({
+        item_key: item.item_key,
+        label: item.label,
+        checked: checklistState[item.item_key] ?? false,
+      })),
+      exemplars,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_stage_bundle", {
+    p_plan_id: planId,
+    p_stage: stage,
+  });
+  if (error || !data) throw new Error(error?.message ?? "Failed to load stage.");
+
+  const bundle = data as unknown as {
+    fields: StageFieldSummary[];
+    responses: Record<string, JSONContent>;
+    checklistItems: { item_key: string; label: string; sort_order: number }[];
+    checklistState: Record<string, boolean>;
+    exemplars: ExemplarData[];
+  };
+
+  return {
+    fields: bundle.fields,
+    responses: bundle.responses,
+    checklist: bundle.checklistItems.map((item) => ({
+      item_key: item.item_key,
+      label: item.label,
+      checked: bundle.checklistState[item.item_key] ?? false,
+    })),
+    exemplars: bundle.exemplars,
+  };
 }
 
 // Exemplars are just approved published-plan submissions an admin has
