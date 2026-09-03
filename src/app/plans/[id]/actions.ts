@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { JSONContent } from "@tiptap/react";
-import { timed } from "@/lib/timing";
+import { makeTimer } from "@/lib/timing";
 import {
   asRowArray,
   EMPTY_DOC,
@@ -678,13 +678,14 @@ export async function publishPlan(planId: string) {
 export async function getStageBundle(
   planId: string,
   stage: CcpsStage
-): Promise<StageBundle> {
+): Promise<StageBundle & { _timings: Record<string, number> }> {
   // Checklist/checklist-state/exemplars are only ever displayed once we know
   // the stage actually has fields (an empty-fields stage renders "Coming
   // soon" and its side panel shows "Not available") — chaining them off the
   // (fast) fields query lets a blank stage skip 3 queries entirely, while
   // every independent query below still starts immediately in parallel.
   const totalStart = Date.now();
+  const { timed, timings } = makeTimer();
   const fieldsPromise = timed("fields", getStageFields(stage));
 
   const [
@@ -722,7 +723,7 @@ export async function getStageBundle(
     timed("strategyRows", stage === "IM" ? getStrategyRows(planId) : Promise.resolve([])),
     timed("impactMeasureTypes", stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([])),
   ]);
-  console.log(`[timing] getStageBundle(${stage}) TOTAL: ${Date.now() - totalStart}ms`);
+  timings.TOTAL = Date.now() - totalStart;
 
   return {
     fields,
@@ -740,6 +741,7 @@ export async function getStageBundle(
     requirementOptions,
     strategyRows,
     impactMeasureTypes,
+    _timings: timings,
   };
 }
 

@@ -20,7 +20,7 @@ import {
 import { EMPTY_DOC } from "@/lib/ccps/constants";
 import type { StageBundle } from "@/lib/ccps/types";
 import { PlanWorkspace } from "@/components/plan/plan-workspace";
-import { timed } from "@/lib/timing";
+import { makeTimer } from "@/lib/timing";
 import {
   getSolutionRequirementSuggestions,
   getSolutionRequirementOptions,
@@ -33,6 +33,7 @@ export default async function PlanPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { timed, timings } = makeTimer();
 
   const plan = await timed("getPlan", getPlan(id));
   if (!plan) {
@@ -134,6 +135,7 @@ export default async function PlanPage({
       shareToken={plan.share_token}
       tabPositions={tabPositions}
       headings={headings}
+      initialLoadTimings={timings}
     />
   );
 }

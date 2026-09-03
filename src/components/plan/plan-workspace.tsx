@@ -53,6 +53,7 @@ interface PlanWorkspaceProps {
   shareToken: string | null;
   tabPositions: WorkspaceTabPositions;
   headings: DiagramHeadings;
+  initialLoadTimings: Record<string, number>;
 }
 
 export function PlanWorkspace({
@@ -70,7 +71,17 @@ export function PlanWorkspace({
   shareToken,
   tabPositions,
   headings,
+  initialLoadTimings,
 }: PlanWorkspaceProps) {
+  // Server-side console.log doesn't reach the browser console on a
+  // deployed build (only in local `next dev`) — logging the server-timed
+  // breakdown here, client-side, guarantees it's visible everywhere.
+  // Temporary, for the slow-tab-switch investigation.
+  useEffect(() => {
+    console.log("[timing] initial page load breakdown:", initialLoadTimings);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- log once on mount only
+  }, []);
+
   const [stage, setStage] = useState<WorkspaceTab>(initialStage);
   const [bundles, setBundles] = useState<Partial<Record<CcpsStage, StageBundle>>>({
     [initialStage]: initialBundle,
@@ -160,6 +171,7 @@ export function PlanWorkspace({
       startTransition(async () => {
         try {
           const bundle = await getStageBundle(planId, next);
+          console.log(`[timing] server breakdown for stage ${next}:`, bundle._timings);
           setBundles((prev) => ({ ...prev, [next]: bundle }));
         } catch {
           toast.error("Couldn't load that stage.");
