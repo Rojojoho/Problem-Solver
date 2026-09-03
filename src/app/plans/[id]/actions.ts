@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { JSONContent } from "@tiptap/react";
+import { timed } from "@/lib/timing";
 import {
   asRowArray,
   EMPTY_DOC,
@@ -683,7 +684,8 @@ export async function getStageBundle(
   // soon" and its side panel shows "Not available") — chaining them off the
   // (fast) fields query lets a blank stage skip 3 queries entirely, while
   // every independent query below still starts immediately in parallel.
-  const fieldsPromise = getStageFields(stage);
+  const totalStart = Date.now();
+  const fieldsPromise = timed("fields", getStageFields(stage));
 
   const [
     fields,
@@ -699,21 +701,28 @@ export async function getStageBundle(
     impactMeasureTypes,
   ] = await Promise.all([
     fieldsPromise,
-    getStageResponses(planId, stage),
-    fieldsPromise.then((f) => (f.length ? getChecklistItems(planId, stage) : [])),
-    fieldsPromise.then((f) =>
-      f.length ? getChecklistState(planId) : Promise.resolve({} as Record<string, boolean>)
+    timed("responses", getStageResponses(planId, stage)),
+    timed("checklistItems", fieldsPromise.then((f) => (f.length ? getChecklistItems(planId, stage) : []))),
+    timed(
+      "checklistState",
+      fieldsPromise.then((f) =>
+        f.length ? getChecklistState(planId) : Promise.resolve({} as Record<string, boolean>)
+      )
     ),
-    fieldsPromise.then((f) => (f.length ? getExemplars(stage) : [])),
-    stage === "PC" ? listValidationOptions() : Promise.resolve([]),
-    stage === "SR" ? listRequirementTypes() : Promise.resolve([]),
-    stage === "SR"
-      ? getSolutionRequirementSuggestions(planId)
-      : Promise.resolve({ causeOptions: [], measureSuggestions: [] }),
-    stage === "SS" ? getSolutionRequirementOptions(planId) : Promise.resolve([]),
-    stage === "IM" ? getStrategyRows(planId) : Promise.resolve([]),
-    stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([]),
+    timed("exemplars", fieldsPromise.then((f) => (f.length ? getExemplars(stage) : []))),
+    timed("validationOptions", stage === "PC" ? listValidationOptions() : Promise.resolve([])),
+    timed("requirementTypes", stage === "SR" ? listRequirementTypes() : Promise.resolve([])),
+    timed(
+      "suggestions",
+      stage === "SR"
+        ? getSolutionRequirementSuggestions(planId)
+        : Promise.resolve({ causeOptions: [], measureSuggestions: [] })
+    ),
+    timed("requirementOptions", stage === "SS" ? getSolutionRequirementOptions(planId) : Promise.resolve([])),
+    timed("strategyRows", stage === "IM" ? getStrategyRows(planId) : Promise.resolve([])),
+    timed("impactMeasureTypes", stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([])),
   ]);
+  console.log(`[timing] getStageBundle(${stage}) TOTAL: ${Date.now() - totalStart}ms`);
 
   return {
     fields,

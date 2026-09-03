@@ -136,12 +136,15 @@ export function PlanWorkspace({
       // content from four different stages, any of which could have
       // changed since the last time it was open.
       setSummaryLoading(true);
+      const timerLabel = `[timing] client: summary fetch`;
+      console.time(timerLabel);
       startTransition(async () => {
         try {
           setSummaryData(await getPlanSummary(planId));
         } catch {
           toast.error("Couldn't load the summary.");
         } finally {
+          console.timeEnd(timerLabel);
           setSummaryLoading(false);
         }
       });
@@ -152,6 +155,8 @@ export function PlanWorkspace({
     // switching back and forth is instant with no extra round trip.
     if (next !== "details" && !bundles[next]) {
       setLoadingStages((prev) => ({ ...prev, [next]: true }));
+      const timerLabel = `[timing] client: stage bundle fetch (${next})`;
+      console.time(timerLabel);
       startTransition(async () => {
         try {
           const bundle = await getStageBundle(planId, next);
@@ -159,6 +164,7 @@ export function PlanWorkspace({
         } catch {
           toast.error("Couldn't load that stage.");
         } finally {
+          console.timeEnd(timerLabel);
           setLoadingStages((prev) => {
             const rest = { ...prev };
             delete rest[next];
