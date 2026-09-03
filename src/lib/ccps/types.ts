@@ -25,7 +25,6 @@ export interface FeedbackItemData {
 export interface ExemplarData {
   id: string;
   name: string;
-  description: string | null;
   fields: Record<string, JSONContent>;
 }
 
@@ -247,6 +246,7 @@ export interface PublishedPlanSummary {
   status: PublishedStatus;
   createdAt: string;
   reviewNote: string | null;
+  isExemplar: boolean;
   tags: TagData[];
 }
 

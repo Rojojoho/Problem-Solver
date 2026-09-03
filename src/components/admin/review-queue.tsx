@@ -8,20 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import type { PublishedPlanSummary, TagData } from "@/lib/ccps/types";
 import {
   approvePublishedPlan,
   rejectPublishedPlan,
-  promoteToExemplar,
+  setExemplarStatus,
   tagPublishedPlan,
   untagPublishedPlan,
 } from "@/app/admin/actions";
@@ -112,6 +103,19 @@ function SubmissionRow({
     });
   }
 
+  function handleToggleExemplar() {
+    startTransition(async () => {
+      try {
+        await setExemplarStatus(submission.id, !submission.isExemplar);
+        toast.success(
+          submission.isExemplar ? "Removed as exemplar." : "Marked as exemplar."
+        );
+      } catch {
+        toast.error("Couldn't update exemplar status.");
+      }
+    });
+  }
+
   function handleAddTag(e: React.FormEvent) {
     e.preventDefault();
     const name = tagInput.trim();
@@ -145,6 +149,7 @@ function SubmissionRow({
             <Badge variant={STATUS_BADGE[submission.status].variant}>
               {STATUS_BADGE[submission.status].label}
             </Badge>
+            {submission.isExemplar && <Badge variant="info">Exemplar</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">
             {submission.sourceOrgName ?? "Unknown org"} · Stage:{" "}
@@ -209,7 +214,19 @@ function SubmissionRow({
           >
             Reject
           </Button>
-          <PromoteDialog submission={submission} disabled={isPending} />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleToggleExemplar}
+            disabled={isPending || submission.status !== "approved"}
+            title={
+              submission.status !== "approved"
+                ? "Approve this submission first"
+                : undefined
+            }
+          >
+            {submission.isExemplar ? "Remove as exemplar" : "Mark as exemplar"}
+          </Button>
         </div>
 
         {isRejecting && (
@@ -233,70 +250,3 @@ function SubmissionRow({
   );
 }
 
-function PromoteDialog({
-  submission,
-  disabled,
-}: {
-  submission: PublishedPlanSummary;
-  disabled: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [pending, setPending] = useState(false);
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant="outline" disabled={disabled} />}>
-        Promote to exemplar
-      </DialogTrigger>
-      <DialogContent>
-        <form
-          action={async (formData) => {
-            setPending(true);
-            try {
-              await promoteToExemplar(
-                submission.id,
-                String(formData.get("name") ?? ""),
-                String(formData.get("description") ?? "")
-              );
-              toast.success("Promoted to exemplar.");
-              setOpen(false);
-            } catch {
-              toast.error("Couldn't promote this submission.");
-            } finally {
-              setPending(false);
-            }
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Promote to exemplar</DialogTitle>
-            <DialogDescription>
-              This copies the submission&apos;s content into a new featured
-              exemplar, shown to all users in the Exemplar tab.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            <div>
-              <Label htmlFor="name">Exemplar name</Label>
-              <Input
-                id="name"
-                name="name"
-                defaultValue={submission.snapshotName}
-                required
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea id="description" name="description" rows={3} className="mt-2" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Promoting…" : "Promote"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}

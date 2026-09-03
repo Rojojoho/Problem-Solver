@@ -9,6 +9,7 @@ import type {
   DiagramHeadings,
   KbArticleData,
   PublishedPlanSummary,
+  StageFieldSummary,
   TagData,
 } from "@/lib/ccps/types";
 
@@ -956,6 +957,7 @@ interface MockPublishedPlan {
   status: PublishedStatus;
   reviewedBy: string | null;
   reviewNote: string | null;
+  isExemplar: boolean;
   createdAt: string;
 }
 
@@ -986,6 +988,7 @@ export function mockPublishPlan(
     status: "pending",
     reviewedBy: null,
     reviewNote: null,
+    isExemplar: false,
     createdAt: now(),
   });
 
@@ -1023,6 +1026,7 @@ export function mockListPublishedPlansForAdmin(
       status: p.status,
       createdAt: p.createdAt,
       reviewNote: p.reviewNote,
+      isExemplar: p.isExemplar,
       tags: Array.from(publishedPlanTags.get(p.id) ?? [])
         .map((tagId) => tags.get(tagId))
         .filter((t): t is TagData => Boolean(t)),
@@ -1042,22 +1046,60 @@ export function mockSetPublishedPlanStatus(
   plan.reviewNote = note;
 }
 
-export function mockPromoteToExemplar(
-  publishedPlanId: string,
-  name: string,
-  description: string | null
-) {
-  const fields: Partial<Record<CcpsStage, Record<string, JSONContent>>> = {};
+export function mockSetPublishedPlanExemplar(id: string, isExemplar: boolean) {
+  const plan = publishedPlans.get(id);
+  if (!plan) return;
+  plan.isExemplar = isExemplar;
+}
+
+// Exemplars are approved submissions an admin has flagged (isExemplar) —
+// see getExemplars in lib/db/index.ts for why this replaced the old,
+// separate EXEMPLARS array above (still seeded, but nothing reads it
+// anymore, matching the real DB where exemplars/exemplar_fields are left
+// dormant rather than dropped).
+export function mockGetExemplars(stage: CcpsStage) {
+  return Array.from(publishedPlans.values())
+    .filter((p) => p.isExemplar && p.status === "approved")
+    .sort((a, b) => a.snapshotName.localeCompare(b.snapshotName))
+    .map((p) => ({
+      id: p.id,
+      name: p.snapshotName,
+      fields: Object.fromEntries(
+        Array.from(publishedPlanFields.entries())
+          .filter(([key]) => {
+            const [pId, s] = key.split(":");
+            return pId === p.id && s === stage;
+          })
+          .map(([key, content]) => [key.split(":")[2], content])
+      ),
+    }));
+}
+
+export function mockGetExemplarDetail(publishedPlanId: string) {
+  const plan = publishedPlans.get(publishedPlanId);
+  if (!plan || !plan.isExemplar || plan.status !== "approved") return null;
+
+  const responsesByStage: Partial<Record<CcpsStage, Record<string, JSONContent>>> = {};
   for (const [key, content] of publishedPlanFields) {
     const [pId, stage, fieldKey] = key.split(":");
     if (pId !== publishedPlanId) continue;
     const s = stage as CcpsStage;
-    fields[s] = { ...(fields[s] ?? {}), [fieldKey]: content };
+    responsesByStage[s] = { ...(responsesByStage[s] ?? {}), [fieldKey]: content };
   }
 
-  const id = crypto.randomUUID();
-  EXEMPLARS.push({ id, name, description, fields });
-  return { id };
+  return {
+    id: plan.id,
+    name: plan.snapshotName,
+    background: EMPTY_DOC,
+    tags: [] as string[],
+    stages: mockListStages().map((s) => ({
+      key: s.key,
+      label: s.label,
+      sort_order: s.sort_order,
+      fields: [] as StageFieldSummary[],
+      responses: responsesByStage[s.key as CcpsStage] ?? {},
+    })),
+  };
 }
 
 export function mockListTags(): TagData[] {

@@ -10,6 +10,12 @@ import {
   saveBackgroundRecord,
   addPlanTagRecord,
   saveStageResponseRecord,
+  getPlan,
+  getPlanTags,
+  getStageResponses,
+  getChecklistState,
+  toggleChecklistItemRecord,
+  listStages,
 } from "@/lib/db";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type { PlanExport } from "@/app/plans/[id]/actions";
@@ -36,6 +42,46 @@ export async function deletePlans(planIds: string[]) {
   if (!planIds.length) return;
   await deletePlanRecords(planIds);
   revalidatePath("/plans");
+}
+
+// Copies a plan into a brand-new one in the same org: background, tags,
+// every stage's responses, and checklist *state* (plain progress tracking,
+// reasonable to carry over). Feedback comments and publish history are
+// deliberately left out — same exclusions exportPlan documents, since
+// those are conversational/review artifacts specific to the original plan
+// instance, not content that makes sense on a copy.
+export async function duplicatePlan(planId: string): Promise<{ id: string }> {
+  const { orgId, userId } = await getCurrentOrg();
+
+  const [plan, tags, stages, checklistState] = await Promise.all([
+    getPlan(planId),
+    getPlanTags(planId),
+    listStages(),
+    getChecklistState(planId),
+  ]);
+  if (!plan) throw new Error("Plan not found.");
+
+  const stageResponses = await Promise.all(
+    stages.map((s) => getStageResponses(planId, s.key as CcpsStage))
+  );
+
+  const { id } = await createPlanRecord(orgId, userId, `${plan.name} (Copy)`);
+
+  await Promise.all([
+    saveBackgroundRecord(id, plan.background ?? { type: "doc", content: [] }),
+    ...tags.map((tag) => addPlanTagRecord(id, tag)),
+    ...stages.flatMap((s, i) =>
+      Object.entries(stageResponses[i]).map(([fieldKey, content]) =>
+        saveStageResponseRecord(id, s.key as CcpsStage, fieldKey, content, userId)
+      )
+    ),
+    ...Object.entries(checklistState)
+      .filter(([, checked]) => checked)
+      .map(([itemKey]) => toggleChecklistItemRecord(id, itemKey, true)),
+  ]);
+
+  revalidatePath("/plans");
+  return { id };
 }
 
 // Counterpart to exportPlan (plans/[id]/actions.ts) — takes an exported

@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/admin";
 import {
   approvePublishedPlanRecord,
   rejectPublishedPlanRecord,
-  promoteToExemplarRecord,
+  setPublishedPlanExemplarRecord,
   createTagRecord,
   tagPublishedPlanRecord,
   untagPublishedPlanRecord,
@@ -23,20 +23,12 @@ export async function rejectPublishedPlan(id: string, note: string) {
   revalidatePath("/admin/review");
 }
 
-export async function promoteToExemplar(
+export async function setExemplarStatus(
   publishedPlanId: string,
-  name: string,
-  description: string
+  isExemplar: boolean
 ) {
   await requireAdmin();
-  const trimmedName = name.trim();
-  if (!trimmedName) throw new Error("Exemplar name is required.");
-
-  await promoteToExemplarRecord(
-    publishedPlanId,
-    trimmedName,
-    description.trim() || null
-  );
+  await setPublishedPlanExemplarRecord(publishedPlanId, isExemplar);
   revalidatePath("/admin/review");
 }
 

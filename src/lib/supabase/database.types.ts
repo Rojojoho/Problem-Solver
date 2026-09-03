@@ -322,6 +322,7 @@ export interface Database {
           reviewed_by: string | null;
           reviewed_at: string | null;
           review_note: string | null;
+          is_exemplar: boolean;
           created_at: string;
           updated_at: string;
         };

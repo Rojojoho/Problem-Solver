@@ -15,6 +15,7 @@ import {
   listImpactMeasureTypes,
   listStages,
   getWorkspaceTabPositions,
+  getDiagramHeadings,
 } from "@/lib/db";
 import { EMPTY_DOC } from "@/lib/ccps/constants";
 import type { StageBundle } from "@/lib/ccps/types";
@@ -63,6 +64,7 @@ export default async function PlanPage({
     impactMeasureTypes,
     stages,
     tabPositions,
+    headings,
   ] = await Promise.all([
     fieldsPromise,
     getStageResponses(id, stage),
@@ -85,6 +87,7 @@ export default async function PlanPage({
     stage === "EI" ? listImpactMeasureTypes() : Promise.resolve([]),
     listStages(),
     getWorkspaceTabPositions(),
+    getDiagramHeadings(),
   ]);
 
   const initialBundle: StageBundle = {
@@ -120,6 +123,7 @@ export default async function PlanPage({
       shareEnabled={plan.share_enabled}
       shareToken={plan.share_token}
       tabPositions={tabPositions}
+      headings={headings}
     />
   );
 }

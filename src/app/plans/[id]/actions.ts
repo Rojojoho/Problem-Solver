@@ -52,6 +52,7 @@ import {
   getChecklistItems,
   getChecklistState,
   getExemplars,
+  getExemplarDetail,
   listValidationOptions,
   listRequirementTypes,
   listImpactMeasureTypes,
@@ -731,4 +732,13 @@ export async function getStageBundle(
     strategyRows,
     impactMeasureTypes,
   };
+}
+
+// Fetches one exemplar's full multi-stage content, lazily, once it's
+// actually selected in the Exemplar dropdown — needed (rather than just
+// the current stage's fields already in ExemplarData) because row-table
+// fields like Solution Requirements resolve labels from sibling stages
+// (see read-only-field-content.tsx's buildFieldRenderContext).
+export async function getExemplarBundle(publishedPlanId: string) {
+  return getExemplarDetail(publishedPlanId);
 }

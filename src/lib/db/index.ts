@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { JSONContent } from "@tiptap/react";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_MOCK } from "@/lib/dev-mode";
+import { EMPTY_DOC } from "@/lib/ccps/constants";
 import type {
   CcpsStage,
   KbStatus,
@@ -970,35 +971,82 @@ export async function toggleChecklistItemRecord(
   if (error) throw new Error(error.message);
 }
 
+// Exemplars are just approved published-plan submissions an admin has
+// flagged (published_plans.is_exemplar) — see 0028_published_plan_exemplars.sql
+// for why this replaced the old, separate exemplars/exemplar_fields tables
+// (which had no admin write RLS and couldn't render row-table fields at
+// all). `getExemplars` only needs each exemplar's metadata plus this one
+// stage's fields for the dropdown; `getExemplarDetail` below fetches the
+// *whole* exemplar (every stage) once one is actually selected, since
+// row-table fields like Solution Requirements need cross-stage labels to
+// render correctly (see read-only-field-content.tsx).
 export async function getExemplars(stage: CcpsStage): Promise<ExemplarData[]> {
-  if (DEV_MOCK) {
-    return mock.EXEMPLARS.map((e) => ({
-      id: e.id,
-      name: e.name,
-      description: e.description,
-      fields: e.fields[stage] ?? {},
-    }));
-  }
+  if (DEV_MOCK) return mock.mockGetExemplars(stage);
 
   const supabase = await createClient();
   const [{ data: exemplars }, { data: exemplarFields }] = await Promise.all([
-    supabase.from("exemplars").select("id, name, description").order("sort_order"),
     supabase
-      .from("exemplar_fields")
-      .select("exemplar_id, field_key, content")
+      .from("published_plans")
+      .select("id, snapshot_name")
+      .eq("is_exemplar", true)
+      .eq("status", "approved")
+      .order("snapshot_name"),
+    supabase
+      .from("published_plan_fields")
+      .select("published_plan_id, field_key, content")
       .eq("stage", stage),
   ]);
 
   return (exemplars ?? []).map((ex) => ({
     id: ex.id,
-    name: ex.name,
-    description: ex.description,
+    name: ex.snapshot_name,
     fields: Object.fromEntries(
       (exemplarFields ?? [])
-        .filter((f) => f.exemplar_id === ex.id)
+        .filter((f) => f.published_plan_id === ex.id)
         .map((f) => [f.field_key, f.content as JSONContent])
     ),
   }));
+}
+
+export async function getExemplarDetail(
+  publishedPlanId: string
+): Promise<PublicPlanBundle | null> {
+  if (DEV_MOCK) return mock.mockGetExemplarDetail(publishedPlanId);
+
+  const supabase = await createClient();
+  const [{ data: plan }, { data: fields }, { data: stages }] = await Promise.all([
+    supabase
+      .from("published_plans")
+      .select("id, snapshot_name")
+      .eq("id", publishedPlanId)
+      .eq("is_exemplar", true)
+      .eq("status", "approved")
+      .maybeSingle(),
+    supabase
+      .from("published_plan_fields")
+      .select("stage, field_key, content")
+      .eq("published_plan_id", publishedPlanId),
+    supabase.from("stages").select("key, label, sort_order").order("sort_order"),
+  ]);
+  if (!plan) return null;
+
+  return {
+    id: plan.id,
+    name: plan.snapshot_name,
+    background: EMPTY_DOC,
+    tags: [],
+    stages: (stages ?? []).map((s) => ({
+      key: s.key,
+      label: s.label,
+      sort_order: s.sort_order,
+      fields: [],
+      responses: Object.fromEntries(
+        (fields ?? [])
+          .filter((f) => f.stage === s.key)
+          .map((f) => [f.field_key, f.content as JSONContent])
+      ),
+    })),
+  };
 }
 
 export async function getFeedback(planId: string): Promise<FeedbackItemData[]> {
@@ -1267,7 +1315,7 @@ export async function listPublishedPlansForAdmin(
   let query = supabase
     .from("published_plans")
     .select(
-      "id, snapshot_name, snapshot_current_stage, status, created_at, review_note, organisations(name)"
+      "id, snapshot_name, snapshot_current_stage, status, created_at, review_note, is_exemplar, organisations(name)"
     )
     .order("created_at", { ascending: false });
   if (status) query = query.eq("status", status);
@@ -1290,6 +1338,7 @@ export async function listPublishedPlansForAdmin(
     status: r.status,
     createdAt: r.created_at,
     reviewNote: r.review_note,
+    isExemplar: r.is_exemplar,
     tags: (tagRows ?? [])
       .filter((t) => t.published_plan_id === r.id)
       .map((t) => t.tags as unknown as TagData)
@@ -1342,44 +1391,21 @@ export async function rejectPublishedPlanRecord(
   if (error) throw new Error(error.message);
 }
 
-export async function promoteToExemplarRecord(
-  publishedPlanId: string,
-  name: string,
-  description: string | null
-): Promise<{ id: string }> {
+export async function setPublishedPlanExemplarRecord(
+  id: string,
+  isExemplar: boolean
+) {
   if (DEV_MOCK) {
-    return mock.mockPromoteToExemplar(publishedPlanId, name, description);
+    mock.mockSetPublishedPlanExemplar(id, isExemplar);
+    return;
   }
 
   const supabase = await createClient();
-  const { data: fields } = await supabase
-    .from("published_plan_fields")
-    .select("stage, field_key, content")
-    .eq("published_plan_id", publishedPlanId);
-
-  const { data: exemplar, error } = await supabase
-    .from("exemplars")
-    .insert({ name, description })
-    .select("id")
-    .single();
-  if (error || !exemplar) {
-    throw new Error(error?.message ?? "Failed to create exemplar.");
-  }
-
-  const fieldRows = (fields ?? []).map((f) => ({
-    exemplar_id: exemplar.id,
-    stage: f.stage,
-    field_key: f.field_key,
-    content: f.content,
-  }));
-  if (fieldRows.length) {
-    const { error: fieldsError } = await supabase
-      .from("exemplar_fields")
-      .insert(fieldRows);
-    if (fieldsError) throw new Error(fieldsError.message);
-  }
-
-  return { id: exemplar.id };
+  const { error } = await supabase
+    .from("published_plans")
+    .update({ is_exemplar: isExemplar })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 // ---------------------------------------------------------------------------

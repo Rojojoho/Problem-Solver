@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CcpsStage, PublishedStatus } from "@/lib/supabase/database.types";
 import type {
+  DiagramHeadings,
   FeedbackItemData,
   KbArticleData,
   StageBundle,
@@ -51,6 +52,7 @@ interface PlanWorkspaceProps {
   shareEnabled: boolean;
   shareToken: string | null;
   tabPositions: WorkspaceTabPositions;
+  headings: DiagramHeadings;
 }
 
 export function PlanWorkspace({
@@ -67,6 +69,7 @@ export function PlanWorkspace({
   shareEnabled,
   shareToken,
   tabPositions,
+  headings,
 }: PlanWorkspaceProps) {
   const [stage, setStage] = useState<WorkspaceTab>(initialStage);
   const [bundles, setBundles] = useState<Partial<Record<CcpsStage, StageBundle>>>({
@@ -362,6 +365,7 @@ export function PlanWorkspace({
                 feedback={feedback}
                 kbArticles={kbArticles}
                 tags={tags}
+                headings={headings}
               />
             </div>
           </aside>

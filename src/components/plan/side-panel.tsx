@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
   ChecklistItemData,
+  DiagramHeadings,
   ExemplarData,
   FeedbackItemData,
   KbArticleData,
@@ -35,6 +36,7 @@ interface SidePanelProps {
   feedback: FeedbackItemData[];
   kbArticles: KbArticleData[];
   tags: string[];
+  headings: DiagramHeadings;
 }
 
 export function SidePanel({
@@ -48,6 +50,7 @@ export function SidePanel({
   feedback,
   kbArticles,
   tags,
+  headings,
 }: SidePanelProps) {
   const isDetails = stage === "details";
   // `defaultValue` alone only applies at mount, and a plan almost never
@@ -112,7 +115,13 @@ export function SidePanel({
         {stageHasFields ? (
           // Same reasoning as ChecklistPanel above — its selected-exemplar
           // state is also seeded once and needs to reset per stage.
-          <ExemplarPanel key={stage} stage={stage} exemplars={exemplars} fields={fields} />
+          <ExemplarPanel
+            key={stage}
+            stage={stage}
+            exemplars={exemplars}
+            fields={fields}
+            headings={headings}
+          />
         ) : (
           <NotAvailable />
         )}

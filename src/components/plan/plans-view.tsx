@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { DeletePlanButton } from "@/components/plan/delete-plan-button";
+import { DuplicatePlanButton } from "@/components/plan/duplicate-plan-button";
 import { deletePlans } from "@/app/plans/actions";
 import { cn } from "@/lib/utils";
 
@@ -174,11 +175,10 @@ export function PlansView({ plans, stageLabels, stageOrder }: PlansViewProps) {
                   </CardHeader>
                 </Card>
               </Link>
-              <DeletePlanButton
-                planId={plan.id}
-                planName={plan.name}
-                className="absolute top-3 right-3"
-              />
+              <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                <DuplicatePlanButton planId={plan.id} planName={plan.name} />
+                <DeletePlanButton planId={plan.id} planName={plan.name} />
+              </div>
             </div>
           ))}
         </div>
@@ -210,6 +210,7 @@ export function PlansView({ plans, stageLabels, stageOrder }: PlansViewProps) {
                   {stageLabels[plan.current_stage]}
                 </span>
               </Link>
+              <DuplicatePlanButton planId={plan.id} planName={plan.name} />
               <DeletePlanButton planId={plan.id} planName={plan.name} />
             </div>
           ))}
