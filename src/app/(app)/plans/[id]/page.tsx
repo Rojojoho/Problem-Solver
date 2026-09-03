@@ -25,7 +25,7 @@ import {
   getSolutionRequirementSuggestions,
   getSolutionRequirementOptions,
   getStrategyRows,
-} from "@/app/plans/[id]/actions";
+} from "@/app/(app)/plans/[id]/actions";
 
 export default async function PlanPage({
   params,

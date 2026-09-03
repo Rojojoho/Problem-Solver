@@ -18,7 +18,7 @@ import {
   listStages,
 } from "@/lib/db";
 import type { CcpsStage } from "@/lib/supabase/database.types";
-import type { PlanExport } from "@/app/plans/[id]/actions";
+import type { PlanExport } from "@/app/(app)/plans/[id]/actions";
 
 export async function createPlan(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();

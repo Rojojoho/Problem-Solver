@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { listSchoolsForAdmin, listOrgMembers } from "@/lib/db";
 import { OrgMembersList } from "@/components/admin/org-members-list";
-import { removeSchoolMember } from "@/app/admin/schools/actions";
+import { removeSchoolMember } from "@/app/(app)/admin/schools/actions";
 
 export default async function AdminSchoolUsersPage({
   params,
