@@ -78,7 +78,8 @@ export function PlanWorkspace({
   // breakdown here, client-side, guarantees it's visible everywhere.
   // Temporary, for the slow-tab-switch investigation.
   useEffect(() => {
-    console.log("[timing] initial page load breakdown:", initialLoadTimings);
+    console.log("[timing] initial page load breakdown (table below, nothing hidden):");
+    console.table(initialLoadTimings);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- log once on mount only
   }, []);
 
@@ -171,7 +172,8 @@ export function PlanWorkspace({
       startTransition(async () => {
         try {
           const bundle = await getStageBundle(planId, next);
-          console.log(`[timing] server breakdown for stage ${next}:`, bundle._timings);
+          console.log(`[timing] server breakdown for stage ${next} (table below, nothing hidden):`);
+          console.table(bundle._timings);
           setBundles((prev) => ({ ...prev, [next]: bundle }));
         } catch {
           toast.error("Couldn't load that stage.");
