@@ -318,5 +318,6 @@ export interface SharedKnowledgeItemData {
   title: string;
   description: string;
   typeLabel: string | null;
+  sourcePlanId: string;
   sourcePlanName: string;
 }

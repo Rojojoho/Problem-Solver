@@ -3,7 +3,7 @@ import { listOrgMembers } from "@/lib/db";
 import { SchoolSettingsView } from "@/components/school/school-settings-view";
 
 export default async function SchoolSettingsPage() {
-  const { orgId, orgName, role, joinCode } = await getCurrentOrg();
+  const { orgId, orgName, role } = await getCurrentOrg();
   const members = await listOrgMembers(orgId);
 
   return (
@@ -13,11 +13,7 @@ export default async function SchoolSettingsPage() {
         <p className="text-sm text-muted-foreground">{orgName}</p>
       </div>
 
-      <SchoolSettingsView
-        members={members}
-        isOwner={role === "owner"}
-        joinCode={joinCode}
-      />
+      <SchoolSettingsView members={members} isOwner={role === "owner"} />
     </div>
   );
 }

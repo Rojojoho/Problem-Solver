@@ -1,0 +1,12 @@
+-- join_org_by_code let anyone with a school's join code freely self-join as
+-- a contributor — a self-service back door that's now inconsistent with
+-- invite-only signup (0030_invite_only_signup.sql): a school gated to
+-- admin-added users shouldn't still be joinable by anyone holding its code.
+-- Its own logic also assumed every new sign-up had an auto-created personal
+-- org to leave behind, which handle_new_user() no longer does. The one
+-- remaining way into a school is now an admin/owner invite.
+--
+-- organisations.join_code itself, and regenerating it, are unaffected —
+-- site admins still use the join code for other per-school purposes from
+-- Admin > Schools.
+drop function if exists public.join_org_by_code(text);

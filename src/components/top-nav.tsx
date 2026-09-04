@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ListChecks, ShieldCheck, BookOpen, School, Users } from "lucide-react";
+import { ListChecks, ShieldCheck, BookOpen, Library, School, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/sign-out-button";
 import { DEV_MOCK } from "@/lib/dev-mode";
@@ -52,6 +52,13 @@ export async function TopNav() {
             <Link href="/school/settings" className="flex items-center gap-1.5 hover:text-white">
               <School className="size-4" />
               School
+            </Link>
+            <Link
+              href="/school/knowledge-base"
+              className="flex items-center gap-1.5 hover:text-white"
+            >
+              <Library className="size-4" />
+              Knowledge Base
             </Link>
             {isOrgOwner && (
               <Link href="/school/users" className="flex items-center gap-1.5 hover:text-white">

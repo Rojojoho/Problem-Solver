@@ -43,8 +43,9 @@ import type {
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 
 // Descriptions are plain text, not rich text — this is the only "links"
-// support they get: any http(s) URL renders as a clickable link.
-function Linkified({ text }: { text: string }) {
+// support they get: any http(s) URL renders as a clickable link. Exported
+// for reuse by the School > Knowledge Base page (knowledge-base-view.tsx).
+export function Linkified({ text }: { text: string }) {
   const parts = text.split(URL_PATTERN);
   return (
     <>

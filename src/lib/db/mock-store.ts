@@ -215,45 +215,6 @@ export function mockDeleteInvite(inviteId: string) {
   if (idx !== -1) pendingInvites.splice(idx, 1);
 }
 
-export function mockJoinOrgByCode(code: string, userId: string) {
-  const org = Array.from(organisations.values()).find(
-    (o) => o.join_code === code.trim().toUpperCase()
-  );
-  if (!org) throw new Error("No school found for that code.");
-
-  const alreadyMember = orgMembers.some((m) => m.org_id === org.id && m.user_id === userId);
-  const oldMembership = orgMembers.find((m) => m.user_id === userId);
-
-  if (!alreadyMember) {
-    orgMembers.push({
-      org_id: org.id,
-      user_id: userId,
-      role: "contributor",
-      display_name: "Dev User",
-      email: "dev@example.com",
-      nickname: null,
-    });
-  }
-
-  // Mirrors join_org_by_code() in 0025_school_crm_and_join_codes.sql: leave
-  // the org the user was in before, and delete it too if that won't
-  // destroy anyone's real work.
-  if (oldMembership && oldMembership.org_id !== org.id) {
-    const oldOrgId = oldMembership.org_id;
-    const oldOrgPlanCount = Array.from(plans.values()).filter((p) => p.org_id === oldOrgId).length;
-    const oldOrgMemberCount = orgMembers.filter((m) => m.org_id === oldOrgId).length;
-
-    const idx = orgMembers.findIndex((m) => m.org_id === oldOrgId && m.user_id === userId);
-    if (idx !== -1) orgMembers.splice(idx, 1);
-
-    if (oldOrgPlanCount === 0 && oldOrgMemberCount === 1) {
-      organisations.delete(oldOrgId);
-    }
-  }
-
-  return { orgId: org.id, orgName: org.name };
-}
-
 export function mockGetCurrentOrgForUser(userId: string) {
   const membership = orgMembers.find((m) => m.user_id === userId);
   if (!membership) return null;
@@ -1357,16 +1318,19 @@ export function mockListKnowledgeItems(planId: string): KnowledgeItemData[] {
 
 export function mockListSharedKnowledgeItems(
   orgId: string,
-  excludePlanId: string
+  excludePlanId?: string
 ): SharedKnowledgeItemData[] {
   return Array.from(knowledgeItems.values())
-    .filter((k) => k.org_id === orgId && k.shared_to_school && k.plan_id !== excludePlanId)
+    .filter(
+      (k) => k.org_id === orgId && k.shared_to_school && k.plan_id !== excludePlanId
+    )
     .sort((a, b) => a.title.localeCompare(b.title))
     .map((k) => ({
       id: k.id,
       title: k.title,
       description: k.description,
       typeLabel: mockKnowledgeTypeLabel(k.type_id),
+      sourcePlanId: k.plan_id,
       sourcePlanName: plans.get(k.plan_id)?.name ?? "Another plan",
     }));
 }

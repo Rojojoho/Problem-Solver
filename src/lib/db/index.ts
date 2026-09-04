@@ -362,17 +362,6 @@ export async function deleteInviteRecord(inviteId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export async function joinOrgByCodeRecord(
-  code: string
-): Promise<{ orgId: string; orgName: string }> {
-  if (DEV_MOCK) return mock.mockJoinOrgByCode(code, mock.MOCK_USER_ID);
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("join_org_by_code", { p_code: code });
-  if (error) throw new Error(error.message);
-  return data as unknown as { orgId: string; orgName: string };
-}
-
 export async function listPlans(orgId: string) {
   if (DEV_MOCK) return mock.mockListPlans(orgId);
 
@@ -1886,25 +1875,24 @@ export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemD
 // "Use as variant", see forkKnowledgeItemRecord).
 export async function listSharedKnowledgeItems(
   orgId: string,
-  excludePlanId: string
+  excludePlanId?: string
 ): Promise<SharedKnowledgeItemData[]> {
   if (DEV_MOCK) return mock.mockListSharedKnowledgeItems(orgId, excludePlanId);
 
   const supabase = await createClient();
-  const [{ data: items }, types] = await Promise.all([
-    supabase
-      .from("knowledge_items")
-      .select("id, title, description, type_id, plans(name)")
-      .eq("org_id", orgId)
-      .eq("shared_to_school", true)
-      .neq("plan_id", excludePlanId)
-      .order("title"),
-    listKnowledgeTypes(),
-  ]);
+  let query = supabase
+    .from("knowledge_items")
+    .select("id, plan_id, title, description, type_id, plans(name)")
+    .eq("org_id", orgId)
+    .eq("shared_to_school", true)
+    .order("title");
+  if (excludePlanId) query = query.neq("plan_id", excludePlanId);
+  const [{ data: items }, types] = await Promise.all([query, listKnowledgeTypes()]);
   const typeLabelById = new Map(types.map((t) => [t.id, t.label]));
 
   return ((items ?? []) as unknown as Array<{
     id: string;
+    plan_id: string;
     title: string;
     description: string;
     type_id: string | null;
@@ -1914,6 +1902,7 @@ export async function listSharedKnowledgeItems(
     title: r.title,
     description: r.description,
     typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
+    sourcePlanId: r.plan_id,
     sourcePlanName: r.plans?.name ?? "Another plan",
   }));
 }
