@@ -15,12 +15,16 @@ import type {
   ExemplarData,
   FeedbackItemData,
   KbArticleData,
+  KnowledgeItemData,
+  KnowledgeLinkOption,
+  KnowledgeTypeOption,
   LabeledOption,
   OrgMemberSummary,
   PendingInvite,
   PublicPlanBundle,
   PublishedPlanSummary,
   SchoolSummary,
+  SharedKnowledgeItemData,
   StageData,
   StageFieldSummary,
   TagData,
@@ -429,7 +433,7 @@ export async function getPlan(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("plans")
-    .select("id, name, current_stage, background, share_token, share_enabled")
+    .select("id, org_id, name, current_stage, background, share_token, share_enabled")
     .eq("id", id)
     .single();
   if (!data) return null;
@@ -942,6 +946,69 @@ export async function deleteRequirementTypeRecord(id: string) {
 
   const supabase = await createClient();
   const { error } = await supabase.from("requirement_types").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// Knowledge types — global, admin-editable "Type" options for Knowledge
+// items (Terminology, Evidence, etc). Same shape/pattern as
+// requirement_types above.
+export async function listKnowledgeTypes(): Promise<KnowledgeTypeOption[]> {
+  if (DEV_MOCK) return mock.mockListKnowledgeTypes();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("knowledge_types")
+    .select("id, label, sort_order")
+    .order("sort_order");
+  return data ?? [];
+}
+
+export async function createKnowledgeTypeRecord(
+  label: string,
+  sortOrder: number
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockCreateKnowledgeType(label, sortOrder);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("knowledge_types")
+    .insert({ label, sort_order: sortOrder })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create knowledge type.");
+  }
+  return data;
+}
+
+export async function updateKnowledgeTypeRecord(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateKnowledgeType(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("knowledge_types")
+    .update({
+      ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteKnowledgeTypeRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteKnowledgeType(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("knowledge_types").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -1718,4 +1785,282 @@ export async function deleteKbArticleRecord(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("kb_articles").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge items — the plan side panel's "Knowledge" tab (glossary/evidence
+// entries, school-wide by default). See 0031_knowledge_items.sql.
+// ---------------------------------------------------------------------------
+
+export interface KnowledgeItemInput {
+  title: string;
+  description: string;
+  typeId: string | null;
+  sharedToSchool: boolean;
+}
+
+async function resolveProfileNames(userIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!userIds.length) return map;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, full_name, nickname")
+    .in("id", userIds);
+  for (const p of data ?? []) {
+    const name = p.full_name ?? "Unknown";
+    map.set(p.id, p.nickname ? `${name} (${p.nickname})` : name);
+  }
+  return map;
+}
+
+async function resolveForkSources(
+  itemIds: string[]
+): Promise<Map<string, { id: string; title: string; planName: string }>> {
+  const map = new Map<string, { id: string; title: string; planName: string }>();
+  if (!itemIds.length) return map;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("knowledge_items")
+    .select("id, title, plans(name)")
+    .in("id", itemIds);
+  for (const row of (data ?? []) as unknown as Array<{
+    id: string;
+    title: string;
+    plans: { name: string } | null;
+  }>) {
+    map.set(row.id, { id: row.id, title: row.title, planName: row.plans?.name ?? "another plan" });
+  }
+  return map;
+}
+
+// This plan's own Knowledge items — see getKnowledgeLinkOptions and
+// listSharedKnowledgeItems below for how other plans' shared items are
+// surfaced (linking/forking, not shown in this list).
+export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemData[]> {
+  if (DEV_MOCK) return mock.mockListKnowledgeItems(planId);
+
+  const supabase = await createClient();
+  const [{ data: items }, types] = await Promise.all([
+    supabase
+      .from("knowledge_items")
+      .select(
+        "id, plan_id, title, description, type_id, shared_to_school, forked_from_id, created_by, created_at"
+      )
+      .eq("plan_id", planId)
+      .order("created_at"),
+    listKnowledgeTypes(),
+  ]);
+  const rows = items ?? [];
+  const typeLabelById = new Map(types.map((t) => [t.id, t.label]));
+
+  const creatorIds = Array.from(
+    new Set(rows.map((r) => r.created_by).filter((id): id is string => Boolean(id)))
+  );
+  const forkedIds = Array.from(
+    new Set(rows.map((r) => r.forked_from_id).filter((id): id is string => Boolean(id)))
+  );
+  const [profileNamesById, forkSourcesById] = await Promise.all([
+    resolveProfileNames(creatorIds),
+    resolveForkSources(forkedIds),
+  ]);
+
+  return rows.map((r) => ({
+    id: r.id,
+    planId: r.plan_id,
+    title: r.title,
+    description: r.description,
+    typeId: r.type_id,
+    typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
+    sharedToSchool: r.shared_to_school,
+    createdByName: r.created_by ? (profileNamesById.get(r.created_by) ?? "Unknown") : "Unknown",
+    forkedFrom: r.forked_from_id ? (forkSourcesById.get(r.forked_from_id) ?? null) : null,
+    createdAt: r.created_at,
+  }));
+}
+
+// Every shared_to_school item in the org owned by some *other* plan — backs
+// the Knowledge tab's "From school library" browser (each result offers
+// "Use as variant", see forkKnowledgeItemRecord).
+export async function listSharedKnowledgeItems(
+  orgId: string,
+  excludePlanId: string
+): Promise<SharedKnowledgeItemData[]> {
+  if (DEV_MOCK) return mock.mockListSharedKnowledgeItems(orgId, excludePlanId);
+
+  const supabase = await createClient();
+  const [{ data: items }, types] = await Promise.all([
+    supabase
+      .from("knowledge_items")
+      .select("id, title, description, type_id, plans(name)")
+      .eq("org_id", orgId)
+      .eq("shared_to_school", true)
+      .neq("plan_id", excludePlanId)
+      .order("title"),
+    listKnowledgeTypes(),
+  ]);
+  const typeLabelById = new Map(types.map((t) => [t.id, t.label]));
+
+  return ((items ?? []) as unknown as Array<{
+    id: string;
+    title: string;
+    description: string;
+    type_id: string | null;
+    plans: { name: string } | null;
+  }>).map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
+    sourcePlanName: r.plans?.name ?? "Another plan",
+  }));
+}
+
+// The pool a 3A/3B/2.3 table-cell "Knowledge" link picker selects from: this
+// plan's own items (sourcePlanName null) plus every shared item elsewhere in
+// the org (sourcePlanName set) — deduplicated so an item that's both this
+// plan's own and already shared only appears once.
+export async function getKnowledgeLinkOptions(
+  planId: string,
+  orgId: string
+): Promise<KnowledgeLinkOption[]> {
+  if (DEV_MOCK) return mock.mockGetKnowledgeLinkOptions(planId, orgId);
+
+  const supabase = await createClient();
+  const [{ data: ownItems }, { data: sharedItems }] = await Promise.all([
+    supabase.from("knowledge_items").select("id, title").eq("plan_id", planId).order("title"),
+    supabase
+      .from("knowledge_items")
+      .select("id, title, plan_id, plans(name)")
+      .eq("org_id", orgId)
+      .eq("shared_to_school", true)
+      .order("title"),
+  ]);
+
+  const options = new Map<string, KnowledgeLinkOption>();
+  for (const item of ownItems ?? []) {
+    options.set(item.id, { id: item.id, title: item.title, sourcePlanName: null });
+  }
+  for (const item of (sharedItems ?? []) as unknown as Array<{
+    id: string;
+    title: string;
+    plan_id: string;
+    plans: { name: string } | null;
+  }>) {
+    if (options.has(item.id)) continue;
+    options.set(item.id, {
+      id: item.id,
+      title: item.title,
+      sourcePlanName: item.plans?.name ?? "Another plan",
+    });
+  }
+  return Array.from(options.values());
+}
+
+export async function createKnowledgeItemRecord(
+  planId: string,
+  orgId: string,
+  input: KnowledgeItemInput
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockCreateKnowledgeItem(planId, orgId, input);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("knowledge_items")
+    .insert({
+      plan_id: planId,
+      org_id: orgId,
+      type_id: input.typeId,
+      title: input.title,
+      description: input.description,
+      shared_to_school: input.sharedToSchool,
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Failed to create knowledge item.");
+  return data;
+}
+
+export async function updateKnowledgeItemRecord(
+  id: string,
+  updates: Partial<KnowledgeItemInput>
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdateKnowledgeItem(id, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("knowledge_items")
+    .update({
+      ...(updates.title !== undefined ? { title: updates.title } : {}),
+      ...(updates.description !== undefined ? { description: updates.description } : {}),
+      ...(updates.typeId !== undefined ? { type_id: updates.typeId } : {}),
+      ...(updates.sharedToSchool !== undefined
+        ? { shared_to_school: updates.sharedToSchool }
+        : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteKnowledgeItemRecord(id: string) {
+  if (DEV_MOCK) {
+    mock.mockDeleteKnowledgeItem(id);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("knowledge_items").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// "Use as variant": copies another plan's shared item into this plan as an
+// independent, editable row — keeps a forked_from_id trail back to the
+// source but never writes back to it. The copy is itself shared_to_school by
+// default, same as any newly-created item.
+export async function forkKnowledgeItemRecord(
+  sourceItemId: string,
+  planId: string,
+  orgId: string
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockForkKnowledgeItem(sourceItemId, planId, orgId);
+
+  const supabase = await createClient();
+  const { data: source, error: sourceError } = await supabase
+    .from("knowledge_items")
+    .select("title, description, type_id")
+    .eq("id", sourceItemId)
+    .single();
+  if (sourceError || !source) {
+    throw new Error(sourceError?.message ?? "Knowledge item not found.");
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("knowledge_items")
+    .insert({
+      plan_id: planId,
+      org_id: orgId,
+      type_id: source.type_id,
+      title: source.title,
+      description: source.description,
+      shared_to_school: true,
+      forked_from_id: sourceItemId,
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Failed to create variant.");
+  return data;
 }

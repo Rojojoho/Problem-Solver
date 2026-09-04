@@ -16,10 +16,9 @@ export default async function AdminKbPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Knowledge base</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Guide</h1>
           <p className="text-sm text-muted-foreground">
-            Articles shown on the Knowledge Base page and in the plan side
-            panel.
+            Articles shown on the Guide page and in the plan side panel.
           </p>
         </div>
         <NewKbArticleDialog />

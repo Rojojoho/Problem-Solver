@@ -47,7 +47,7 @@ export async function TopNav() {
             </Link>
             <Link href="/kb" className="flex items-center gap-1.5 hover:text-white">
               <BookOpen className="size-4" />
-              Knowledge Base
+              Guide
             </Link>
             <Link href="/school/settings" className="flex items-center gap-1.5 hover:text-white">
               <School className="size-4" />

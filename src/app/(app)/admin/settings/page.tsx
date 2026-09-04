@@ -83,6 +83,19 @@ export default function AdminSettingsPage() {
           </Card>
         </Link>
 
+        <Link href="/admin/settings/knowledge-types">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Knowledge types</CardTitle>
+              <CardDescription>
+                Manage the types selectable per Knowledge item in every
+                plan&apos;s side panel. Changes apply immediately across all
+                plans.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
         <Link href="/admin/settings/diagram-headings">
           <Card className="h-full transition-colors hover:border-foreground/30">
             <CardHeader>

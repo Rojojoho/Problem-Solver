@@ -8,7 +8,10 @@ import type {
 import type {
   DiagramHeadings,
   KbArticleData,
+  KnowledgeItemData,
+  KnowledgeLinkOption,
   PublishedPlanSummary,
+  SharedKnowledgeItemData,
   StageFieldSummary,
   TagData,
 } from "@/lib/ccps/types";
@@ -968,6 +971,42 @@ export function mockDeleteImpactMeasureType(id: string) {
   impactMeasureTypes = impactMeasureTypes.filter((o) => o.id !== id);
 }
 
+// The mock stand-in for the global, admin-editable `knowledge_types` table.
+let knowledgeTypes: MockLabeledOption[] = [
+  { id: crypto.randomUUID(), label: "Terminology", sort_order: 1 },
+  { id: crypto.randomUUID(), label: "Evidence", sort_order: 2 },
+  { id: crypto.randomUUID(), label: "Policies", sort_order: 3 },
+  { id: crypto.randomUUID(), label: "Values", sort_order: 4 },
+  { id: crypto.randomUUID(), label: "Other", sort_order: 5 },
+];
+
+export function mockListKnowledgeTypes() {
+  return knowledgeTypes
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ id, label, sort_order }) => ({ id, label, sort_order }));
+}
+
+export function mockCreateKnowledgeType(label: string, sortOrder: number) {
+  const id = crypto.randomUUID();
+  knowledgeTypes = [...knowledgeTypes, { id, label, sort_order: sortOrder }];
+  return { id };
+}
+
+export function mockUpdateKnowledgeType(
+  id: string,
+  updates: { label?: string; sortOrder?: number }
+) {
+  const option = knowledgeTypes.find((o) => o.id === id);
+  if (!option) return;
+  if (updates.label !== undefined) option.label = updates.label;
+  if (updates.sortOrder !== undefined) option.sort_order = updates.sortOrder;
+}
+
+export function mockDeleteKnowledgeType(id: string) {
+  knowledgeTypes = knowledgeTypes.filter((o) => o.id !== id);
+}
+
 export function mockGetFeedback(planId: string) {
   return feedback
     .filter((f) => f.plan_id === planId)
@@ -1241,4 +1280,174 @@ export function mockUpdateKbArticle(
 
 export function mockDeleteKbArticle(id: string) {
   kbArticles.delete(id);
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge items
+// ---------------------------------------------------------------------------
+
+interface MockKnowledgeItem {
+  id: string;
+  plan_id: string;
+  org_id: string;
+  type_id: string | null;
+  title: string;
+  description: string;
+  shared_to_school: boolean;
+  forked_from_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface MockKnowledgeItemInput {
+  title: string;
+  description: string;
+  typeId: string | null;
+  sharedToSchool: boolean;
+}
+
+const knowledgeItems = new Map<string, MockKnowledgeItem>();
+
+function mockKnowledgeTypeLabel(typeId: string | null): string | null {
+  if (!typeId) return null;
+  return knowledgeTypes.find((t) => t.id === typeId)?.label ?? null;
+}
+
+function mockKnowledgeCreatorName(userId: string | null): string {
+  if (!userId) return "Unknown";
+  if (userId === MOCK_USER_ID) return "Dev User";
+  return orgMembers.find((m) => m.user_id === userId)?.display_name ?? "Unknown";
+}
+
+function mockKnowledgeForkSource(
+  sourceId: string | null
+): { id: string; title: string; planName: string } | null {
+  if (!sourceId) return null;
+  const source = knowledgeItems.get(sourceId);
+  if (!source) return null;
+  return {
+    id: source.id,
+    title: source.title,
+    planName: plans.get(source.plan_id)?.name ?? "another plan",
+  };
+}
+
+function toKnowledgeItemData(item: MockKnowledgeItem): KnowledgeItemData {
+  return {
+    id: item.id,
+    planId: item.plan_id,
+    title: item.title,
+    description: item.description,
+    typeId: item.type_id,
+    typeLabel: mockKnowledgeTypeLabel(item.type_id),
+    sharedToSchool: item.shared_to_school,
+    createdByName: mockKnowledgeCreatorName(item.created_by),
+    forkedFrom: mockKnowledgeForkSource(item.forked_from_id),
+    createdAt: item.created_at,
+  };
+}
+
+export function mockListKnowledgeItems(planId: string): KnowledgeItemData[] {
+  return Array.from(knowledgeItems.values())
+    .filter((k) => k.plan_id === planId)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map(toKnowledgeItemData);
+}
+
+export function mockListSharedKnowledgeItems(
+  orgId: string,
+  excludePlanId: string
+): SharedKnowledgeItemData[] {
+  return Array.from(knowledgeItems.values())
+    .filter((k) => k.org_id === orgId && k.shared_to_school && k.plan_id !== excludePlanId)
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map((k) => ({
+      id: k.id,
+      title: k.title,
+      description: k.description,
+      typeLabel: mockKnowledgeTypeLabel(k.type_id),
+      sourcePlanName: plans.get(k.plan_id)?.name ?? "Another plan",
+    }));
+}
+
+export function mockGetKnowledgeLinkOptions(
+  planId: string,
+  orgId: string
+): KnowledgeLinkOption[] {
+  const options = new Map<string, KnowledgeLinkOption>();
+  for (const k of knowledgeItems.values()) {
+    if (k.plan_id === planId) {
+      options.set(k.id, { id: k.id, title: k.title, sourcePlanName: null });
+    }
+  }
+  for (const k of knowledgeItems.values()) {
+    if (k.org_id === orgId && k.shared_to_school && !options.has(k.id)) {
+      options.set(k.id, {
+        id: k.id,
+        title: k.title,
+        sourcePlanName: plans.get(k.plan_id)?.name ?? "Another plan",
+      });
+    }
+  }
+  return Array.from(options.values()).sort((a, b) => a.title.localeCompare(b.title));
+}
+
+export function mockCreateKnowledgeItem(
+  planId: string,
+  orgId: string,
+  input: MockKnowledgeItemInput
+) {
+  const id = crypto.randomUUID();
+  const timestamp = now();
+  knowledgeItems.set(id, {
+    id,
+    plan_id: planId,
+    org_id: orgId,
+    type_id: input.typeId,
+    title: input.title,
+    description: input.description,
+    shared_to_school: input.sharedToSchool,
+    forked_from_id: null,
+    created_by: MOCK_USER_ID,
+    created_at: timestamp,
+    updated_at: timestamp,
+  });
+  return { id };
+}
+
+export function mockUpdateKnowledgeItem(id: string, updates: Partial<MockKnowledgeItemInput>) {
+  const item = knowledgeItems.get(id);
+  if (!item) return;
+  if (updates.title !== undefined) item.title = updates.title;
+  if (updates.description !== undefined) item.description = updates.description;
+  if (updates.typeId !== undefined) item.type_id = updates.typeId;
+  if (updates.sharedToSchool !== undefined) item.shared_to_school = updates.sharedToSchool;
+  item.updated_at = now();
+}
+
+export function mockDeleteKnowledgeItem(id: string) {
+  knowledgeItems.delete(id);
+}
+
+export function mockForkKnowledgeItem(sourceItemId: string, planId: string, orgId: string) {
+  const source = knowledgeItems.get(sourceItemId);
+  if (!source) throw new Error("Knowledge item not found.");
+
+  const id = crypto.randomUUID();
+  const timestamp = now();
+  knowledgeItems.set(id, {
+    id,
+    plan_id: planId,
+    org_id: orgId,
+    type_id: source.type_id,
+    title: source.title,
+    description: source.description,
+    shared_to_school: true,
+    forked_from_id: sourceItemId,
+    created_by: MOCK_USER_ID,
+    created_at: timestamp,
+    updated_at: timestamp,
+  });
+  return { id };
 }

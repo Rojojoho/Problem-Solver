@@ -99,6 +99,10 @@ export interface ConsolidatedHypothesisRow {
   validityTest: string;
   confirmed: boolean | null;
   notes: string;
+  // Knowledge items (e.g. Evidence) backing this row's Confirmed/Disconfirmed
+  // call — ids only, resolved live against the same school-wide pool as
+  // 3A/3B's Link columns (see KnowledgeLinkOption).
+  knowledgeLinks: string[];
 }
 
 // Admin-configurable column headings for the 3.2 "Connections" traceability
@@ -138,7 +142,8 @@ export type LabeledOption = ValidationOption;
 // backing it. Both can appear side by side in the same links list.
 export type LinkRef =
   | { type: "ref"; targetId: string }
-  | { type: "text"; value: string };
+  | { type: "text"; value: string }
+  | { type: "knowledge"; knowledgeId: string };
 
 export interface SolutionRequirementRow {
   id: string;
@@ -274,4 +279,44 @@ export interface KbArticleSummary {
 
 export interface KbArticleData extends KbArticleSummary {
   body: JSONContent;
+}
+
+// Reused for the knowledge-type option list — same shape as
+// ValidationOption/requirement types.
+export type KnowledgeTypeOption = LabeledOption;
+
+export interface KnowledgeItemData {
+  id: string;
+  planId: string;
+  title: string;
+  description: string;
+  typeId: string | null;
+  typeLabel: string | null;
+  sharedToSchool: boolean;
+  createdByName: string;
+  forkedFrom: { id: string; title: string; planName: string } | null;
+  createdAt: string;
+}
+
+// The pool a 3A/3B/2.3 table-cell "Knowledge" picker (or the Knowledge tab's
+// "From school library" browser) selects from: this plan's own items plus
+// every other plan's shared_to_school items in the same org.
+// `sourcePlanName` is null for the current plan's own items, and the owning
+// plan's name otherwise — used to label cross-plan entries in pickers.
+export interface KnowledgeLinkOption {
+  id: string;
+  title: string;
+  sourcePlanName: string | null;
+}
+
+// The richer shape shown in the Knowledge tab's "From school library"
+// browser (unlike KnowledgeLinkOption, this always has a source plan since
+// it never includes the current plan's own items — see
+// listSharedKnowledgeItems).
+export interface SharedKnowledgeItemData {
+  id: string;
+  title: string;
+  description: string;
+  typeLabel: string | null;
+  sourcePlanName: string;
 }

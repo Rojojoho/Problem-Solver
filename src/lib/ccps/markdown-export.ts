@@ -78,7 +78,11 @@ export function buildPlanMarkdown(plan: {
   function formatLinks(links: LinkRef[], labelById: Map<string, string>) {
     if (!links.length) return "—";
     return links
-      .map((l) => (l.type === "ref" ? (labelById.get(l.targetId) ?? "Deleted item") : l.value))
+      .map((l) => {
+        if (l.type === "ref") return labelById.get(l.targetId) ?? "Deleted item";
+        if (l.type === "knowledge") return "Knowledge item";
+        return l.value;
+      })
       .join(", ");
   }
 

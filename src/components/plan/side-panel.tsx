@@ -9,12 +9,15 @@ import type {
   ExemplarData,
   FeedbackItemData,
   KbArticleData,
+  KnowledgeItemData,
+  KnowledgeTypeOption,
   StageFieldSummary,
 } from "@/lib/ccps/types";
 import { ChecklistPanel } from "@/components/plan/checklist-panel";
 import { ExemplarPanel } from "@/components/plan/exemplar-panel";
 import { FeedbackPanel } from "@/components/plan/feedback-panel";
 import { KbPanel } from "@/components/plan/kb-panel";
+import { KnowledgePanel } from "@/components/plan/knowledge-panel";
 import { AskPanel } from "@/components/plan/ask-panel";
 import { TagsPanel } from "@/components/plan/tags-panel";
 
@@ -35,6 +38,8 @@ interface SidePanelProps {
   fields: StageFieldSummary[];
   feedback: FeedbackItemData[];
   kbArticles: KbArticleData[];
+  knowledgeItems: KnowledgeItemData[];
+  knowledgeTypes: KnowledgeTypeOption[];
   tags: string[];
   headings: DiagramHeadings;
 }
@@ -49,6 +54,8 @@ export function SidePanel({
   fields,
   feedback,
   kbArticles,
+  knowledgeItems,
+  knowledgeTypes,
   tags,
   headings,
 }: SidePanelProps) {
@@ -86,7 +93,10 @@ export function SidePanel({
           Feedback
         </TabsTrigger>
         <TabsTrigger value="kb" className="flex-1">
-          Knowledge Base
+          Guide
+        </TabsTrigger>
+        <TabsTrigger value="knowledge" className="flex-1">
+          Knowledge
         </TabsTrigger>
         <TabsTrigger value="ask" className="flex-1">
           Ask
@@ -133,6 +143,10 @@ export function SidePanel({
 
       <TabsContent value="kb" className="mt-4">
         <KbPanel stage={stage} articles={kbArticles} />
+      </TabsContent>
+
+      <TabsContent value="knowledge" className="mt-4">
+        <KnowledgePanel planId={planId} items={knowledgeItems} knowledgeTypes={knowledgeTypes} />
       </TabsContent>
 
       <TabsContent value="ask" className="mt-4">

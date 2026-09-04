@@ -411,6 +411,43 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["kb_articles"]["Row"]>;
       };
+      knowledge_types: {
+        Row: {
+          id: string;
+          label: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Partial<
+          Database["public"]["Tables"]["knowledge_types"]["Row"]
+        > & {
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["knowledge_types"]["Row"]>;
+      };
+      knowledge_items: {
+        Row: {
+          id: string;
+          plan_id: string;
+          org_id: string;
+          type_id: string | null;
+          title: string;
+          description: string;
+          shared_to_school: boolean;
+          forked_from_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<
+          Database["public"]["Tables"]["knowledge_items"]["Row"]
+        > & {
+          plan_id: string;
+          org_id: string;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["knowledge_items"]["Row"]>;
+      };
     };
   };
 }

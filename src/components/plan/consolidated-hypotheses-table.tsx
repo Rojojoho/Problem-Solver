@@ -3,9 +3,20 @@
 import { useRef, useState } from "react";
 import { GripVertical, Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { saveConsolidatedHypothesisRows } from "@/app/(app)/plans/[id]/actions";
-import type { ConsolidatedHypothesisRow } from "@/lib/ccps/types";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  getKnowledgeLinkOptions,
+  saveConsolidatedHypothesisRows,
+} from "@/app/(app)/plans/[id]/actions";
+import type { ConsolidatedHypothesisRow, KnowledgeLinkOption } from "@/lib/ccps/types";
 import { cn } from "@/lib/utils";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
@@ -24,6 +35,7 @@ const EMPTY_ROW: ConsolidatedHypothesisRow = {
   validityTest: "",
   confirmed: null,
   notes: "",
+  knowledgeLinks: [],
 };
 
 const COLUMN_WIDTHS = [
@@ -39,7 +51,11 @@ export function ConsolidatedHypothesesTable({
   onDataChanged,
 }: ConsolidatedHypothesesTableProps) {
   const [rows, setRows] = useState<ConsolidatedHypothesisRow[]>(() =>
-    initialRows.map((row) => ({ ...row, description: row.description ?? "" }))
+    initialRows.map((row) => ({
+      ...row,
+      description: row.description ?? "",
+      knowledgeLinks: row.knowledgeLinks ?? [],
+    }))
   );
   // Mirrors `rows` synchronously (updated inside every setter below, not via
   // an effect) so onBlur handlers always read the truly-latest rows even if
@@ -88,6 +104,22 @@ export function ConsolidatedHypothesesTable({
           ? { ...row, confirmed: row.confirmed === confirmed ? null : confirmed }
           : row
       )
+    );
+  }
+
+  function toggleKnowledgeLink(index: number, knowledgeId: string, checked: boolean) {
+    persist(
+      rowsRef.current.map((row, i) => {
+        if (i !== index) return row;
+        const has = row.knowledgeLinks.includes(knowledgeId);
+        if (checked === has) return row;
+        return {
+          ...row,
+          knowledgeLinks: checked
+            ? [...row.knowledgeLinks, knowledgeId]
+            : row.knowledgeLinks.filter((id) => id !== knowledgeId),
+        };
+      })
     );
   }
 
@@ -239,6 +271,13 @@ export function ConsolidatedHypothesesTable({
                   placeholder="Notes…"
                   className="mt-1.5 px-1 py-1 text-xs"
                 />
+                <KnowledgeLinksCell
+                  planId={planId}
+                  knowledgeLinks={row.knowledgeLinks}
+                  onToggle={(knowledgeId, checked) =>
+                    toggleKnowledgeLink(i, knowledgeId, checked)
+                  }
+                />
               </td>
               <td className="p-1 text-center align-top">
                 <button
@@ -268,6 +307,91 @@ export function ConsolidatedHypothesesTable({
           </tr>
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// Evidence (or any other Knowledge item) backing this row's
+// Confirmed/Disconfirmed call — a plain id list into the same school-wide
+// pool as 3A/3B's Link columns, rendered as a small badge row under Notes.
+function KnowledgeLinksCell({
+  planId,
+  knowledgeLinks,
+  onToggle,
+}: {
+  planId: string;
+  knowledgeLinks: string[];
+  onToggle: (knowledgeId: string, checked: boolean) => void;
+}) {
+  const [options, setOptions] = useState<KnowledgeLinkOption[]>([]);
+  const optionById = new Map(options.map((o) => [o.id, o]));
+
+  return (
+    <div className="mt-1.5 space-y-1">
+      {knowledgeLinks.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {knowledgeLinks.map((id) => {
+            const option = optionById.get(id);
+            return (
+              <Badge
+                key={id}
+                variant="outline"
+                className="h-auto max-w-full items-start gap-1 py-0.5 text-xs whitespace-normal break-words"
+              >
+                <span className={cn("min-w-0", !option && "text-muted-foreground italic")}>
+                  {option?.title ?? "Deleted item"}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Remove knowledge link"
+                  onClick={() => onToggle(id, false)}
+                  className="ml-0.5 shrink-0 hover:text-destructive"
+                >
+                  ×
+                </button>
+              </Badge>
+            );
+          })}
+        </div>
+      )}
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (!open) return;
+          getKnowledgeLinkOptions(planId)
+            .then(setOptions)
+            .catch(() => {
+              // Keep showing whatever we already had.
+            });
+        }}
+      >
+        <DropdownMenuTrigger
+          render={
+            <Button type="button" size="xs" variant="ghost" className="h-6 px-1.5 text-xs">
+              <Plus className="size-3" />
+              Knowledge
+            </Button>
+          }
+        />
+        <DropdownMenuContent className="text-xs">
+          {options.length ? (
+            options.map((option) => (
+              <DropdownMenuCheckboxItem
+                key={option.id}
+                className="text-xs"
+                checked={knowledgeLinks.includes(option.id)}
+                onCheckedChange={(checked) => onToggle(option.id, checked === true)}
+              >
+                {option.title}
+                {option.sourcePlanName && ` (${option.sourcePlanName})`}
+              </DropdownMenuCheckboxItem>
+            ))
+          ) : (
+            <DropdownMenuItem disabled className="text-xs">
+              No knowledge yet
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

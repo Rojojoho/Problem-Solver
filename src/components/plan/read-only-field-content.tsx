@@ -82,6 +82,15 @@ export function buildStrategyTraceability(
   const strategyRow = strategyRows.find((s) => s.id === strategyId) ?? null;
 
   const requirements: TraceRequirement[] = (strategyRow?.links ?? []).map((link) => {
+    // A strategy can link straight to a Knowledge item — shown as its own
+    // box rather than forced into the "dangling requirement" bucket below.
+    // The actual title isn't resolvable here (this read-only path never
+    // does a live fetch — see this function's doc comment), so it's shown
+    // generically rather than risking a stale or cross-org label.
+    if (link.type === "knowledge") {
+      return { id: `knowledge:${link.knowledgeId}`, shortId: "Knowledge item", requirement: "", causes: [] };
+    }
+
     const requirement = link.type === "ref" ? requirementById.get(link.targetId) : undefined;
     if (!requirement) {
       const label = link.type === "text" ? link.value : "Deleted requirement";
@@ -100,6 +109,9 @@ export function buildStrategyTraceability(
         return cause
           ? { id: cause.id, kind: "cause", label: cause.hypothesis, detail: cause.description || undefined }
           : { id: `dangling:${l.targetId}`, kind: "dangling", label: "Deleted item" };
+      }
+      if (l.type === "knowledge") {
+        return { id: `knowledge:${l.knowledgeId}`, kind: "knowledge", label: "Knowledge item" };
       }
       const measure = measureByName.get(l.value);
       if (measure) {
@@ -208,9 +220,11 @@ export function buildFieldRenderContext(
   function formatLinks(links: LinkRef[], labelById: Map<string, string>) {
     if (!links.length) return "—";
     return links
-      .map((link) =>
-        link.type === "ref" ? (labelById.get(link.targetId) ?? "Deleted item") : link.value
-      )
+      .map((link) => {
+        if (link.type === "ref") return labelById.get(link.targetId) ?? "Deleted item";
+        if (link.type === "knowledge") return "Knowledge item";
+        return link.value;
+      })
       .join(", ");
   }
 

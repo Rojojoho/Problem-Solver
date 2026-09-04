@@ -23,10 +23,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  getKnowledgeLinkOptions,
   getSolutionRequirementSuggestions,
   saveSolutionRequirementRows,
 } from "@/app/(app)/plans/[id]/actions";
 import type {
+  KnowledgeLinkOption,
   LabeledOption,
   LinkRef,
   SolutionRequirementRow,
@@ -341,8 +343,14 @@ function LinkCell({
     causeOptions: { id: string; label: string }[];
     measureSuggestions: string[];
   } | null>(null);
+  // The Knowledge pool (this plan's own items plus every shared item
+  // elsewhere in the school) has no SSR-provided prop to seed from — it
+  // starts empty and is only populated once the combobox is opened, same as
+  // liveOptions above once it's actually fetched.
+  const [knowledgeOptions, setKnowledgeOptions] = useState<KnowledgeLinkOption[]>([]);
   const options = liveOptions ?? { causeOptions, measureSuggestions };
   const causeLabelById = new Map(options.causeOptions.map((c) => [c.id, c.label]));
+  const knowledgeById = new Map(knowledgeOptions.map((k) => [k.id, k]));
 
   const query = text.trim().toLowerCase();
   const filteredCauses = query
@@ -351,6 +359,9 @@ function LinkCell({
   const filteredMeasures = query
     ? options.measureSuggestions.filter((m) => m.toLowerCase().includes(query))
     : options.measureSuggestions;
+  const filteredKnowledge = query
+    ? knowledgeOptions.filter((k) => k.title.toLowerCase().includes(query))
+    : knowledgeOptions;
 
   function commitText() {
     const trimmed = text.trim();
@@ -362,7 +373,11 @@ function LinkCell({
     // after onValueChange's setText(""), `text` here is that raw encoded
     // value rather than empty, and would otherwise get added a second time
     // as a bogus free-text link. Never commit our own internal encodings.
-    if (trimmed.startsWith("cause:") || trimmed.startsWith("measure:")) {
+    if (
+      trimmed.startsWith("cause:") ||
+      trimmed.startsWith("measure:") ||
+      trimmed.startsWith("knowledge:")
+    ) {
       setText("");
       return;
     }
@@ -376,14 +391,23 @@ function LinkCell({
       {row.links.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {row.links.map((link, index) => {
+            const knowledge = link.type === "knowledge" ? knowledgeById.get(link.knowledgeId) : null;
             const label =
               link.type === "ref"
                 ? (causeLabelById.get(link.targetId) ?? null)
-                : link.value;
-            const isDangling = link.type === "ref" && label === null;
+                : link.type === "knowledge"
+                  ? (knowledge?.title ?? null)
+                  : link.value;
+            const isDangling = (link.type === "ref" || link.type === "knowledge") && label === null;
             return (
               <Badge
-                key={link.type === "ref" ? `ref:${link.targetId}` : `text:${index}:${link.value}`}
+                key={
+                  link.type === "ref"
+                    ? `ref:${link.targetId}`
+                    : link.type === "knowledge"
+                      ? `knowledge:${link.knowledgeId}`
+                      : `text:${index}:${link.value}`
+                }
                 variant="outline"
                 className="h-auto max-w-full items-start gap-1 py-1 whitespace-normal break-words"
               >
@@ -412,7 +436,11 @@ function LinkCell({
           // that raw string would sit visibly in the box. Selection itself
           // is handled by onValueChange below; here we just want the
           // input cleared, not showing internal plumbing.
-          if (value.startsWith("cause:") || value.startsWith("measure:")) {
+          if (
+            value.startsWith("cause:") ||
+            value.startsWith("measure:") ||
+            value.startsWith("knowledge:")
+          ) {
             setText("");
             return;
           }
@@ -424,6 +452,8 @@ function LinkCell({
             onAdd({ type: "ref", targetId: value.slice("cause:".length) });
           } else if (value.startsWith("measure:")) {
             onAdd({ type: "text", value: value.slice("measure:".length) });
+          } else if (value.startsWith("knowledge:")) {
+            onAdd({ type: "knowledge", knowledgeId: value.slice("knowledge:".length) });
           }
           setText("");
         }}
@@ -431,6 +461,11 @@ function LinkCell({
           if (!open) return;
           getSolutionRequirementSuggestions(planId)
             .then(setLiveOptions)
+            .catch(() => {
+              // Keep showing whatever options we already had.
+            });
+          getKnowledgeLinkOptions(planId)
+            .then(setKnowledgeOptions)
             .catch(() => {
               // Keep showing whatever options we already had.
             });
@@ -446,7 +481,12 @@ function LinkCell({
               // highlighted option" key — also treating it as a free-text
               // commit here double-added a link (the typed query as a
               // bogus text link, alongside the real selected one).
-              if (e.key === "Enter" && !filteredCauses.length && !filteredMeasures.length) {
+              if (
+                e.key === "Enter" &&
+                !filteredCauses.length &&
+                !filteredMeasures.length &&
+                !filteredKnowledge.length
+              ) {
                 e.preventDefault();
                 commitText();
               }
@@ -474,6 +514,17 @@ function LinkCell({
               {filteredMeasures.map((measure) => (
                 <ComboboxItem key={measure} value={`measure:${measure}`}>
                   {measure}
+                </ComboboxItem>
+              ))}
+            </ComboboxGroup>
+          )}
+          {filteredKnowledge.length > 0 && (
+            <ComboboxGroup>
+              <ComboboxGroupLabel>Knowledge</ComboboxGroupLabel>
+              {filteredKnowledge.map((item) => (
+                <ComboboxItem key={item.id} value={`knowledge:${item.id}`}>
+                  {item.title}
+                  {item.sourcePlanName && ` (${item.sourcePlanName})`}
                 </ComboboxItem>
               ))}
             </ComboboxGroup>

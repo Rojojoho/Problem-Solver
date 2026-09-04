@@ -9,6 +9,8 @@ import {
   getFeedback,
   getLatestPublishedPlanForSource,
   listKbArticles,
+  listKnowledgeItems,
+  listKnowledgeTypes,
   getPlanTags,
   listValidationOptions,
   listRequirementTypes,
@@ -55,6 +57,8 @@ export default async function PlanPage({
     feedback,
     latestPublished,
     kbArticles,
+    knowledgeItems,
+    knowledgeTypes,
     tags,
     validationOptions,
     requirementTypes,
@@ -76,6 +80,8 @@ export default async function PlanPage({
     getFeedback(id),
     getLatestPublishedPlanForSource(id),
     listKbArticles(true),
+    listKnowledgeItems(id),
+    listKnowledgeTypes(),
     getPlanTags(id),
     stage === "PC" ? listValidationOptions() : Promise.resolve([]),
     stage === "SR" ? listRequirementTypes() : Promise.resolve([]),
@@ -120,6 +126,8 @@ export default async function PlanPage({
       feedback={feedback}
       publishStatus={latestPublished?.status ?? null}
       kbArticles={kbArticles}
+      knowledgeItems={knowledgeItems}
+      knowledgeTypes={knowledgeTypes}
       shareEnabled={plan.share_enabled}
       shareToken={plan.share_token}
       tabPositions={tabPositions}

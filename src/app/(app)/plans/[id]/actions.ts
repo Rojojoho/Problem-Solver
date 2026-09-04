@@ -27,8 +27,10 @@ import type {
   HypothesisRow,
   ImplementationRow,
   ImpactMeasureRow,
+  KnowledgeLinkOption,
   MeasureRow,
   OutcomeGroup,
+  SharedKnowledgeItemData,
   SolutionRequirementRow,
   SolutionStrategyRow,
   StageBundle,
@@ -58,6 +60,13 @@ import {
   getPlan,
   getPlanTags,
   listStages,
+  listSharedKnowledgeItems,
+  getKnowledgeLinkOptions as getKnowledgeLinkOptionsRecord,
+  createKnowledgeItemRecord,
+  updateKnowledgeItemRecord,
+  deleteKnowledgeItemRecord,
+  forkKnowledgeItemRecord,
+  type KnowledgeItemInput,
 } from "@/lib/db";
 
 export interface PlanExport {
@@ -250,7 +259,7 @@ export async function getSolutionRequirementOptions(
 
 export interface TraceCauseNode {
   id: string; // ConsolidatedHypothesisRow.id for causes; measure name for measures; synthetic for dangling — lets the diagram dedupe a cause shared by multiple requirements into one box
-  kind: "cause" | "measure" | "dangling" | "text";
+  kind: "cause" | "measure" | "knowledge" | "dangling" | "text";
   label: string;
   detail?: string;
 }
@@ -282,13 +291,16 @@ export async function getSolutionStrategyTraceability(
   planId: string,
   strategyId: string
 ): Promise<StrategyTraceability> {
-  const [piResponses, cvResponses, srResponses, ssResponses, headings] = await Promise.all([
-    getStageResponses(planId, "PI"),
-    getStageResponses(planId, "CV"),
-    getStageResponses(planId, "SR"),
-    getStageResponses(planId, "SS"),
-    getDiagramHeadings(),
-  ]);
+  const [piResponses, cvResponses, srResponses, ssResponses, headings, knowledgeOptions] =
+    await Promise.all([
+      getStageResponses(planId, "PI"),
+      getStageResponses(planId, "CV"),
+      getStageResponses(planId, "SR"),
+      getStageResponses(planId, "SS"),
+      getDiagramHeadings(),
+      getKnowledgeLinkOptions(planId),
+    ]);
+  const knowledgeById = new Map(knowledgeOptions.map((k) => [k.id, k]));
 
   const measureRows = asRowArray<MeasureRow>(piResponses[MEASURES_FIELD_KEY]);
   const causeRows = asRowArray<ConsolidatedHypothesisRow>(
@@ -309,6 +321,17 @@ export async function getSolutionStrategyTraceability(
   const strategyRow = strategyRows.find((s) => s.id === strategyId) ?? null;
 
   const requirements: TraceRequirement[] = (strategyRow?.links ?? []).map((link) => {
+    // A strategy can link straight to a Knowledge item (skipping the
+    // requirement/cause chain entirely) — shown as its own box in the
+    // requirement column rather than forced into the "dangling
+    // requirement" bucket below.
+    if (link.type === "knowledge") {
+      const knowledge = knowledgeById.get(link.knowledgeId);
+      return knowledge
+        ? { id: knowledge.id, shortId: `Knowledge: ${knowledge.title}`, requirement: "", causes: [] }
+        : { id: `dangling:${link.knowledgeId}`, shortId: "Deleted item", requirement: "", dangling: true, causes: [] };
+    }
+
     const requirement = link.type === "ref" ? requirementById.get(link.targetId) : undefined;
     if (!requirement) {
       const label = link.type === "text" ? link.value : "Deleted requirement";
@@ -321,6 +344,12 @@ export async function getSolutionStrategyTraceability(
         return cause
           ? { id: cause.id, kind: "cause", label: cause.hypothesis, detail: cause.description || undefined }
           : { id: `dangling:${l.targetId}`, kind: "dangling", label: "Deleted item" };
+      }
+      if (l.type === "knowledge") {
+        const knowledge = knowledgeById.get(l.knowledgeId);
+        return knowledge
+          ? { id: knowledge.id, kind: "knowledge", label: knowledge.title }
+          : { id: `dangling:${l.knowledgeId}`, kind: "dangling", label: "Deleted item" };
       }
       // Text links are usually 1.2 measures (the only thing the Link
       // column ever creates a text link for) — but a user can also type a
@@ -542,6 +571,7 @@ export async function consolidateCausalHypotheses(
     validityTest: "",
     confirmed: null,
     notes: "",
+    knowledgeLinks: [],
   }));
 
   const userId = await getCurrentUserId();
@@ -725,4 +755,61 @@ export async function getStageBundle(
 // (see read-only-field-content.tsx's buildFieldRenderContext).
 export async function getExemplarBundle(publishedPlanId: string) {
   return getExemplarDetail(publishedPlanId);
+}
+
+// The pool a 3A/3B/2.3 table-cell "Knowledge" link picker offers — this
+// plan's own items plus every shared item elsewhere in the org. Fetched
+// live on combobox/dropdown-open (same reasoning as
+// getSolutionRequirementSuggestions above), so an item added or shared
+// mid-session shows up without a full page reload.
+export async function getKnowledgeLinkOptions(planId: string): Promise<KnowledgeLinkOption[]> {
+  const plan = await getPlan(planId);
+  if (!plan) throw new Error("Plan not found.");
+  return getKnowledgeLinkOptionsRecord(planId, plan.org_id);
+}
+
+// Backs the Knowledge tab's "From school library" browser — every other
+// plan's shared item in this plan's school, offered with "Use as variant".
+export async function listSharedKnowledgeItemsForPlan(
+  planId: string
+): Promise<SharedKnowledgeItemData[]> {
+  const plan = await getPlan(planId);
+  if (!plan) throw new Error("Plan not found.");
+  return listSharedKnowledgeItems(plan.org_id, planId);
+}
+
+export async function createKnowledgeItem(planId: string, input: KnowledgeItemInput) {
+  const title = input.title.trim();
+  if (!title) throw new Error("Title is required.");
+
+  const plan = await getPlan(planId);
+  if (!plan) throw new Error("Plan not found.");
+
+  await createKnowledgeItemRecord(planId, plan.org_id, { ...input, title });
+  revalidatePath(`/plans/${planId}`);
+}
+
+export async function updateKnowledgeItem(
+  planId: string,
+  id: string,
+  updates: Partial<KnowledgeItemInput>
+) {
+  await updateKnowledgeItemRecord(id, updates);
+  revalidatePath(`/plans/${planId}`);
+}
+
+export async function deleteKnowledgeItem(planId: string, id: string) {
+  await deleteKnowledgeItemRecord(id);
+  revalidatePath(`/plans/${planId}`);
+}
+
+// "Use as variant" — see forkKnowledgeItemRecord for what this actually
+// copies and why the source is left untouched.
+export async function forkKnowledgeItem(planId: string, sourceItemId: string) {
+  const plan = await getPlan(planId);
+  if (!plan) throw new Error("Plan not found.");
+
+  const result = await forkKnowledgeItemRecord(sourceItemId, planId, plan.org_id);
+  revalidatePath(`/plans/${planId}`);
+  return result;
 }

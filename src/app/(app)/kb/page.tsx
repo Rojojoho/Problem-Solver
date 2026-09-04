@@ -13,7 +13,7 @@ export default async function KbPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Knowledge base</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Guide</h1>
       </div>
 
       {!articles.length ? (

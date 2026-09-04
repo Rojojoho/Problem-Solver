@@ -82,7 +82,15 @@ export function StrategyTraceabilityDialog({
 
 // --- diagram ---------------------------------------------------------
 
-type NodeKind = "strategy" | "requirement" | "cause" | "measure" | "text" | "dangling" | "problem";
+type NodeKind =
+  | "strategy"
+  | "requirement"
+  | "cause"
+  | "measure"
+  | "knowledge"
+  | "text"
+  | "dangling"
+  | "problem";
 
 // Visual left-to-right column order (reversed from the underlying
 // strategy->requirement->cause->problem link direction, per request: reads
@@ -94,6 +102,7 @@ const COLUMN_OF: Record<NodeKind, number> = {
   problem: 0,
   cause: 1,
   measure: 1,
+  knowledge: 1,
   text: 1,
   dangling: 1, // overridden per-node below (a dangling requirement sits in column 2, not 1)
   requirement: 2,
@@ -346,6 +355,7 @@ function NodeBox({
     >
       <div className={cn("font-medium", node.kind === "strategy" && "text-sm")}>
         {node.kind === "measure" && !isDangling ? "Measure: " : null}
+        {node.kind === "knowledge" && !isDangling ? "Knowledge: " : null}
         {node.title}
       </div>
       {node.body ? (

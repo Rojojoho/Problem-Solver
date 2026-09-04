@@ -10,6 +10,8 @@ import type {
   DiagramHeadings,
   FeedbackItemData,
   KbArticleData,
+  KnowledgeItemData,
+  KnowledgeTypeOption,
   StageBundle,
   StageData,
   WorkspaceTabPositions,
@@ -49,6 +51,8 @@ interface PlanWorkspaceProps {
   feedback: FeedbackItemData[];
   publishStatus: PublishedStatus | null;
   kbArticles: KbArticleData[];
+  knowledgeItems: KnowledgeItemData[];
+  knowledgeTypes: KnowledgeTypeOption[];
   shareEnabled: boolean;
   shareToken: string | null;
   tabPositions: WorkspaceTabPositions;
@@ -66,6 +70,8 @@ export function PlanWorkspace({
   feedback,
   publishStatus,
   kbArticles,
+  knowledgeItems,
+  knowledgeTypes,
   shareEnabled,
   shareToken,
   tabPositions,
@@ -364,6 +370,8 @@ export function PlanWorkspace({
                 fields={stage !== "summary" ? (bundles[stage]?.fields ?? []) : []}
                 feedback={feedback}
                 kbArticles={kbArticles}
+                knowledgeItems={knowledgeItems}
+                knowledgeTypes={knowledgeTypes}
                 tags={tags}
                 headings={headings}
               />

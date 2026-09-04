@@ -38,10 +38,10 @@ export default function AdminPage() {
         <Link href="/admin/kb">
           <Card className="h-full transition-colors hover:border-foreground/30">
             <CardHeader>
-              <CardTitle>Knowledge base</CardTitle>
+              <CardTitle>Guide</CardTitle>
               <CardDescription>
-                Write and publish articles shown on the Knowledge Base page
-                and in each plan&apos;s side panel.
+                Write and publish articles shown on the Guide page and in
+                each plan&apos;s side panel.
               </CardDescription>
             </CardHeader>
           </Card>

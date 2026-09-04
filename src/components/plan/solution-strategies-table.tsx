@@ -9,14 +9,18 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  getKnowledgeLinkOptions,
   getSolutionRequirementOptions,
   saveSolutionStrategyRows,
 } from "@/app/(app)/plans/[id]/actions";
-import type { LinkRef, SolutionStrategyRow } from "@/lib/ccps/types";
+import type { KnowledgeLinkOption, LinkRef, SolutionStrategyRow } from "@/lib/ccps/types";
 import { EditableCell } from "@/components/plan/editable-cell";
 import { StrategyTraceabilityDialog } from "@/components/plan/strategy-traceability-dialog";
 import { ResizableTh, useColumnWidths } from "@/components/plan/use-column-widths";
@@ -101,18 +105,22 @@ export function SolutionStrategiesTable({
     persist(rowsRef.current.filter((_, i) => i !== index));
   }
 
-  function toggleLink(id: string, targetId: string, checked: boolean) {
+  function linkMatches(l: LinkRef, link: LinkRef): boolean {
+    return (
+      (l.type === "ref" && link.type === "ref" && l.targetId === link.targetId) ||
+      (l.type === "knowledge" && link.type === "knowledge" && l.knowledgeId === link.knowledgeId)
+    );
+  }
+
+  function toggleLink(id: string, link: LinkRef, checked: boolean) {
     persist(
       rowsRef.current.map((r) => {
         if (r.id !== id) return r;
-        const has = r.links.some((l) => l.type === "ref" && l.targetId === targetId);
+        const has = r.links.some((l) => linkMatches(l, link));
         if (checked === has) return r;
-        const link: LinkRef = { type: "ref", targetId };
         return {
           ...r,
-          links: checked
-            ? [...r.links, link]
-            : r.links.filter((l) => !(l.type === "ref" && l.targetId === targetId)),
+          links: checked ? [...r.links, link] : r.links.filter((l) => !linkMatches(l, link)),
         };
       })
     );
@@ -231,7 +239,7 @@ export function SolutionStrategiesTable({
                   planId={planId}
                   row={row}
                   requirementOptions={requirementOptions}
-                  onToggle={(targetId, checked) => toggleLink(row.id, targetId, checked)}
+                  onToggle={(link, checked) => toggleLink(row.id, link, checked)}
                   onRemove={(index) => removeLink(row.id, index)}
                 />
               </td>
@@ -277,7 +285,7 @@ function LinkPicker({
   planId: string;
   row: SolutionStrategyRow;
   requirementOptions: { id: string; label: string }[];
-  onToggle: (targetId: string, checked: boolean) => void;
+  onToggle: (link: LinkRef, checked: boolean) => void;
   onRemove: (index: number) => void;
 }) {
   // 3A's current requirements are fetched live every time the dropdown
@@ -291,6 +299,10 @@ function LinkPicker({
   );
   const options = liveOptions ?? requirementOptions;
   const labelById = new Map(options.map((o) => [o.id, o.label]));
+  // The Knowledge pool has no SSR-provided prop to seed from — it starts
+  // empty and is only populated once the dropdown is opened.
+  const [knowledgeOptions, setKnowledgeOptions] = useState<KnowledgeLinkOption[]>([]);
+  const knowledgeById = new Map(knowledgeOptions.map((k) => [k.id, k]));
 
   // Measured from the cell itself rather than the column's nominal width —
   // table-fixed still stretches columns proportionally to fill any extra
@@ -304,11 +316,23 @@ function LinkPicker({
       {row.links.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {row.links.map((link, index) => {
-            const label = link.type === "ref" ? (labelById.get(link.targetId) ?? null) : link.value;
-            const isDangling = link.type === "ref" && label === null;
+            const knowledge = link.type === "knowledge" ? knowledgeById.get(link.knowledgeId) : null;
+            const label =
+              link.type === "ref"
+                ? (labelById.get(link.targetId) ?? null)
+                : link.type === "knowledge"
+                  ? (knowledge?.title ?? null)
+                  : link.value;
+            const isDangling = (link.type === "ref" || link.type === "knowledge") && label === null;
             return (
               <Badge
-                key={link.type === "ref" ? `ref:${link.targetId}` : `text:${index}:${link.value}`}
+                key={
+                  link.type === "ref"
+                    ? `ref:${link.targetId}`
+                    : link.type === "knowledge"
+                      ? `knowledge:${link.knowledgeId}`
+                      : `text:${index}:${link.value}`
+                }
                 variant="outline"
                 className="h-auto max-w-full items-start gap-1 py-1 whitespace-normal break-words"
               >
@@ -337,6 +361,11 @@ function LinkPicker({
             .catch(() => {
               // Keep showing whatever we already had.
             });
+          getKnowledgeLinkOptions(planId)
+            .then(setKnowledgeOptions)
+            .catch(() => {
+              // Keep showing whatever we already had.
+            });
         }}
       >
         <DropdownMenuTrigger
@@ -345,7 +374,7 @@ function LinkPicker({
               type="button"
               size="icon-xs"
               variant="outline"
-              aria-label="Link to requirement"
+              aria-label="Link to requirement or knowledge"
             >
               <Plus className="size-3.5" />
             </Button>
@@ -363,7 +392,9 @@ function LinkPicker({
                 checked={row.links.some(
                   (l) => l.type === "ref" && l.targetId === option.id
                 )}
-                onCheckedChange={(checked) => onToggle(option.id, checked === true)}
+                onCheckedChange={(checked) =>
+                  onToggle({ type: "ref", targetId: option.id }, checked === true)
+                }
               >
                 {option.label}
               </DropdownMenuCheckboxItem>
@@ -372,6 +403,29 @@ function LinkPicker({
             <DropdownMenuItem disabled className="text-xs">
               No 3A requirements yet
             </DropdownMenuItem>
+          )}
+          {knowledgeOptions.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Knowledge</DropdownMenuLabel>
+                {knowledgeOptions.map((option) => (
+                  <DropdownMenuCheckboxItem
+                    key={option.id}
+                    className="text-xs"
+                    checked={row.links.some(
+                      (l) => l.type === "knowledge" && l.knowledgeId === option.id
+                    )}
+                    onCheckedChange={(checked) =>
+                      onToggle({ type: "knowledge", knowledgeId: option.id }, checked === true)
+                    }
+                  >
+                    {option.title}
+                    {option.sourcePlanName && ` (${option.sourcePlanName})`}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuGroup>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
