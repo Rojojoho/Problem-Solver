@@ -1986,84 +1986,54 @@ async function resolvePlanNames(planIds: string[]): Promise<Map<string, string>>
   return map;
 }
 
-// This plan's own Knowledge items, plus items it has explicitly "Used"
-// from the school library (see knowledge_item_uses) — the latter are
-// read-only from here (canEdit: false). See listSharedKnowledgeItems below
-// for how other plans'/the school's items are browsed before being used.
+// This plan's own Knowledge items — see getKnowledgeLinkOptions and
+// listSharedKnowledgeItems below for how other plans'/the school's shared
+// items are surfaced (browsing/copying, not shown in this list).
 export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemData[]> {
   if (DEV_MOCK) return mock.mockListKnowledgeItems(planId);
 
-  const ownedCols =
-    "id, plan_id, title, description, type_id, shared_to_school, created_by, updated_by, created_at";
   const supabase = await createClient();
-  const [{ data: owned }, { data: used }, types] = await Promise.all([
-    supabase.from("knowledge_items").select(ownedCols).eq("plan_id", planId).order("created_at"),
+  const [{ data: items }, types] = await Promise.all([
     supabase
-      .from("knowledge_item_uses")
-      .select(`added_at, knowledge_items(${ownedCols})`)
-      .eq("plan_id", planId),
+      .from("knowledge_items")
+      .select(
+        "id, plan_id, title, description, type_id, shared_to_school, created_by, updated_by, created_at"
+      )
+      .eq("plan_id", planId)
+      .order("created_at"),
     listKnowledgeTypes(),
   ]);
+  const rows = items ?? [];
   const typeLabelById = new Map(types.map((t) => [t.id, t.label]));
-
-  type Row = {
-    id: string;
-    plan_id: string | null;
-    title: string;
-    description: unknown;
-    type_id: string | null;
-    shared_to_school: boolean;
-    created_by: string | null;
-    updated_by: string | null;
-    created_at: string;
-  };
-  const ownedRows = (owned ?? []) as Row[];
-  const usedRows = ((used ?? []) as unknown as Array<{ knowledge_items: Row | null }>)
-    .map((r) => r.knowledge_items)
-    .filter((r): r is Row => Boolean(r));
 
   const userIds = Array.from(
     new Set(
-      [...ownedRows, ...usedRows]
+      rows
         .flatMap((r) => [r.created_by, r.updated_by])
         .filter((id): id is string => Boolean(id))
     )
   );
-  const usedPlanIds = Array.from(
-    new Set(usedRows.map((r) => r.plan_id).filter((id): id is string => Boolean(id)))
-  );
-  const [profileNamesById, planNamesById] = await Promise.all([
-    resolveProfileNames(userIds),
-    resolvePlanNames(usedPlanIds),
-  ]);
+  const profileNamesById = await resolveProfileNames(userIds);
 
-  function toData(r: Row, canEdit: boolean, planName: string | null | undefined): KnowledgeItemData {
-    return {
-      id: r.id,
-      planId: r.plan_id,
-      title: r.title,
-      description: r.description as JSONContent,
-      typeId: r.type_id,
-      typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
-      sharedToSchool: r.shared_to_school,
-      createdByName: r.created_by ? (profileNamesById.get(r.created_by) ?? "Unknown") : "Unknown",
-      updatedByName: r.updated_by ? (profileNamesById.get(r.updated_by) ?? "Unknown") : "Unknown",
-      createdAt: r.created_at,
-      canEdit,
-      usedFrom: canEdit ? null : { planName: planName ?? null },
-    };
-  }
-
-  return [
-    ...ownedRows.map((r) => toData(r, true, undefined)),
-    ...usedRows.map((r) => toData(r, false, r.plan_id ? (planNamesById.get(r.plan_id) ?? "Another plan") : null)),
-  ];
+  return rows.map((r) => ({
+    id: r.id,
+    planId: r.plan_id,
+    title: r.title,
+    description: r.description as JSONContent,
+    typeId: r.type_id,
+    typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
+    sharedToSchool: r.shared_to_school,
+    createdByName: r.created_by ? (profileNamesById.get(r.created_by) ?? "Unknown") : "Unknown",
+    updatedByName: r.updated_by ? (profileNamesById.get(r.updated_by) ?? "Unknown") : "Unknown",
+    createdAt: r.created_at,
+  }));
 }
 
-// Every shared_to_school item in the org NOT already owned or used by
-// excludePlanId — backs the Knowledge tab's "From school library" browser
-// (each result offers "Use", see addKnowledgeItemUseRecord) and the School
-// Knowledge Base page's browse view (excludePlanId omitted there).
+// Every shared_to_school item in the org owned by some *other* plan (or by
+// the school itself) — backs the Knowledge tab's "From school library"
+// browser (each result offers "Use", see copyKnowledgeItemFromLibraryRecord)
+// and the School Knowledge Base page's browse view (excludePlanId omitted
+// there).
 export async function listSharedKnowledgeItems(
   orgId: string,
   excludePlanId?: string
@@ -2083,20 +2053,16 @@ export async function listSharedKnowledgeItems(
     // true, in SQL.
     query = query.or(`plan_id.is.null,plan_id.neq.${excludePlanId}`);
   }
-  const [{ data: items }, types, usedIds] = await Promise.all([
-    query,
-    listKnowledgeTypes(),
-    excludePlanId ? listUsedKnowledgeItemIds(excludePlanId) : Promise.resolve(new Set<string>()),
-  ]);
+  const [{ data: items }, types] = await Promise.all([query, listKnowledgeTypes()]);
   const typeLabelById = new Map(types.map((t) => [t.id, t.label]));
 
-  const rows = ((items ?? []) as unknown as Array<{
+  const rows = (items ?? []) as unknown as Array<{
     id: string;
     plan_id: string | null;
     title: string;
     description: unknown;
     type_id: string | null;
-  }>).filter((r) => !usedIds.has(r.id));
+  }>;
 
   const planNamesById = await resolvePlanNames(
     Array.from(new Set(rows.map((r) => r.plan_id).filter((id): id is string => Boolean(id))))
@@ -2112,35 +2078,20 @@ export async function listSharedKnowledgeItems(
   }));
 }
 
-async function listUsedKnowledgeItemIds(planId: string): Promise<Set<string>> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("knowledge_item_uses")
-    .select("knowledge_item_id")
-    .eq("plan_id", planId);
-  return new Set((data ?? []).map((r) => r.knowledge_item_id));
-}
-
 // The pool a 3A/3B/2.3 table-cell "Knowledge" link picker selects from —
-// items this plan owns plus items it has "Used" from the school library
-// (the same owned-or-used set as listKnowledgeItems).
+// this plan's own items only. Cross-plan reuse goes through "From school
+// library" (listSharedKnowledgeItems above, copying into this plan first),
+// not by linking directly into another plan's items from a cell.
 export async function getKnowledgeLinkOptions(planId: string): Promise<KnowledgeLinkOption[]> {
   if (DEV_MOCK) return mock.mockGetKnowledgeLinkOptions(planId);
 
   const supabase = await createClient();
-  const [{ data: owned }, { data: used }] = await Promise.all([
-    supabase.from("knowledge_items").select("id, title").eq("plan_id", planId),
-    supabase
-      .from("knowledge_item_uses")
-      .select("knowledge_items(id, title)")
-      .eq("plan_id", planId),
-  ]);
-  const usedOptions = ((used ?? []) as unknown as Array<{
-    knowledge_items: { id: string; title: string } | null;
-  }>)
-    .map((r) => r.knowledge_items)
-    .filter((r): r is { id: string; title: string } => Boolean(r));
-  return [...(owned ?? []), ...usedOptions].sort((a, b) => a.title.localeCompare(b.title));
+  const { data } = await supabase
+    .from("knowledge_items")
+    .select("id, title")
+    .eq("plan_id", planId)
+    .order("title");
+  return data ?? [];
 }
 
 export async function getKnowledgeItemPlanId(id: string): Promise<string | null> {
@@ -2225,35 +2176,46 @@ export async function deleteKnowledgeItemRecord(id: string) {
   if (error) throw new Error(error.message);
 }
 
-// "Use": records that this plan references another item (owned by another
-// plan, or by the school) without copying it — read-only from this plan's
-// side, see listKnowledgeItems/getKnowledgeLinkOptions. Upserts with
-// ignoreDuplicates so a stray double-click can't 23505 on the
-// (plan_id, knowledge_item_id) primary key.
-export async function addKnowledgeItemUseRecord(planId: string, knowledgeItemId: string) {
-  if (DEV_MOCK) {
-    mock.mockAddKnowledgeItemUse(planId, knowledgeItemId);
-    return;
-  }
+// "Use": copies another plan's (or the school's) shared item into this
+// plan as an independent, editable row — keeps a forked_from_id trail back
+// to the source but never writes back to it, so a later edit or deletion
+// of the source doesn't affect this copy. The copy is itself
+// shared_to_school by default, same as any newly-created item.
+export async function copyKnowledgeItemFromLibraryRecord(
+  sourceItemId: string,
+  planId: string,
+  orgId: string
+): Promise<{ id: string }> {
+  if (DEV_MOCK) return mock.mockCopyKnowledgeItemFromLibrary(sourceItemId, planId, orgId);
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("knowledge_item_uses")
-    .upsert({ plan_id: planId, knowledge_item_id: knowledgeItemId }, { ignoreDuplicates: true });
-  if (error) throw new Error(error.message);
-}
-
-export async function removeKnowledgeItemUseRecord(planId: string, knowledgeItemId: string) {
-  if (DEV_MOCK) {
-    mock.mockRemoveKnowledgeItemUse(planId, knowledgeItemId);
-    return;
+  const { data: source, error: sourceError } = await supabase
+    .from("knowledge_items")
+    .select("title, description, type_id")
+    .eq("id", sourceItemId)
+    .single();
+  if (sourceError || !source) {
+    throw new Error(sourceError?.message ?? "Knowledge item not found.");
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("knowledge_item_uses")
-    .delete()
-    .eq("plan_id", planId)
-    .eq("knowledge_item_id", knowledgeItemId);
-  if (error) throw new Error(error.message);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("knowledge_items")
+    .insert({
+      plan_id: planId,
+      org_id: orgId,
+      type_id: source.type_id,
+      title: source.title,
+      description: source.description,
+      shared_to_school: true,
+      forked_from_id: sourceItemId,
+      created_by: user?.id ?? null,
+      updated_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Failed to copy that item.");
+  return data;
 }

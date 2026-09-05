@@ -1384,8 +1384,6 @@ interface MockKnowledgeItemInput {
 }
 
 const knowledgeItems = new Map<string, MockKnowledgeItem>();
-// planId -> set of knowledge_item ids it has "Used" — mirrors knowledge_item_uses.
-const knowledgeItemUses = new Map<string, Set<string>>();
 
 function mockKnowledgeTypeLabel(typeId: string | null): string | null {
   if (!typeId) return null;
@@ -1398,11 +1396,7 @@ function mockKnowledgeCreatorName(userId: string | null): string {
   return orgMembers.find((m) => m.user_id === userId)?.display_name ?? "Unknown";
 }
 
-function toKnowledgeItemData(
-  item: MockKnowledgeItem,
-  canEdit: boolean,
-  planName?: string | null
-): KnowledgeItemData {
+function toKnowledgeItemData(item: MockKnowledgeItem): KnowledgeItemData {
   return {
     id: item.id,
     planId: item.plan_id,
@@ -1414,41 +1408,22 @@ function toKnowledgeItemData(
     createdByName: mockKnowledgeCreatorName(item.created_by),
     updatedByName: mockKnowledgeCreatorName(item.updated_by),
     createdAt: item.created_at,
-    canEdit,
-    usedFrom: canEdit ? null : { planName: planName ?? null },
   };
 }
 
 export function mockListKnowledgeItems(planId: string): KnowledgeItemData[] {
-  const owned = Array.from(knowledgeItems.values())
+  return Array.from(knowledgeItems.values())
     .filter((k) => k.plan_id === planId)
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
-    .map((k) => toKnowledgeItemData(k, true));
-
-  const used = Array.from(knowledgeItemUses.get(planId) ?? [])
-    .map((itemId) => knowledgeItems.get(itemId))
-    .filter((k): k is MockKnowledgeItem => Boolean(k))
-    .map((k) =>
-      toKnowledgeItemData(k, false, k.plan_id ? (plans.get(k.plan_id)?.name ?? "Another plan") : null)
-    );
-
-  return [...owned, ...used];
+    .map(toKnowledgeItemData);
 }
 
 export function mockListSharedKnowledgeItems(
   orgId: string,
   excludePlanId?: string
 ): SharedKnowledgeItemData[] {
-  const usedIds = excludePlanId ? (knowledgeItemUses.get(excludePlanId) ?? new Set<string>()) : new Set<string>();
-
   return Array.from(knowledgeItems.values())
-    .filter(
-      (k) =>
-        k.org_id === orgId &&
-        k.shared_to_school &&
-        k.plan_id !== excludePlanId &&
-        !usedIds.has(k.id)
-    )
+    .filter((k) => k.org_id === orgId && k.shared_to_school && k.plan_id !== excludePlanId)
     .sort((a, b) => a.title.localeCompare(b.title))
     .map((k) => ({
       id: k.id,
@@ -1463,11 +1438,8 @@ export function mockListSharedKnowledgeItems(
 }
 
 export function mockGetKnowledgeLinkOptions(planId: string): KnowledgeLinkOption[] {
-  const owned = Array.from(knowledgeItems.values()).filter((k) => k.plan_id === planId);
-  const used = Array.from(knowledgeItemUses.get(planId) ?? [])
-    .map((itemId) => knowledgeItems.get(itemId))
-    .filter((k): k is MockKnowledgeItem => Boolean(k));
-  return [...owned, ...used]
+  return Array.from(knowledgeItems.values())
+    .filter((k) => k.plan_id === planId)
     .sort((a, b) => a.title.localeCompare(b.title))
     .map((k) => ({ id: k.id, title: k.title }));
 }
@@ -1516,12 +1488,24 @@ export function mockDeleteKnowledgeItem(id: string) {
   knowledgeItems.delete(id);
 }
 
-export function mockAddKnowledgeItemUse(planId: string, knowledgeItemId: string) {
-  const set = knowledgeItemUses.get(planId) ?? new Set<string>();
-  set.add(knowledgeItemId);
-  knowledgeItemUses.set(planId, set);
-}
+export function mockCopyKnowledgeItemFromLibrary(sourceItemId: string, planId: string, orgId: string) {
+  const source = knowledgeItems.get(sourceItemId);
+  if (!source) throw new Error("Knowledge item not found.");
 
-export function mockRemoveKnowledgeItemUse(planId: string, knowledgeItemId: string) {
-  knowledgeItemUses.get(planId)?.delete(knowledgeItemId);
+  const id = crypto.randomUUID();
+  const timestamp = now();
+  knowledgeItems.set(id, {
+    id,
+    plan_id: planId,
+    org_id: orgId,
+    type_id: source.type_id,
+    title: source.title,
+    description: source.description,
+    shared_to_school: true,
+    created_by: MOCK_USER_ID,
+    updated_by: MOCK_USER_ID,
+    created_at: timestamp,
+    updated_at: timestamp,
+  });
+  return { id };
 }

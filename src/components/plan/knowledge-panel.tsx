@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Pencil, Plus, X } from "lucide-react";
+import { Eye, Pencil, Plus, X } from "lucide-react";
 import type { JSONContent } from "@tiptap/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,7 @@ import { EMPTY_DOC } from "@/lib/ccps/constants";
 import {
   createKnowledgeItem,
   deleteKnowledgeItem,
-  addKnowledgeItemUse,
-  removeKnowledgeItemUse,
+  copyKnowledgeItemFromLibrary,
   listSharedKnowledgeItemsForPlan,
   updateKnowledgeItem,
 } from "@/app/(app)/plans/[id]/actions";
@@ -51,6 +50,7 @@ interface KnowledgePanelProps {
 export function KnowledgePanel({ planId, items, knowledgeTypes }: KnowledgePanelProps) {
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
+  const [viewing, setViewing] = useState<KnowledgeItemData | null>(null);
   const [editing, setEditing] = useState<KnowledgeItemData | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -63,18 +63,6 @@ export function KnowledgePanel({ planId, items, knowledgeTypes }: KnowledgePanel
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Couldn't delete that item.");
-      }
-    });
-  }
-
-  function handleRemoveUse(item: KnowledgeItemData) {
-    startTransition(async () => {
-      try {
-        await removeKnowledgeItemUse(planId, item.id);
-        toast.success("Removed from this plan.");
-        router.refresh();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Couldn't remove that item.");
       }
     });
   }
@@ -115,59 +103,54 @@ export function KnowledgePanel({ planId, items, knowledgeTypes }: KnowledgePanel
                     <span className="text-sm font-medium">{item.title}</span>
                     {item.typeLabel && <Badge variant="outline">{item.typeLabel}</Badge>}
                   </div>
-                  {!item.canEdit ? (
-                    <p className="text-xs text-muted-foreground">
-                      Used from: {item.usedFrom?.planName ?? "School Knowledge Base"}
-                    </p>
-                  ) : (
-                    !item.sharedToSchool && (
-                      <p className="text-xs text-muted-foreground">Not shared with school</p>
-                    )
+                  {!item.sharedToSchool && (
+                    <p className="text-xs text-muted-foreground">Not shared with school</p>
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  {item.canEdit ? (
-                    <>
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        aria-label="Edit"
-                        onClick={() => setEditing(item)}
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        aria-label="Delete"
-                        disabled={isPending}
-                        onClick={() => handleDelete(item)}
-                      >
-                        <X className="size-3.5" />
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      disabled={isPending}
-                      onClick={() => handleRemoveUse(item)}
-                    >
-                      Remove
-                    </Button>
-                  )}
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label="View"
+                    onClick={() => setViewing(item)}
+                  >
+                    <Eye className="size-3.5" />
+                  </Button>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label="Edit"
+                    onClick={() => setEditing(item)}
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label="Delete"
+                    disabled={isPending}
+                    onClick={() => handleDelete(item)}
+                  >
+                    <X className="size-3.5" />
+                  </Button>
                 </div>
               </div>
               {item.description && (
-                <TiptapEditor
-                  content={item.description}
-                  editable={false}
-                  className="text-sm"
-                />
+                <div className="line-clamp-2 text-sm">
+                  <TiptapEditor content={item.description} editable={false} />
+                </div>
               )}
             </div>
           ))}
         </div>
+      )}
+
+      {viewing && (
+        <Dialog open onOpenChange={(open) => !open && setViewing(null)}>
+          <DialogContent>
+            <ViewKnowledgeDialog item={viewing} />
+          </DialogContent>
+        </Dialog>
       )}
 
       {editing && (
@@ -183,6 +166,20 @@ export function KnowledgePanel({ planId, items, knowledgeTypes }: KnowledgePanel
         </Dialog>
       )}
     </div>
+  );
+}
+
+function ViewKnowledgeDialog({ item }: { item: KnowledgeItemData }) {
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="flex flex-wrap items-center gap-1.5">
+          {item.title}
+          {item.typeLabel && <Badge variant="outline">{item.typeLabel}</Badge>}
+        </DialogTitle>
+      </DialogHeader>
+      {item.description && <TiptapEditor content={item.description} editable={false} />}
+    </>
   );
 }
 
@@ -454,8 +451,8 @@ function SchoolLibraryBrowser({ planId, onDone }: { planId: string; onDone: () =
   async function handleUse(item: SharedKnowledgeItemData) {
     setUsingId(item.id);
     try {
-      await addKnowledgeItemUse(planId, item.id);
-      toast.success(`Added "${item.title}" to this plan.`);
+      await copyKnowledgeItemFromLibrary(planId, item.id);
+      toast.success(`Added a copy of "${item.title}" to this plan.`);
       router.refresh();
       onDone();
     } catch (err) {

@@ -309,18 +309,13 @@ export interface KnowledgeItemData {
   createdByName: string;
   updatedByName: string;
   createdAt: string;
-  // Whether the plan/page currently viewing this item is the one that owns
-  // it (and can therefore edit/delete it) — false for an item "Used" from
-  // another plan or the school library, which is shown read-only instead.
-  canEdit: boolean;
-  // Present only when canEdit is false. planName is null when the item is
-  // owned by the school itself rather than another plan.
-  usedFrom: { planName: string | null } | null;
 }
 
-// The pool a 3A/3B/2.3 table-cell "Knowledge" picker selects from: items
-// this plan owns plus items it has explicitly "Used" from the school
-// library — the same owned-or-used set shown in the Knowledge tab itself.
+// The pool a 3A/3B/2.3 table-cell "Knowledge" picker selects from: this
+// plan's own items only — cross-plan reuse happens explicitly via the
+// Knowledge tab's "From school library" browser (copying a shared item
+// into this plan first), not by linking directly into another plan's items
+// from inside a table cell.
 export interface KnowledgeLinkOption {
   id: string;
   title: string;

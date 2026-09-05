@@ -63,12 +63,10 @@ import {
   getWorkspaceTabPositions,
   listSharedKnowledgeItems,
   getKnowledgeLinkOptions as getKnowledgeLinkOptionsRecord,
-  getKnowledgeItemPlanId,
   createKnowledgeItemRecord,
   updateKnowledgeItemRecord,
   deleteKnowledgeItemRecord,
-  addKnowledgeItemUseRecord,
-  removeKnowledgeItemUseRecord,
+  copyKnowledgeItemFromLibraryRecord,
   type KnowledgeItemInput,
   updatePlanOwnerRecord,
   addPlanCollaboratorRecord,
@@ -809,8 +807,8 @@ export async function getKnowledgeLinkOptions(planId: string): Promise<Knowledge
 }
 
 // Backs the Knowledge tab's "From school library" browser — every other
-// plan's (or the school's) shared item not already used by this plan,
-// offered with "Use".
+// plan's (or the school's) shared item, offered with "Use" (see
+// copyKnowledgeItemFromLibrary below).
 export async function listSharedKnowledgeItemsForPlan(
   planId: string
 ): Promise<SharedKnowledgeItemData[]> {
@@ -830,41 +828,29 @@ export async function createKnowledgeItem(planId: string, input: KnowledgeItemIn
   revalidatePath(`/plans/${planId}`);
 }
 
-// Only a plan can edit/delete knowledge it actually owns — an item "Used"
-// from another plan or the school library is read-only here (see
-// addKnowledgeItemUse below). Enforced here, not just hidden in the UI, so
-// a direct call can't bypass it either.
-async function requireOwnedKnowledgeItem(planId: string, id: string) {
-  const ownerPlanId = await getKnowledgeItemPlanId(id);
-  if (ownerPlanId !== planId) {
-    throw new Error("This knowledge item isn't editable from this plan.");
-  }
-}
-
 export async function updateKnowledgeItem(
   planId: string,
   id: string,
   updates: Partial<KnowledgeItemInput>
 ) {
-  await requireOwnedKnowledgeItem(planId, id);
   await updateKnowledgeItemRecord(id, updates);
   revalidatePath(`/plans/${planId}`);
 }
 
 export async function deleteKnowledgeItem(planId: string, id: string) {
-  await requireOwnedKnowledgeItem(planId, id);
   await deleteKnowledgeItemRecord(id);
   revalidatePath(`/plans/${planId}`);
 }
 
-// "Use": adds a read-only reference to another plan's (or the school's)
-// shared item — see addKnowledgeItemUseRecord. Does not copy anything.
-export async function addKnowledgeItemUse(planId: string, knowledgeItemId: string) {
-  await addKnowledgeItemUseRecord(planId, knowledgeItemId);
-  revalidatePath(`/plans/${planId}`);
-}
+// "Use": copies another plan's (or the school's) shared item into this
+// plan as an independent, editable row — see
+// copyKnowledgeItemFromLibraryRecord for what this actually copies and why
+// the source is left untouched.
+export async function copyKnowledgeItemFromLibrary(planId: string, sourceItemId: string) {
+  const plan = await getPlan(planId);
+  if (!plan) throw new Error("Plan not found.");
 
-export async function removeKnowledgeItemUse(planId: string, knowledgeItemId: string) {
-  await removeKnowledgeItemUseRecord(planId, knowledgeItemId);
+  const result = await copyKnowledgeItemFromLibraryRecord(sourceItemId, planId, plan.org_id);
   revalidatePath(`/plans/${planId}`);
+  return result;
 }

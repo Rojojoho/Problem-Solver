@@ -26,10 +26,15 @@ export function TiptapEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class:
-          "prose prose-sm max-w-none min-h-[120px] text-sm focus:outline-none " +
-          "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 " +
-          "[&_a]:text-primary [&_a]:underline [&_strong]:font-semibold",
+        // min-h only applies while editing — a comfortable minimum height
+        // to type into. A read-only render should size to its content
+        // instead (a one-line description shouldn't reserve 120px).
+        class: cn(
+          "prose prose-sm max-w-none text-sm focus:outline-none",
+          editable && "min-h-[120px]",
+          "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
+          "[&_a]:text-primary [&_a]:underline [&_strong]:font-semibold"
+        ),
       },
     },
     onBlur: ({ editor }) => {
