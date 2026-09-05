@@ -1946,7 +1946,7 @@ export async function deleteKbArticleRecord(id: string) {
 
 export interface KnowledgeItemInput {
   title: string;
-  description: string;
+  description: JSONContent;
   typeId: string | null;
   sharedToSchool: boolean;
 }
@@ -1967,80 +1967,80 @@ async function resolveProfileNames(userIds: string[]): Promise<Map<string, strin
   return map;
 }
 
-async function resolveForkSources(
-  itemIds: string[]
-): Promise<Map<string, { id: string; title: string; planName: string }>> {
-  const map = new Map<string, { id: string; title: string; planName: string }>();
-  if (!itemIds.length) return map;
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("knowledge_items")
-    .select("id, title, plans(name)")
-    .in("id", itemIds);
-  for (const row of (data ?? []) as unknown as Array<{
-    id: string;
-    title: string;
-    plans: { name: string } | null;
-  }>) {
-    map.set(row.id, { id: row.id, title: row.title, planName: row.plans?.name ?? "another plan" });
-  }
-  return map;
-}
-
-// This plan's own Knowledge items — see getKnowledgeLinkOptions and
-// listSharedKnowledgeItems below for how other plans' shared items are
-// surfaced (linking/forking, not shown in this list).
+// This plan's own Knowledge items, plus items it has explicitly "Used"
+// from the school library (see knowledge_item_uses) — the latter are
+// read-only from here (canEdit: false). See listSharedKnowledgeItems below
+// for how other plans'/the school's items are browsed before being used.
 export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemData[]> {
   if (DEV_MOCK) return mock.mockListKnowledgeItems(planId);
 
+  const ownedCols =
+    "id, plan_id, title, description, type_id, shared_to_school, created_by, updated_by, created_at";
   const supabase = await createClient();
-  const [{ data: items }, types] = await Promise.all([
+  const [{ data: owned }, { data: used }, types] = await Promise.all([
+    supabase.from("knowledge_items").select(ownedCols).eq("plan_id", planId).order("created_at"),
     supabase
-      .from("knowledge_items")
-      .select(
-        "id, plan_id, title, description, type_id, shared_to_school, forked_from_id, created_by, updated_by, created_at"
-      )
-      .eq("plan_id", planId)
-      .order("created_at"),
+      .from("knowledge_item_uses")
+      .select(`added_at, knowledge_items(${ownedCols}, plans(name))`)
+      .eq("plan_id", planId),
     listKnowledgeTypes(),
   ]);
-  const rows = items ?? [];
   const typeLabelById = new Map(types.map((t) => [t.id, t.label]));
 
-  const forkedIds = Array.from(
-    new Set(rows.map((r) => r.forked_from_id).filter((id): id is string => Boolean(id)))
-  );
+  type Row = {
+    id: string;
+    plan_id: string | null;
+    title: string;
+    description: unknown;
+    type_id: string | null;
+    shared_to_school: boolean;
+    created_by: string | null;
+    updated_by: string | null;
+    created_at: string;
+  };
+  const ownedRows = (owned ?? []) as Row[];
+  const usedRows = ((used ?? []) as unknown as Array<{
+    knowledge_items: (Row & { plans: { name: string } | null }) | null;
+  }>)
+    .map((r) => r.knowledge_items)
+    .filter((r): r is Row & { plans: { name: string } | null } => Boolean(r));
+
   const userIds = Array.from(
     new Set(
-      rows
+      [...ownedRows, ...usedRows]
         .flatMap((r) => [r.created_by, r.updated_by])
         .filter((id): id is string => Boolean(id))
     )
   );
-  const [profileNamesById, forkSourcesById] = await Promise.all([
-    resolveProfileNames(userIds),
-    resolveForkSources(forkedIds),
-  ]);
+  const profileNamesById = await resolveProfileNames(userIds);
 
-  return rows.map((r) => ({
-    id: r.id,
-    planId: r.plan_id,
-    title: r.title,
-    description: r.description,
-    typeId: r.type_id,
-    typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
-    sharedToSchool: r.shared_to_school,
-    createdByName: r.created_by ? (profileNamesById.get(r.created_by) ?? "Unknown") : "Unknown",
-    updatedByName: r.updated_by ? (profileNamesById.get(r.updated_by) ?? "Unknown") : "Unknown",
-    forkedFrom: r.forked_from_id ? (forkSourcesById.get(r.forked_from_id) ?? null) : null,
-    createdAt: r.created_at,
-  }));
+  function toData(r: Row, canEdit: boolean, planName: string | null | undefined): KnowledgeItemData {
+    return {
+      id: r.id,
+      planId: r.plan_id,
+      title: r.title,
+      description: r.description as JSONContent,
+      typeId: r.type_id,
+      typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
+      sharedToSchool: r.shared_to_school,
+      createdByName: r.created_by ? (profileNamesById.get(r.created_by) ?? "Unknown") : "Unknown",
+      updatedByName: r.updated_by ? (profileNamesById.get(r.updated_by) ?? "Unknown") : "Unknown",
+      createdAt: r.created_at,
+      canEdit,
+      usedFrom: canEdit ? null : { planName: planName ?? null },
+    };
+  }
+
+  return [
+    ...ownedRows.map((r) => toData(r, true, undefined)),
+    ...usedRows.map((r) => toData(r, false, r.plans?.name)),
+  ];
 }
 
-// Every shared_to_school item in the org owned by some *other* plan — backs
-// the Knowledge tab's "From school library" browser (each result offers
-// "Use as variant", see forkKnowledgeItemRecord).
+// Every shared_to_school item in the org NOT already owned or used by
+// excludePlanId — backs the Knowledge tab's "From school library" browser
+// (each result offers "Use", see addKnowledgeItemUseRecord) and the School
+// Knowledge Base page's browse view (excludePlanId omitted there).
 export async function listSharedKnowledgeItems(
   orgId: string,
   excludePlanId?: string
@@ -2054,70 +2054,84 @@ export async function listSharedKnowledgeItems(
     .eq("org_id", orgId)
     .eq("shared_to_school", true)
     .order("title");
-  if (excludePlanId) query = query.neq("plan_id", excludePlanId);
-  const [{ data: items }, types] = await Promise.all([query, listKnowledgeTypes()]);
+  if (excludePlanId) {
+    // plain .neq("plan_id", excludePlanId) would silently drop every
+    // school-level (plan_id null) row too, since `null <> x` is null, not
+    // true, in SQL.
+    query = query.or(`plan_id.is.null,plan_id.neq.${excludePlanId}`);
+  }
+  const [{ data: items }, types, usedIds] = await Promise.all([
+    query,
+    listKnowledgeTypes(),
+    excludePlanId ? listUsedKnowledgeItemIds(excludePlanId) : Promise.resolve(new Set<string>()),
+  ]);
   const typeLabelById = new Map(types.map((t) => [t.id, t.label]));
 
   return ((items ?? []) as unknown as Array<{
     id: string;
-    plan_id: string;
+    plan_id: string | null;
     title: string;
-    description: string;
+    description: unknown;
     type_id: string | null;
     plans: { name: string } | null;
-  }>).map((r) => ({
-    id: r.id,
-    title: r.title,
-    description: r.description,
-    typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
-    sourcePlanId: r.plan_id,
-    sourcePlanName: r.plans?.name ?? "Another plan",
-  }));
+  }>)
+    .filter((r) => !usedIds.has(r.id))
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      description: r.description as JSONContent,
+      typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
+      sourcePlanId: r.plan_id,
+      sourcePlanName: r.plan_id ? (r.plans?.name ?? "Another plan") : "School Knowledge Base",
+    }));
 }
 
-// The pool a 3A/3B/2.3 table-cell "Knowledge" link picker selects from: this
-// plan's own items (sourcePlanName null) plus every shared item elsewhere in
-// the org (sourcePlanName set) — deduplicated so an item that's both this
-// plan's own and already shared only appears once.
-export async function getKnowledgeLinkOptions(
-  planId: string,
-  orgId: string
-): Promise<KnowledgeLinkOption[]> {
-  if (DEV_MOCK) return mock.mockGetKnowledgeLinkOptions(planId, orgId);
+async function listUsedKnowledgeItemIds(planId: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("knowledge_item_uses")
+    .select("knowledge_item_id")
+    .eq("plan_id", planId);
+  return new Set((data ?? []).map((r) => r.knowledge_item_id));
+}
+
+// The pool a 3A/3B/2.3 table-cell "Knowledge" link picker selects from —
+// items this plan owns plus items it has "Used" from the school library
+// (the same owned-or-used set as listKnowledgeItems).
+export async function getKnowledgeLinkOptions(planId: string): Promise<KnowledgeLinkOption[]> {
+  if (DEV_MOCK) return mock.mockGetKnowledgeLinkOptions(planId);
 
   const supabase = await createClient();
-  const [{ data: ownItems }, { data: sharedItems }] = await Promise.all([
-    supabase.from("knowledge_items").select("id, title").eq("plan_id", planId).order("title"),
+  const [{ data: owned }, { data: used }] = await Promise.all([
+    supabase.from("knowledge_items").select("id, title").eq("plan_id", planId),
     supabase
-      .from("knowledge_items")
-      .select("id, title, plan_id, plans(name)")
-      .eq("org_id", orgId)
-      .eq("shared_to_school", true)
-      .order("title"),
+      .from("knowledge_item_uses")
+      .select("knowledge_items(id, title)")
+      .eq("plan_id", planId),
   ]);
+  const usedOptions = ((used ?? []) as unknown as Array<{
+    knowledge_items: { id: string; title: string } | null;
+  }>)
+    .map((r) => r.knowledge_items)
+    .filter((r): r is { id: string; title: string } => Boolean(r));
+  return [...(owned ?? []), ...usedOptions].sort((a, b) => a.title.localeCompare(b.title));
+}
 
-  const options = new Map<string, KnowledgeLinkOption>();
-  for (const item of ownItems ?? []) {
-    options.set(item.id, { id: item.id, title: item.title, sourcePlanName: null });
-  }
-  for (const item of (sharedItems ?? []) as unknown as Array<{
-    id: string;
-    title: string;
-    plan_id: string;
-    plans: { name: string } | null;
-  }>) {
-    if (options.has(item.id)) continue;
-    options.set(item.id, {
-      id: item.id,
-      title: item.title,
-      sourcePlanName: item.plans?.name ?? "Another plan",
-    });
-  }
-  return Array.from(options.values());
+export async function getKnowledgeItemPlanId(id: string): Promise<string | null> {
+  if (DEV_MOCK) return mock.mockGetKnowledgeItemPlanId(id);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("knowledge_items")
+    .select("plan_id")
+    .eq("id", id)
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Knowledge item not found.");
+  return data.plan_id;
 }
 
 export async function createKnowledgeItemRecord(
-  planId: string,
+  planId: string | null,
   orgId: string,
   input: KnowledgeItemInput
 ): Promise<{ id: string }> {
@@ -2185,45 +2199,35 @@ export async function deleteKnowledgeItemRecord(id: string) {
   if (error) throw new Error(error.message);
 }
 
-// "Use as variant": copies another plan's shared item into this plan as an
-// independent, editable row — keeps a forked_from_id trail back to the
-// source but never writes back to it. The copy is itself shared_to_school by
-// default, same as any newly-created item.
-export async function forkKnowledgeItemRecord(
-  sourceItemId: string,
-  planId: string,
-  orgId: string
-): Promise<{ id: string }> {
-  if (DEV_MOCK) return mock.mockForkKnowledgeItem(sourceItemId, planId, orgId);
-
-  const supabase = await createClient();
-  const { data: source, error: sourceError } = await supabase
-    .from("knowledge_items")
-    .select("title, description, type_id")
-    .eq("id", sourceItemId)
-    .single();
-  if (sourceError || !source) {
-    throw new Error(sourceError?.message ?? "Knowledge item not found.");
+// "Use": records that this plan references another item (owned by another
+// plan, or by the school) without copying it — read-only from this plan's
+// side, see listKnowledgeItems/getKnowledgeLinkOptions. Upserts with
+// ignoreDuplicates so a stray double-click can't 23505 on the
+// (plan_id, knowledge_item_id) primary key.
+export async function addKnowledgeItemUseRecord(planId: string, knowledgeItemId: string) {
+  if (DEV_MOCK) {
+    mock.mockAddKnowledgeItemUse(planId, knowledgeItemId);
+    return;
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data, error } = await supabase
-    .from("knowledge_items")
-    .insert({
-      plan_id: planId,
-      org_id: orgId,
-      type_id: source.type_id,
-      title: source.title,
-      description: source.description,
-      shared_to_school: true,
-      forked_from_id: sourceItemId,
-      created_by: user?.id ?? null,
-      updated_by: user?.id ?? null,
-    })
-    .select("id")
-    .single();
-  if (error || !data) throw new Error(error?.message ?? "Failed to create variant.");
-  return data;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("knowledge_item_uses")
+    .upsert({ plan_id: planId, knowledge_item_id: knowledgeItemId }, { ignoreDuplicates: true });
+  if (error) throw new Error(error.message);
+}
+
+export async function removeKnowledgeItemUseRecord(planId: string, knowledgeItemId: string) {
+  if (DEV_MOCK) {
+    mock.mockRemoveKnowledgeItemUse(planId, knowledgeItemId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("knowledge_item_uses")
+    .delete()
+    .eq("plan_id", planId)
+    .eq("knowledge_item_id", knowledgeItemId);
+  if (error) throw new Error(error.message);
 }

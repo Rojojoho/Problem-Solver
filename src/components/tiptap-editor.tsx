@@ -33,7 +33,11 @@ export function TiptapEditor({
       },
     },
     onBlur: ({ editor }) => {
-      onBlurSave?.(editor.getJSON());
+      // getJSON() can carry mark attrs (e.g. the Link mark's) that aren't
+      // plain objects internally — passing those straight into a Server
+      // Action trips React's "opaque temporary reference" serialization
+      // error. Round-tripping through JSON guarantees a plain-data value.
+      onBlurSave?.(JSON.parse(JSON.stringify(editor.getJSON())));
     },
   });
 

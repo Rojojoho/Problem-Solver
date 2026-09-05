@@ -24,7 +24,7 @@ export function KbPanel({ stage, articles }: KbPanelProps) {
   return (
     <div className="space-y-2">
       {relevant.map((article) => (
-        <details key={article.id} className="rounded-md border border-border">
+        <details key={article.id} open className="rounded-md border border-border">
           <summary className="cursor-pointer px-3 py-2 text-sm font-medium hover:bg-muted/50">
             {article.title}
           </summary>

@@ -382,7 +382,6 @@ function KnowledgeLinksCell({
                 onCheckedChange={(checked) => onToggle(option.id, checked === true)}
               >
                 {option.title}
-                {option.sourcePlanName && ` (${option.sourcePlanName})`}
               </DropdownMenuCheckboxItem>
             ))
           ) : (

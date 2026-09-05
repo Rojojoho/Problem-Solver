@@ -1364,13 +1364,12 @@ export function mockDeleteKbArticle(id: string) {
 
 interface MockKnowledgeItem {
   id: string;
-  plan_id: string;
+  plan_id: string | null;
   org_id: string;
   type_id: string | null;
   title: string;
-  description: string;
+  description: JSONContent;
   shared_to_school: boolean;
-  forked_from_id: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -1379,12 +1378,14 @@ interface MockKnowledgeItem {
 
 interface MockKnowledgeItemInput {
   title: string;
-  description: string;
+  description: JSONContent;
   typeId: string | null;
   sharedToSchool: boolean;
 }
 
 const knowledgeItems = new Map<string, MockKnowledgeItem>();
+// planId -> set of knowledge_item ids it has "Used" — mirrors knowledge_item_uses.
+const knowledgeItemUses = new Map<string, Set<string>>();
 
 function mockKnowledgeTypeLabel(typeId: string | null): string | null {
   if (!typeId) return null;
@@ -1397,20 +1398,11 @@ function mockKnowledgeCreatorName(userId: string | null): string {
   return orgMembers.find((m) => m.user_id === userId)?.display_name ?? "Unknown";
 }
 
-function mockKnowledgeForkSource(
-  sourceId: string | null
-): { id: string; title: string; planName: string } | null {
-  if (!sourceId) return null;
-  const source = knowledgeItems.get(sourceId);
-  if (!source) return null;
-  return {
-    id: source.id,
-    title: source.title,
-    planName: plans.get(source.plan_id)?.name ?? "another plan",
-  };
-}
-
-function toKnowledgeItemData(item: MockKnowledgeItem): KnowledgeItemData {
+function toKnowledgeItemData(
+  item: MockKnowledgeItem,
+  canEdit: boolean,
+  planName?: string | null
+): KnowledgeItemData {
   return {
     id: item.id,
     planId: item.plan_id,
@@ -1421,25 +1413,41 @@ function toKnowledgeItemData(item: MockKnowledgeItem): KnowledgeItemData {
     sharedToSchool: item.shared_to_school,
     createdByName: mockKnowledgeCreatorName(item.created_by),
     updatedByName: mockKnowledgeCreatorName(item.updated_by),
-    forkedFrom: mockKnowledgeForkSource(item.forked_from_id),
     createdAt: item.created_at,
+    canEdit,
+    usedFrom: canEdit ? null : { planName: planName ?? null },
   };
 }
 
 export function mockListKnowledgeItems(planId: string): KnowledgeItemData[] {
-  return Array.from(knowledgeItems.values())
+  const owned = Array.from(knowledgeItems.values())
     .filter((k) => k.plan_id === planId)
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
-    .map(toKnowledgeItemData);
+    .map((k) => toKnowledgeItemData(k, true));
+
+  const used = Array.from(knowledgeItemUses.get(planId) ?? [])
+    .map((itemId) => knowledgeItems.get(itemId))
+    .filter((k): k is MockKnowledgeItem => Boolean(k))
+    .map((k) =>
+      toKnowledgeItemData(k, false, k.plan_id ? (plans.get(k.plan_id)?.name ?? "Another plan") : null)
+    );
+
+  return [...owned, ...used];
 }
 
 export function mockListSharedKnowledgeItems(
   orgId: string,
   excludePlanId?: string
 ): SharedKnowledgeItemData[] {
+  const usedIds = excludePlanId ? (knowledgeItemUses.get(excludePlanId) ?? new Set<string>()) : new Set<string>();
+
   return Array.from(knowledgeItems.values())
     .filter(
-      (k) => k.org_id === orgId && k.shared_to_school && k.plan_id !== excludePlanId
+      (k) =>
+        k.org_id === orgId &&
+        k.shared_to_school &&
+        k.plan_id !== excludePlanId &&
+        !usedIds.has(k.id)
     )
     .sort((a, b) => a.title.localeCompare(b.title))
     .map((k) => ({
@@ -1448,34 +1456,30 @@ export function mockListSharedKnowledgeItems(
       description: k.description,
       typeLabel: mockKnowledgeTypeLabel(k.type_id),
       sourcePlanId: k.plan_id,
-      sourcePlanName: plans.get(k.plan_id)?.name ?? "Another plan",
+      sourcePlanName: k.plan_id
+        ? (plans.get(k.plan_id)?.name ?? "Another plan")
+        : "School Knowledge Base",
     }));
 }
 
-export function mockGetKnowledgeLinkOptions(
-  planId: string,
-  orgId: string
-): KnowledgeLinkOption[] {
-  const options = new Map<string, KnowledgeLinkOption>();
-  for (const k of knowledgeItems.values()) {
-    if (k.plan_id === planId) {
-      options.set(k.id, { id: k.id, title: k.title, sourcePlanName: null });
-    }
-  }
-  for (const k of knowledgeItems.values()) {
-    if (k.org_id === orgId && k.shared_to_school && !options.has(k.id)) {
-      options.set(k.id, {
-        id: k.id,
-        title: k.title,
-        sourcePlanName: plans.get(k.plan_id)?.name ?? "Another plan",
-      });
-    }
-  }
-  return Array.from(options.values()).sort((a, b) => a.title.localeCompare(b.title));
+export function mockGetKnowledgeLinkOptions(planId: string): KnowledgeLinkOption[] {
+  const owned = Array.from(knowledgeItems.values()).filter((k) => k.plan_id === planId);
+  const used = Array.from(knowledgeItemUses.get(planId) ?? [])
+    .map((itemId) => knowledgeItems.get(itemId))
+    .filter((k): k is MockKnowledgeItem => Boolean(k));
+  return [...owned, ...used]
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map((k) => ({ id: k.id, title: k.title }));
+}
+
+export function mockGetKnowledgeItemPlanId(id: string): string | null {
+  const item = knowledgeItems.get(id);
+  if (!item) throw new Error("Knowledge item not found.");
+  return item.plan_id;
 }
 
 export function mockCreateKnowledgeItem(
-  planId: string,
+  planId: string | null,
   orgId: string,
   input: MockKnowledgeItemInput
 ) {
@@ -1489,7 +1493,6 @@ export function mockCreateKnowledgeItem(
     title: input.title,
     description: input.description,
     shared_to_school: input.sharedToSchool,
-    forked_from_id: null,
     created_by: MOCK_USER_ID,
     updated_by: MOCK_USER_ID,
     created_at: timestamp,
@@ -1513,25 +1516,12 @@ export function mockDeleteKnowledgeItem(id: string) {
   knowledgeItems.delete(id);
 }
 
-export function mockForkKnowledgeItem(sourceItemId: string, planId: string, orgId: string) {
-  const source = knowledgeItems.get(sourceItemId);
-  if (!source) throw new Error("Knowledge item not found.");
+export function mockAddKnowledgeItemUse(planId: string, knowledgeItemId: string) {
+  const set = knowledgeItemUses.get(planId) ?? new Set<string>();
+  set.add(knowledgeItemId);
+  knowledgeItemUses.set(planId, set);
+}
 
-  const id = crypto.randomUUID();
-  const timestamp = now();
-  knowledgeItems.set(id, {
-    id,
-    plan_id: planId,
-    org_id: orgId,
-    type_id: source.type_id,
-    title: source.title,
-    description: source.description,
-    shared_to_school: true,
-    forked_from_id: sourceItemId,
-    created_by: MOCK_USER_ID,
-    updated_by: MOCK_USER_ID,
-    created_at: timestamp,
-    updated_at: timestamp,
-  });
-  return { id };
+export function mockRemoveKnowledgeItemUse(planId: string, knowledgeItemId: string) {
+  knowledgeItemUses.get(planId)?.delete(knowledgeItemId);
 }

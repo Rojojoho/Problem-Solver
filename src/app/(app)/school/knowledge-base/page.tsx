@@ -1,11 +1,12 @@
 import { getCurrentOrg } from "@/lib/org";
-import { listSharedKnowledgeItems, getPageSetting } from "@/lib/db";
+import { listSharedKnowledgeItems, listKnowledgeTypes, getPageSetting } from "@/lib/db";
 import { KnowledgeBaseView } from "@/components/school/knowledge-base-view";
 
 export default async function SchoolKnowledgeBasePage() {
   const { orgId } = await getCurrentOrg();
-  const [items, pageSettings] = await Promise.all([
+  const [items, knowledgeTypes, pageSettings] = await Promise.all([
     listSharedKnowledgeItems(orgId),
+    listKnowledgeTypes(),
     getPageSetting("knowledge_base"),
   ]);
 
@@ -18,7 +19,7 @@ export default async function SchoolKnowledgeBasePage() {
         )}
       </div>
 
-      <KnowledgeBaseView items={items} />
+      <KnowledgeBaseView items={items} knowledgeTypes={knowledgeTypes} />
     </div>
   );
 }

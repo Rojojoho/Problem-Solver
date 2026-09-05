@@ -343,10 +343,9 @@ function LinkCell({
     causeOptions: { id: string; label: string }[];
     measureSuggestions: string[];
   } | null>(null);
-  // The Knowledge pool (this plan's own items plus every shared item
-  // elsewhere in the school) has no SSR-provided prop to seed from — it
-  // starts empty and is only populated once the combobox is opened, same as
-  // liveOptions above once it's actually fetched.
+  // This plan's own Knowledge items have no SSR-provided prop to seed
+  // from — it starts empty and is only populated once the combobox is
+  // opened, same as liveOptions above once it's actually fetched.
   const [knowledgeOptions, setKnowledgeOptions] = useState<KnowledgeLinkOption[]>([]);
   const options = liveOptions ?? { causeOptions, measureSuggestions };
   const causeLabelById = new Map(options.causeOptions.map((c) => [c.id, c.label]));
@@ -524,7 +523,6 @@ function LinkCell({
               {filteredKnowledge.map((item) => (
                 <ComboboxItem key={item.id} value={`knowledge:${item.id}`}>
                   {item.title}
-                  {item.sourcePlanName && ` (${item.sourcePlanName})`}
                 </ComboboxItem>
               ))}
             </ComboboxGroup>

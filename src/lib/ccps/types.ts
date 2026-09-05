@@ -298,39 +298,44 @@ export type KnowledgeTypeOption = LabeledOption;
 
 export interface KnowledgeItemData {
   id: string;
-  planId: string;
+  // null = owned by the school itself (created from School > Knowledge
+  // Base), not any one plan.
+  planId: string | null;
   title: string;
-  description: string;
+  description: JSONContent;
   typeId: string | null;
   typeLabel: string | null;
   sharedToSchool: boolean;
   createdByName: string;
   updatedByName: string;
-  forkedFrom: { id: string; title: string; planName: string } | null;
   createdAt: string;
+  // Whether the plan/page currently viewing this item is the one that owns
+  // it (and can therefore edit/delete it) — false for an item "Used" from
+  // another plan or the school library, which is shown read-only instead.
+  canEdit: boolean;
+  // Present only when canEdit is false. planName is null when the item is
+  // owned by the school itself rather than another plan.
+  usedFrom: { planName: string | null } | null;
 }
 
-// The pool a 3A/3B/2.3 table-cell "Knowledge" picker (or the Knowledge tab's
-// "From school library" browser) selects from: this plan's own items plus
-// every other plan's shared_to_school items in the same org.
-// `sourcePlanName` is null for the current plan's own items, and the owning
-// plan's name otherwise — used to label cross-plan entries in pickers.
+// The pool a 3A/3B/2.3 table-cell "Knowledge" picker selects from: items
+// this plan owns plus items it has explicitly "Used" from the school
+// library — the same owned-or-used set shown in the Knowledge tab itself.
 export interface KnowledgeLinkOption {
   id: string;
   title: string;
-  sourcePlanName: string | null;
 }
 
 // The richer shape shown in the Knowledge tab's "From school library"
-// browser (unlike KnowledgeLinkOption, this always has a source plan since
-// it never includes the current plan's own items — see
-// listSharedKnowledgeItems).
+// browser (unlike KnowledgeLinkOption, this never includes the current
+// plan's own items — see listSharedKnowledgeItems). sourcePlanId/Name are
+// null when the item is owned by the school itself.
 export interface SharedKnowledgeItemData {
   id: string;
   title: string;
-  description: string;
+  description: JSONContent;
   typeLabel: string | null;
-  sourcePlanId: string;
+  sourcePlanId: string | null;
   sourcePlanName: string;
 }
 

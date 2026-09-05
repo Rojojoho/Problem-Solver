@@ -446,11 +446,11 @@ export interface Database {
       knowledge_items: {
         Row: {
           id: string;
-          plan_id: string;
+          plan_id: string | null;
           org_id: string;
           type_id: string | null;
           title: string;
-          description: string;
+          description: unknown;
           shared_to_school: boolean;
           forked_from_id: string | null;
           created_by: string | null;
@@ -461,11 +461,19 @@ export interface Database {
         Insert: Partial<
           Database["public"]["Tables"]["knowledge_items"]["Row"]
         > & {
-          plan_id: string;
           org_id: string;
           title: string;
         };
         Update: Partial<Database["public"]["Tables"]["knowledge_items"]["Row"]>;
+      };
+      knowledge_item_uses: {
+        Row: {
+          plan_id: string;
+          knowledge_item_id: string;
+          added_at: string;
+        };
+        Insert: Database["public"]["Tables"]["knowledge_item_uses"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["knowledge_item_uses"]["Row"]>;
       };
       page_settings: {
         Row: {

@@ -421,7 +421,6 @@ function LinkPicker({
                     }
                   >
                     {option.title}
-                    {option.sourcePlanName && ` (${option.sourcePlanName})`}
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuGroup>

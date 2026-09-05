@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type {
@@ -11,15 +11,16 @@ import type {
   KbArticleData,
   KnowledgeItemData,
   KnowledgeTypeOption,
+  PublicPlanBundle,
   StageFieldSummary,
 } from "@/lib/ccps/types";
 import { ChecklistPanel } from "@/components/plan/checklist-panel";
-import { ExemplarPanel } from "@/components/plan/exemplar-panel";
+import { ExemplarPanel, EXEMPLAR_NONE } from "@/components/plan/exemplar-panel";
 import { FeedbackPanel } from "@/components/plan/feedback-panel";
 import { KbPanel } from "@/components/plan/kb-panel";
 import { KnowledgePanel } from "@/components/plan/knowledge-panel";
-import { AskPanel } from "@/components/plan/ask-panel";
 import { TagsPanel } from "@/components/plan/tags-panel";
+import { getExemplarBundle } from "@/app/(app)/plans/[id]/actions";
 
 // The Summary tab isn't a real CCPS stage (it's a rollup of several), and
 // "details" isn't one either (it's the plan-wide Background/Tags tab) — both
@@ -75,6 +76,27 @@ export function SidePanel({
     }
   }, [isDetails]);
 
+  // Owned here rather than inside ExemplarPanel: while a newly-selected
+  // stage's bundle is still loading, `stageHasFields` below goes false for
+  // a moment (bundles[stage] isn't populated yet in plan-workspace.tsx),
+  // which swaps ExemplarPanel out for <NotAvailable /> and back — an
+  // actual unmount/remount, not just a re-render. Any state ExemplarPanel
+  // held itself (which exemplar was selected, its fetched bundle) would be
+  // thrown away on every single stage switch; keeping it in this
+  // never-unmounted parent instead lets the selection survive.
+  const [selectedExemplarId, setSelectedExemplarId] = useState(EXEMPLAR_NONE);
+  const [exemplarBundles, setExemplarBundles] = useState<Record<string, PublicPlanBundle>>({});
+  const [isExemplarPending, startExemplarTransition] = useTransition();
+
+  function handleSelectExemplar(id: string) {
+    setSelectedExemplarId(id);
+    if (id === EXEMPLAR_NONE || exemplarBundles[id]) return;
+    startExemplarTransition(async () => {
+      const bundle = await getExemplarBundle(id);
+      if (bundle) setExemplarBundles((prev) => ({ ...prev, [id]: bundle }));
+    });
+  }
+
   return (
     <Tabs value={panelTab} onValueChange={(value) => setPanelTab(value ?? panelTab)}>
       <TabsList variant="line" className="w-full flex-wrap">
@@ -98,9 +120,6 @@ export function SidePanel({
         <TabsTrigger value="knowledge" className="flex-1">
           Knowledge
         </TabsTrigger>
-        <TabsTrigger value="ask" className="flex-1">
-          Ask
-        </TabsTrigger>
       </TabsList>
 
       {isDetails && (
@@ -123,14 +142,15 @@ export function SidePanel({
 
       <TabsContent value="exemplar" className="mt-4">
         {stageHasFields ? (
-          // Same reasoning as ChecklistPanel above — its selected-exemplar
-          // state is also seeded once and needs to reset per stage.
           <ExemplarPanel
-            key={stage}
             stage={stage}
             exemplars={exemplars}
             fields={fields}
             headings={headings}
+            selectedId={selectedExemplarId}
+            onSelect={handleSelectExemplar}
+            detail={selectedExemplarId === EXEMPLAR_NONE ? null : (exemplarBundles[selectedExemplarId] ?? null)}
+            isLoading={isExemplarPending}
           />
         ) : (
           <NotAvailable />
@@ -147,10 +167,6 @@ export function SidePanel({
 
       <TabsContent value="knowledge" className="mt-4">
         <KnowledgePanel planId={planId} items={knowledgeItems} knowledgeTypes={knowledgeTypes} />
-      </TabsContent>
-
-      <TabsContent value="ask" className="mt-4">
-        <AskPanel />
       </TabsContent>
     </Tabs>
   );

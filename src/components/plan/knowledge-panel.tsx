@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Pencil, Plus, X } from "lucide-react";
+import type { JSONContent } from "@tiptap/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,11 +26,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { TiptapEditor } from "@/components/tiptap-editor";
+import { EMPTY_DOC } from "@/lib/ccps/constants";
 import {
   createKnowledgeItem,
   deleteKnowledgeItem,
-  forkKnowledgeItem,
+  addKnowledgeItemUse,
+  removeKnowledgeItemUse,
   listSharedKnowledgeItemsForPlan,
   updateKnowledgeItem,
 } from "@/app/(app)/plans/[id]/actions";
@@ -38,34 +41,6 @@ import type {
   KnowledgeTypeOption,
   SharedKnowledgeItemData,
 } from "@/lib/ccps/types";
-
-const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
-
-// Descriptions are plain text, not rich text — this is the only "links"
-// support they get: any http(s) URL renders as a clickable link. Exported
-// for reuse by the School > Knowledge Base page (knowledge-base-view.tsx).
-export function Linkified({ text }: { text: string }) {
-  const parts = text.split(URL_PATTERN);
-  return (
-    <>
-      {parts.map((part, i) =>
-        /^https?:\/\//.test(part) ? (
-          <a
-            key={i}
-            href={part}
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary underline underline-offset-2"
-          >
-            {part}
-          </a>
-        ) : (
-          <Fragment key={i}>{part}</Fragment>
-        )
-      )}
-    </>
-  );
-}
 
 interface KnowledgePanelProps {
   planId: string;
@@ -88,6 +63,18 @@ export function KnowledgePanel({ planId, items, knowledgeTypes }: KnowledgePanel
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Couldn't delete that item.");
+      }
+    });
+  }
+
+  function handleRemoveUse(item: KnowledgeItemData) {
+    startTransition(async () => {
+      try {
+        await removeKnowledgeItemUse(planId, item.id);
+        toast.success("Removed from this plan.");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Couldn't remove that item.");
       }
     });
   }
@@ -128,34 +115,55 @@ export function KnowledgePanel({ planId, items, knowledgeTypes }: KnowledgePanel
                     <span className="text-sm font-medium">{item.title}</span>
                     {item.typeLabel && <Badge variant="outline">{item.typeLabel}</Badge>}
                   </div>
-                  {!item.sharedToSchool && (
-                    <p className="text-xs text-muted-foreground">Not shared with school</p>
+                  {!item.canEdit ? (
+                    <p className="text-xs text-muted-foreground">
+                      Used from: {item.usedFrom?.planName ?? "School Knowledge Base"}
+                    </p>
+                  ) : (
+                    !item.sharedToSchool && (
+                      <p className="text-xs text-muted-foreground">Not shared with school</p>
+                    )
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    aria-label="Edit"
-                    onClick={() => setEditing(item)}
-                  >
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    aria-label="Delete"
-                    disabled={isPending}
-                    onClick={() => handleDelete(item)}
-                  >
-                    <X className="size-3.5" />
-                  </Button>
+                  {item.canEdit ? (
+                    <>
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        aria-label="Edit"
+                        onClick={() => setEditing(item)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        aria-label="Delete"
+                        disabled={isPending}
+                        onClick={() => handleDelete(item)}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      disabled={isPending}
+                      onClick={() => handleRemoveUse(item)}
+                    >
+                      Remove
+                    </Button>
+                  )}
                 </div>
               </div>
               {item.description && (
-                <p className="text-sm break-words whitespace-pre-wrap">
-                  <Linkified text={item.description} />
-                </p>
+                <TiptapEditor
+                  content={item.description}
+                  editable={false}
+                  className="text-sm"
+                />
               )}
             </div>
           ))}
@@ -191,8 +199,8 @@ function KnowledgeFields({
 }: {
   title: string;
   setTitle: (value: string) => void;
-  description: string;
-  setDescription: (value: string) => void;
+  description: JSONContent;
+  setDescription: (value: JSONContent) => void;
   typeId: string | null;
   setTypeId: (value: string | null) => void;
   shared: boolean;
@@ -213,11 +221,9 @@ function KnowledgeFields({
       </div>
       <div>
         <Label htmlFor="knowledge-description">Description</Label>
-        <Textarea
-          id="knowledge-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={4}
+        <TiptapEditor
+          content={description}
+          onBlurSave={setDescription}
           className="mt-1"
         />
       </div>
@@ -298,7 +304,7 @@ function NewKnowledgeForm({
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState<JSONContent>(EMPTY_DOC);
   const [typeId, setTypeId] = useState<string | null>(knowledgeTypes[0]?.id ?? null);
   const [shared, setShared] = useState(true);
   const [pending, setPending] = useState(false);
@@ -361,7 +367,7 @@ function EditKnowledgeDialog({
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(item.title);
-  const [description, setDescription] = useState(item.description);
+  const [description, setDescription] = useState<JSONContent>(item.description);
   const [typeId, setTypeId] = useState<string | null>(item.typeId);
   const [shared, setShared] = useState(item.sharedToSchool);
   const [pending, setPending] = useState(false);
@@ -422,7 +428,7 @@ function SchoolLibraryBrowser({ planId, onDone }: { planId: string; onDone: () =
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<SharedKnowledgeItemData[] | null>(null);
-  const [forkingId, setForkingId] = useState<string | null>(null);
+  const [usingId, setUsingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -445,16 +451,16 @@ function SchoolLibraryBrowser({ planId, onDone }: { planId: string; onDone: () =
     item.title.toLowerCase().includes(query.trim().toLowerCase())
   );
 
-  async function handleUseAsVariant(item: SharedKnowledgeItemData) {
-    setForkingId(item.id);
+  async function handleUse(item: SharedKnowledgeItemData) {
+    setUsingId(item.id);
     try {
-      await forkKnowledgeItem(planId, item.id);
-      toast.success(`Added "${item.title}" as a variant.`);
+      await addKnowledgeItemUse(planId, item.id);
+      toast.success(`Added "${item.title}" to this plan.`);
       router.refresh();
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't add that variant.");
-      setForkingId(null);
+      toast.error(err instanceof Error ? err.message : "Couldn't add that item.");
+      setUsingId(null);
     }
   }
 
@@ -484,15 +490,17 @@ function SchoolLibraryBrowser({ planId, onDone }: { planId: string; onDone: () =
                   type="button"
                   size="xs"
                   variant="outline"
-                  disabled={forkingId === item.id}
-                  onClick={() => handleUseAsVariant(item)}
+                  disabled={usingId === item.id}
+                  onClick={() => handleUse(item)}
                 >
-                  Use as variant
+                  Use
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">From: {item.sourcePlanName}</p>
               {item.description && (
-                <p className="line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
+                <div className="line-clamp-2 text-xs text-muted-foreground">
+                  <TiptapEditor content={item.description} editable={false} />
+                </div>
               )}
             </div>
           ))
