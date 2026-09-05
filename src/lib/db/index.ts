@@ -1474,6 +1474,10 @@ export async function addFeedbackRecord(
   if (error) throw new Error(error.message);
 }
 
+// Goes through the rename_plan() RPC rather than a direct `update plans` —
+// it also syncs snapshot_name on every published_plans row for this plan
+// (including any marked as an Exemplar), which a regular user has no other
+// way to touch (published_plans only grants UPDATE to admins).
 export async function renamePlanRecord(planId: string, name: string) {
   if (DEV_MOCK) {
     mock.mockRenamePlan(planId, name);
@@ -1481,10 +1485,7 @@ export async function renamePlanRecord(planId: string, name: string) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("plans")
-    .update({ name, updated_at: new Date().toISOString() })
-    .eq("id", planId);
+  const { error } = await supabase.rpc("rename_plan", { p_plan_id: planId, p_name: name });
   if (error) throw new Error(error.message);
 }
 

@@ -695,6 +695,9 @@ export function mockRenamePlan(id: string, name: string) {
   if (!plan) return;
   plan.name = name;
   plan.updated_at = now();
+  for (const published of publishedPlans.values()) {
+    if (published.sourcePlanId === id) published.snapshotName = name;
+  }
 }
 
 export function mockDeletePlan(id: string) {
