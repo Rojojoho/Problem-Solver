@@ -1967,6 +1967,25 @@ async function resolveProfileNames(userIds: string[]): Promise<Map<string, strin
   return map;
 }
 
+// Resolves plan names for knowledge attribution via a security-definer RPC
+// rather than an embedded `plans(name)` join — plans SELECT RLS is now
+// Owner/Collaborator/Admin only (0037_plan_owner_and_collaborators.sql),
+// and an embedded join's RLS check silently drops the *whole* knowledge
+// row when the viewer can't read its source plan. Knowledge is deliberately
+// school-wide regardless of plan access, so this bypasses that (scoped to
+// the caller's own org by the RPC itself — see 0040).
+async function resolvePlanNames(planIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!planIds.length) return map;
+
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("knowledge_plan_names", { p_ids: planIds });
+  for (const row of (data ?? []) as Array<{ id: string; name: string }>) {
+    map.set(row.id, row.name);
+  }
+  return map;
+}
+
 // This plan's own Knowledge items, plus items it has explicitly "Used"
 // from the school library (see knowledge_item_uses) — the latter are
 // read-only from here (canEdit: false). See listSharedKnowledgeItems below
@@ -1981,7 +2000,7 @@ export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemD
     supabase.from("knowledge_items").select(ownedCols).eq("plan_id", planId).order("created_at"),
     supabase
       .from("knowledge_item_uses")
-      .select(`added_at, knowledge_items(${ownedCols}, plans(name))`)
+      .select(`added_at, knowledge_items(${ownedCols})`)
       .eq("plan_id", planId),
     listKnowledgeTypes(),
   ]);
@@ -1999,11 +2018,9 @@ export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemD
     created_at: string;
   };
   const ownedRows = (owned ?? []) as Row[];
-  const usedRows = ((used ?? []) as unknown as Array<{
-    knowledge_items: (Row & { plans: { name: string } | null }) | null;
-  }>)
+  const usedRows = ((used ?? []) as unknown as Array<{ knowledge_items: Row | null }>)
     .map((r) => r.knowledge_items)
-    .filter((r): r is Row & { plans: { name: string } | null } => Boolean(r));
+    .filter((r): r is Row => Boolean(r));
 
   const userIds = Array.from(
     new Set(
@@ -2012,7 +2029,13 @@ export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemD
         .filter((id): id is string => Boolean(id))
     )
   );
-  const profileNamesById = await resolveProfileNames(userIds);
+  const usedPlanIds = Array.from(
+    new Set(usedRows.map((r) => r.plan_id).filter((id): id is string => Boolean(id)))
+  );
+  const [profileNamesById, planNamesById] = await Promise.all([
+    resolveProfileNames(userIds),
+    resolvePlanNames(usedPlanIds),
+  ]);
 
   function toData(r: Row, canEdit: boolean, planName: string | null | undefined): KnowledgeItemData {
     return {
@@ -2033,7 +2056,7 @@ export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemD
 
   return [
     ...ownedRows.map((r) => toData(r, true, undefined)),
-    ...usedRows.map((r) => toData(r, false, r.plans?.name)),
+    ...usedRows.map((r) => toData(r, false, r.plan_id ? (planNamesById.get(r.plan_id) ?? "Another plan") : null)),
   ];
 }
 
@@ -2050,7 +2073,7 @@ export async function listSharedKnowledgeItems(
   const supabase = await createClient();
   let query = supabase
     .from("knowledge_items")
-    .select("id, plan_id, title, description, type_id, plans(name)")
+    .select("id, plan_id, title, description, type_id")
     .eq("org_id", orgId)
     .eq("shared_to_school", true)
     .order("title");
@@ -2067,23 +2090,26 @@ export async function listSharedKnowledgeItems(
   ]);
   const typeLabelById = new Map(types.map((t) => [t.id, t.label]));
 
-  return ((items ?? []) as unknown as Array<{
+  const rows = ((items ?? []) as unknown as Array<{
     id: string;
     plan_id: string | null;
     title: string;
     description: unknown;
     type_id: string | null;
-    plans: { name: string } | null;
-  }>)
-    .filter((r) => !usedIds.has(r.id))
-    .map((r) => ({
-      id: r.id,
-      title: r.title,
-      description: r.description as JSONContent,
-      typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
-      sourcePlanId: r.plan_id,
-      sourcePlanName: r.plan_id ? (r.plans?.name ?? "Another plan") : "School Knowledge Base",
-    }));
+  }>).filter((r) => !usedIds.has(r.id));
+
+  const planNamesById = await resolvePlanNames(
+    Array.from(new Set(rows.map((r) => r.plan_id).filter((id): id is string => Boolean(id))))
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.description as JSONContent,
+    typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
+    sourcePlanId: r.plan_id,
+    sourcePlanName: r.plan_id ? (planNamesById.get(r.plan_id) ?? "Another plan") : "School Knowledge Base",
+  }));
 }
 
 async function listUsedKnowledgeItemIds(planId: string): Promise<Set<string>> {
