@@ -12,6 +12,7 @@ import type {
   KbArticleData,
   KnowledgeItemData,
   KnowledgeTypeOption,
+  OrgMemberSummary,
   StageBundle,
   StageData,
   WorkspaceTabPositions,
@@ -57,6 +58,10 @@ interface PlanWorkspaceProps {
   shareToken: string | null;
   tabPositions: WorkspaceTabPositions;
   headings: DiagramHeadings;
+  ownerId: string | null;
+  collaboratorIds: string[];
+  orgMembers: OrgMemberSummary[];
+  canManagePlan: boolean;
 }
 
 export function PlanWorkspace({
@@ -76,6 +81,10 @@ export function PlanWorkspace({
   shareToken,
   tabPositions,
   headings,
+  ownerId,
+  collaboratorIds,
+  orgMembers,
+  canManagePlan,
 }: PlanWorkspaceProps) {
   const [stage, setStage] = useState<WorkspaceTab>(initialStage);
   const [bundles, setBundles] = useState<Partial<Record<CcpsStage, StageBundle>>>({
@@ -287,7 +296,15 @@ export function PlanWorkspace({
             if (t.kind === "details") {
               return (
                 <TabsContent key="details" value="details" className="mt-6" keepMounted>
-                  <PlanDetailsForm planId={planId} background={background} />
+                  <PlanDetailsForm
+                    planId={planId}
+                    planName={planName}
+                    background={background}
+                    ownerId={ownerId}
+                    collaboratorIds={collaboratorIds}
+                    orgMembers={orgMembers}
+                    canManagePlan={canManagePlan}
+                  />
                 </TabsContent>
               );
             }

@@ -82,6 +82,7 @@ export interface Database {
           org_id: string;
           name: string;
           created_by: string;
+          owner_id: string | null;
           current_stage: CcpsStage;
           background: unknown | null;
           created_at: string;
@@ -95,6 +96,15 @@ export interface Database {
           created_by: string;
         };
         Update: Partial<Database["public"]["Tables"]["plans"]["Row"]>;
+      };
+      plan_collaborators: {
+        Row: {
+          plan_id: string;
+          user_id: string;
+          added_at: string;
+        };
+        Insert: Database["public"]["Tables"]["plan_collaborators"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["plan_collaborators"]["Row"]>;
       };
       plan_stage_responses: {
         Row: {

@@ -68,6 +68,9 @@ import {
   deleteKnowledgeItemRecord,
   forkKnowledgeItemRecord,
   type KnowledgeItemInput,
+  updatePlanOwnerRecord,
+  addPlanCollaboratorRecord,
+  removePlanCollaboratorRecord,
 } from "@/lib/db";
 
 export interface PlanExport {
@@ -469,6 +472,37 @@ export async function renamePlan(planId: string, name: string) {
   await renamePlanRecord(planId, trimmed);
   revalidatePath(`/plans/${planId}`);
   revalidatePath("/plans");
+}
+
+// Changing the Owner or editing the Collaborator list is a stricter check
+// than "can access this plan" (which RLS already enforces) — only the
+// plan's current owner or the school's Admin may do either, checked here
+// at the app layer since DEV_MOCK has no RLS to fall back on either way.
+async function requirePlanManager(planId: string) {
+  const [plan, org] = await Promise.all([getPlan(planId), getCurrentOrg()]);
+  if (!plan) throw new Error("Plan not found.");
+  if (plan.owner_id !== org.userId && org.role !== "owner") {
+    throw new Error("Only the plan's owner or the school's Admin can do that.");
+  }
+  return plan;
+}
+
+export async function updatePlanOwner(planId: string, newOwnerId: string) {
+  await requirePlanManager(planId);
+  await updatePlanOwnerRecord(planId, newOwnerId);
+  revalidatePath(`/plans/${planId}`);
+}
+
+export async function addPlanCollaborator(planId: string, userId: string) {
+  await requirePlanManager(planId);
+  await addPlanCollaboratorRecord(planId, userId);
+  revalidatePath(`/plans/${planId}`);
+}
+
+export async function removePlanCollaborator(planId: string, userId: string) {
+  await requirePlanManager(planId);
+  await removePlanCollaboratorRecord(planId, userId);
+  revalidatePath(`/plans/${planId}`);
 }
 
 export async function saveBackground(planId: string, content: JSONContent) {

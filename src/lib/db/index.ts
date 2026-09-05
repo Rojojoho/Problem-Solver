@@ -382,12 +382,12 @@ export async function createPlanRecord(
   userId: string,
   name: string
 ) {
-  if (DEV_MOCK) return mock.mockCreatePlan(orgId, name);
+  if (DEV_MOCK) return mock.mockCreatePlan(orgId, name, userId);
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("plans")
-    .insert({ org_id: orgId, name, created_by: userId })
+    .insert({ org_id: orgId, name, created_by: userId, owner_id: userId })
     .select("id")
     .single();
 
@@ -425,11 +425,64 @@ export async function getPlan(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("plans")
-    .select("id, org_id, name, current_stage, background, share_token, share_enabled")
+    .select("id, org_id, name, owner_id, current_stage, background, share_token, share_enabled")
     .eq("id", id)
     .single();
   if (!data) return null;
   return { ...data, background: data.background as JSONContent | null };
+}
+
+export async function updatePlanOwnerRecord(planId: string, ownerId: string) {
+  if (DEV_MOCK) {
+    mock.mockUpdatePlanOwner(planId, ownerId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("plans").update({ owner_id: ownerId }).eq("id", planId);
+  if (error) throw new Error(error.message);
+}
+
+// Just the ids — the caller already has (or fetches) listOrgMembers(orgId)
+// for the owner/collaborator pickers, so resolving display names here too
+// would just be a redundant second lookup of the same data.
+export async function listPlanCollaboratorIds(planId: string): Promise<string[]> {
+  if (DEV_MOCK) return mock.mockListPlanCollaboratorIds(planId);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("plan_collaborators")
+    .select("user_id")
+    .eq("plan_id", planId);
+  return (data ?? []).map((row) => row.user_id);
+}
+
+export async function addPlanCollaboratorRecord(planId: string, userId: string) {
+  if (DEV_MOCK) {
+    mock.mockAddPlanCollaborator(planId, userId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("plan_collaborators")
+    .upsert({ plan_id: planId, user_id: userId }, { onConflict: "plan_id,user_id" });
+  if (error) throw new Error(error.message);
+}
+
+export async function removePlanCollaboratorRecord(planId: string, userId: string) {
+  if (DEV_MOCK) {
+    mock.mockRemovePlanCollaborator(planId, userId);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("plan_collaborators")
+    .delete()
+    .eq("plan_id", planId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
 }
 
 export async function enablePlanShareRecord(planId: string): Promise<string | null> {

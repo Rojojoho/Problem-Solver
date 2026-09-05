@@ -230,12 +230,24 @@ interface MockPlan {
   id: string;
   org_id: string;
   name: string;
+  owner_id: string | null;
   current_stage: CcpsStage;
   background: JSONContent | null;
   created_at: string;
   updated_at: string;
   share_token: string | null;
   share_enabled: boolean;
+}
+
+// key: `${planId}:${userId}`
+const planCollaborators = new Set<string>();
+
+function mockCanAccessPlan(plan: MockPlan, userId: string): boolean {
+  if (plan.owner_id === userId) return true;
+  if (planCollaborators.has(`${plan.id}:${userId}`)) return true;
+  return orgMembers.some(
+    (m) => m.org_id === plan.org_id && m.user_id === userId && m.role === "owner"
+  );
 }
 
 interface MockFeedback {
@@ -582,19 +594,26 @@ function now() {
   return new Date().toISOString();
 }
 
+// Filtered to plans the dev user can access (owner/collaborator/org-admin)
+// for consistency with the real RLS — though since the DEV_MOCK user is
+// always seeded as the org's Admin (see `admins`/org_members seed above),
+// this can't actually be observed restricting anything here; it's
+// implemented for parity, not because it's independently testable in
+// DEV_MOCK.
 export function mockListPlans(orgId: string) {
   return Array.from(plans.values())
-    .filter((p) => p.org_id === orgId)
+    .filter((p) => p.org_id === orgId && mockCanAccessPlan(p, MOCK_USER_ID))
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
 
-export function mockCreatePlan(orgId: string, name: string) {
+export function mockCreatePlan(orgId: string, name: string, ownerId: string) {
   const id = crypto.randomUUID();
   const timestamp = now();
   plans.set(id, {
     id,
     org_id: orgId,
     name,
+    owner_id: ownerId,
     current_stage: "PI",
     background: null,
     created_at: timestamp,
@@ -608,7 +627,28 @@ export function mockCreatePlan(orgId: string, name: string) {
 }
 
 export function mockGetPlan(id: string) {
-  return plans.get(id) ?? null;
+  const plan = plans.get(id);
+  if (!plan || !mockCanAccessPlan(plan, MOCK_USER_ID)) return null;
+  return plan;
+}
+
+export function mockUpdatePlanOwner(id: string, ownerId: string) {
+  const plan = plans.get(id);
+  if (plan) plan.owner_id = ownerId;
+}
+
+export function mockListPlanCollaboratorIds(planId: string): string[] {
+  return Array.from(planCollaborators)
+    .filter((key) => key.startsWith(`${planId}:`))
+    .map((key) => key.slice(planId.length + 1));
+}
+
+export function mockAddPlanCollaborator(planId: string, userId: string) {
+  planCollaborators.add(`${planId}:${userId}`);
+}
+
+export function mockRemovePlanCollaborator(planId: string, userId: string) {
+  planCollaborators.delete(`${planId}:${userId}`);
 }
 
 export function mockEnablePlanShare(id: string): string | null {

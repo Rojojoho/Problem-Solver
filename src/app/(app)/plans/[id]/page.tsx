@@ -18,6 +18,9 @@ import {
   listStages,
   getWorkspaceTabPositions,
   getDiagramHeadings,
+  listOrgMembers,
+  listPlanCollaboratorIds,
+  getCurrentOrg,
 } from "@/lib/db";
 import { EMPTY_DOC } from "@/lib/ccps/constants";
 import type { StageBundle } from "@/lib/ccps/types";
@@ -69,6 +72,9 @@ export default async function PlanPage({
     stages,
     tabPositions,
     headings,
+    orgMembers,
+    collaboratorIds,
+    currentOrg,
   ] = await Promise.all([
     fieldsPromise,
     getStageResponses(id, stage),
@@ -94,7 +100,12 @@ export default async function PlanPage({
     listStages(),
     getWorkspaceTabPositions(),
     getDiagramHeadings(),
+    listOrgMembers(plan.org_id),
+    listPlanCollaboratorIds(id),
+    getCurrentOrg(),
   ]);
+
+  const canManagePlan = plan.owner_id === currentOrg.userId || currentOrg.role === "owner";
 
   const initialBundle: StageBundle = {
     fields,
@@ -132,6 +143,10 @@ export default async function PlanPage({
       shareToken={plan.share_token}
       tabPositions={tabPositions}
       headings={headings}
+      ownerId={plan.owner_id}
+      collaboratorIds={collaboratorIds}
+      orgMembers={orgMembers}
+      canManagePlan={canManagePlan}
     />
   );
 }
