@@ -1,20 +1,23 @@
 import { requireOrgOwner } from "@/lib/org";
-import { listOrgMembers, listPendingInvites } from "@/lib/db";
+import { listOrgMembers, listPendingInvites, getPageSetting } from "@/lib/db";
 import { UsersView } from "@/components/school/users-view";
 import { inviteUser, cancelInvite, removeSchoolUser } from "@/app/(app)/school/users/actions";
 
 export default async function SchoolUsersPage() {
-  const { orgId, orgName } = await requireOrgOwner();
-  const [members, invites] = await Promise.all([
+  const { orgId } = await requireOrgOwner();
+  const [members, invites, pageSettings] = await Promise.all([
     listOrgMembers(orgId),
     listPendingInvites(orgId),
+    getPageSetting("users"),
   ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-        <p className="text-sm text-muted-foreground">{orgName}</p>
+        <h1 className="text-3xl font-bold tracking-tight">{pageSettings.screenTitle}</h1>
+        {pageSettings.description && (
+          <p className="text-sm text-muted-foreground">{pageSettings.description}</p>
+        )}
       </div>
 
       <UsersView

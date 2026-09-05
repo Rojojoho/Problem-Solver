@@ -51,6 +51,7 @@ export function buildPlanMarkdown(plan: {
   tags: string[];
   background: JSONContent;
   stages: StageForExport[];
+  detailsLabel?: string;
 }): string {
   const lines: string[] = [];
   lines.push(`# ${plan.name}`, "");
@@ -60,7 +61,7 @@ export function buildPlanMarkdown(plan: {
 
   const bgParagraphs = docToParagraphs(plan.background);
   if (bgParagraphs.length) {
-    lines.push("## Plan Details", "", ...bgParagraphs, "");
+    lines.push(`## ${plan.detailsLabel || "Plan Details"}`, "", ...bgParagraphs, "");
   }
 
   const responsesByStage: Record<string, Record<string, JSONContent>> = Object.fromEntries(

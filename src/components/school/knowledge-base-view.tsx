@@ -3,16 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Linkified } from "@/components/plan/knowledge-panel";
 import type { SharedKnowledgeItemData } from "@/lib/ccps/types";
 
 export function KnowledgeBaseView({ items }: { items: SharedKnowledgeItemData[] }) {
   const [query, setQuery] = useState("");
+  const [activeType, setActiveType] = useState<string | null>(null);
 
-  const filtered = query.trim()
-    ? items.filter((item) => item.title.toLowerCase().includes(query.trim().toLowerCase()))
-    : items;
+  const types = Array.from(
+    new Set(items.map((item) => item.typeLabel).filter((label): label is string => Boolean(label)))
+  );
 
   if (!items.length) {
     return (
@@ -23,8 +25,36 @@ export function KnowledgeBaseView({ items }: { items: SharedKnowledgeItemData[] 
     );
   }
 
+  const filtered = items.filter(
+    (item) =>
+      (!activeType || item.typeLabel === activeType) &&
+      (!query.trim() || item.title.toLowerCase().includes(query.trim().toLowerCase()))
+  );
+
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={activeType === null ? "default" : "outline"}
+          onClick={() => setActiveType(null)}
+        >
+          All
+        </Button>
+        {types.map((type) => (
+          <Button
+            key={type}
+            type="button"
+            size="sm"
+            variant={activeType === type ? "default" : "outline"}
+            onClick={() => setActiveType(type)}
+          >
+            {type}
+          </Button>
+        ))}
+      </div>
+
       <Input
         placeholder="Search knowledge…"
         value={query}

@@ -77,8 +77,8 @@ export function PublicPlanView({
   const summary = buildPublicSummary(bundle);
 
   const tabOrder: TabOrderEntry[] = [
-    { kind: "details", sortOrder: tabPositions.details } satisfies TabOrderEntry,
-    { kind: "summary", sortOrder: tabPositions.summary } satisfies TabOrderEntry,
+    { kind: "details", sortOrder: tabPositions.details.sortOrder } satisfies TabOrderEntry,
+    { kind: "summary", sortOrder: tabPositions.summary.sortOrder } satisfies TabOrderEntry,
     ...bundle.stages.map(
       (s): TabOrderEntry => ({ kind: "stage", sortOrder: s.sort_order, stage: s })
     ),
@@ -106,11 +106,11 @@ export function PublicPlanView({
           {tabOrder.map((t) =>
             t.kind === "details" ? (
               <TabsTrigger key="details" value="details" className="whitespace-nowrap">
-                Plan Details
+                {tabPositions.details.label}
               </TabsTrigger>
             ) : t.kind === "summary" ? (
               <TabsTrigger key="summary" value="summary" className="whitespace-nowrap">
-                Summary
+                {tabPositions.summary.label}
               </TabsTrigger>
             ) : (
               <TabsTrigger key={t.stage.key} value={t.stage.key} className="whitespace-nowrap">
@@ -138,7 +138,12 @@ export function PublicPlanView({
           const s = t.stage;
           return (
             <TabsContent key={s.key} value={s.key} className="mt-6 space-y-6">
-              <h2 className="text-xl font-bold tracking-tight">{s.label}</h2>
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">{s.full_name || s.label}</h2>
+                {s.description && (
+                  <p className="text-sm text-muted-foreground">{s.description}</p>
+                )}
+              </div>
               {[...s.fields]
                 .sort((a, b) => a.sort_order - b.sort_order)
                 .map((field) => (

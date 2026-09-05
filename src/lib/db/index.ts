@@ -20,6 +20,8 @@ import type {
   KnowledgeTypeOption,
   LabeledOption,
   OrgMemberSummary,
+  PageKey,
+  PageSettings,
   PendingInvite,
   PublicPlanBundle,
   PublishedPlanSummary,
@@ -29,6 +31,7 @@ import type {
   StageFieldSummary,
   TagData,
   ValidationOption,
+  WorkspaceTabPosition,
   WorkspaceTabPositions,
 } from "@/lib/ccps/types";
 import * as mock from "@/lib/db/mock-store";
@@ -677,7 +680,7 @@ export async function listStages(): Promise<StageData[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("stages")
-    .select("key, label, sort_order")
+    .select("key, label, full_name, description, sort_order")
     .order("sort_order");
   return data ?? [];
 }
@@ -703,7 +706,7 @@ export async function createStageRecord(
 
 export async function updateStageRecord(
   key: string,
-  updates: { label?: string; sortOrder?: number }
+  updates: { label?: string; fullName?: string; description?: string; sortOrder?: number }
 ) {
   if (DEV_MOCK) {
     mock.mockUpdateStage(key, updates);
@@ -715,21 +718,24 @@ export async function updateStageRecord(
     .from("stages")
     .update({
       ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.fullName !== undefined ? { full_name: updates.fullName } : {}),
+      ...(updates.description !== undefined ? { description: updates.description } : {}),
       ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
     })
     .eq("key", key);
   if (error) throw new Error(error.message);
 }
 
-// The sort position of the "Plan Details" and "Summary" tabs — kept
-// separate from the `stages` table (see 0023_workspace_tab_positions.sql)
-// so those two pseudo-tabs don't leak into the several places that assume
-// `stages` is exactly the 7 real content stages. Merged with `stages` only
-// at render time, in plan-workspace.tsx / public-plan-view.tsx and their
-// admin editor equivalent.
+// The sort position, tab name, full name, and description of the "Plan
+// Details" and "Summary" tabs — kept separate from the `stages` table (see
+// 0023_workspace_tab_positions.sql) so those two pseudo-tabs don't leak
+// into the several places that assume `stages` is exactly the 7 real
+// content stages. Merged with `stages` only at render time, in
+// plan-workspace.tsx / public-plan-view.tsx and their admin editor
+// equivalent.
 const DEFAULT_WORKSPACE_TAB_POSITIONS: WorkspaceTabPositions = {
-  details: -2,
-  summary: -1,
+  details: { sortOrder: -2, label: "Details", fullName: "Plan Details", description: "" },
+  summary: { sortOrder: -1, label: "Summary", fullName: "Plan Summary", description: "" },
 };
 
 export async function getWorkspaceTabPositions(): Promise<WorkspaceTabPositions> {
@@ -738,27 +744,39 @@ export async function getWorkspaceTabPositions(): Promise<WorkspaceTabPositions>
   const supabase = await createClient();
   const { data } = await supabase
     .from("workspace_tab_positions")
-    .select("key, sort_order");
-  const byKey = new Map((data ?? []).map((row) => [row.key, row.sort_order]));
-  return {
-    details: byKey.get("details") ?? DEFAULT_WORKSPACE_TAB_POSITIONS.details,
-    summary: byKey.get("summary") ?? DEFAULT_WORKSPACE_TAB_POSITIONS.summary,
+    .select("key, sort_order, label, full_name, description");
+  const byKey = new Map((data ?? []).map((row) => [row.key, row]));
+  const resolve = (key: "details" | "summary"): WorkspaceTabPosition => {
+    const row = byKey.get(key);
+    if (!row) return DEFAULT_WORKSPACE_TAB_POSITIONS[key];
+    return {
+      sortOrder: row.sort_order,
+      label: row.label,
+      fullName: row.full_name,
+      description: row.description,
+    };
   };
+  return { details: resolve("details"), summary: resolve("summary") };
 }
 
 export async function updateWorkspaceTabPositionRecord(
   key: "details" | "summary",
-  sortOrder: number
+  updates: { label?: string; fullName?: string; description?: string; sortOrder?: number }
 ) {
   if (DEV_MOCK) {
-    mock.mockUpdateWorkspaceTabPosition(key, sortOrder);
+    mock.mockUpdateWorkspaceTabPosition(key, updates);
     return;
   }
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("workspace_tab_positions")
-    .update({ sort_order: sortOrder })
+    .update({
+      ...(updates.label !== undefined ? { label: updates.label } : {}),
+      ...(updates.fullName !== undefined ? { full_name: updates.fullName } : {}),
+      ...(updates.description !== undefined ? { description: updates.description } : {}),
+      ...(updates.sortOrder !== undefined ? { sort_order: updates.sortOrder } : {}),
+    })
     .eq("key", key);
   if (error) throw new Error(error.message);
 }
@@ -875,6 +893,92 @@ export async function updateDiagramHeadingsRecord(updates: Partial<DiagramHeadin
       ...(updates.strategy !== undefined ? { strategy_heading: updates.strategy } : {}),
     })
     .eq("id", true);
+  if (error) throw new Error(error.message);
+}
+
+// Admin-configurable menu title / screen title / description for a fixed
+// set of school-facing sections — see PageSettings' doc comment
+// (lib/ccps/types.ts) and 0034_page_settings.sql. Falls back to these
+// same defaults if a row is ever missing (e.g. a fresh DEV_MOCK session)
+// so TopNav/pages never render blank.
+const DEFAULT_PAGE_SETTINGS: Record<PageKey, PageSettings> = {
+  knowledge_base: {
+    pageKey: "knowledge_base",
+    menuTitle: "Knowledge",
+    screenTitle: "School Knowledge Base",
+    description:
+      "A central repository for key units of knowledge including definitions, beliefs and sources of evidence that are important to your school's strategic problem solving processes",
+  },
+  guide: { pageKey: "guide", menuTitle: "Guide", screenTitle: "Best Practice Guide", description: "" },
+  users: {
+    pageKey: "users",
+    menuTitle: "Users",
+    screenTitle: "Users",
+    description: "Manage the schools users and permissions",
+  },
+  school_settings: {
+    pageKey: "school_settings",
+    menuTitle: "Settings",
+    screenTitle: "School Settings",
+    description: "Configure key settings to align with your school's processes",
+  },
+};
+
+export async function listPageSettings(): Promise<PageSettings[]> {
+  if (DEV_MOCK) return mock.mockListPageSettings();
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("page_settings")
+    .select("page_key, menu_title, screen_title, description");
+  const byKey = new Map(
+    (data ?? []).map((r) => [
+      r.page_key,
+      { pageKey: r.page_key as PageKey, menuTitle: r.menu_title, screenTitle: r.screen_title, description: r.description },
+    ])
+  );
+  return (Object.keys(DEFAULT_PAGE_SETTINGS) as PageKey[]).map(
+    (key) => byKey.get(key) ?? DEFAULT_PAGE_SETTINGS[key]
+  );
+}
+
+export async function getPageSetting(pageKey: PageKey): Promise<PageSettings> {
+  if (DEV_MOCK) return mock.mockGetPageSetting(pageKey);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("page_settings")
+    .select("page_key, menu_title, screen_title, description")
+    .eq("page_key", pageKey)
+    .maybeSingle();
+  if (!data) return DEFAULT_PAGE_SETTINGS[pageKey];
+  return {
+    pageKey,
+    menuTitle: data.menu_title,
+    screenTitle: data.screen_title,
+    description: data.description,
+  };
+}
+
+export async function updatePageSettingRecord(
+  pageKey: PageKey,
+  updates: { menuTitle?: string; screenTitle?: string; description?: string }
+) {
+  if (DEV_MOCK) {
+    mock.mockUpdatePageSetting(pageKey, updates);
+    return;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("page_settings")
+    .update({
+      ...(updates.menuTitle !== undefined ? { menu_title: updates.menuTitle } : {}),
+      ...(updates.screenTitle !== undefined ? { screen_title: updates.screenTitle } : {}),
+      ...(updates.description !== undefined ? { description: updates.description } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("page_key", pageKey);
   if (error) throw new Error(error.message);
 }
 
@@ -1227,7 +1331,10 @@ export async function getExemplarDetail(
       .from("published_plan_fields")
       .select("stage, field_key, content")
       .eq("published_plan_id", publishedPlanId),
-    supabase.from("stages").select("key, label, sort_order").order("sort_order"),
+    supabase
+      .from("stages")
+      .select("key, label, full_name, description, sort_order")
+      .order("sort_order"),
   ]);
   if (!plan) return null;
 
@@ -1239,6 +1346,8 @@ export async function getExemplarDetail(
     stages: (stages ?? []).map((s) => ({
       key: s.key,
       label: s.label,
+      full_name: s.full_name,
+      description: s.description,
       sort_order: s.sort_order,
       fields: [],
       responses: Object.fromEntries(
@@ -1836,7 +1945,7 @@ export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemD
     supabase
       .from("knowledge_items")
       .select(
-        "id, plan_id, title, description, type_id, shared_to_school, forked_from_id, created_by, created_at"
+        "id, plan_id, title, description, type_id, shared_to_school, forked_from_id, created_by, updated_by, created_at"
       )
       .eq("plan_id", planId)
       .order("created_at"),
@@ -1845,14 +1954,18 @@ export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemD
   const rows = items ?? [];
   const typeLabelById = new Map(types.map((t) => [t.id, t.label]));
 
-  const creatorIds = Array.from(
-    new Set(rows.map((r) => r.created_by).filter((id): id is string => Boolean(id)))
-  );
   const forkedIds = Array.from(
     new Set(rows.map((r) => r.forked_from_id).filter((id): id is string => Boolean(id)))
   );
+  const userIds = Array.from(
+    new Set(
+      rows
+        .flatMap((r) => [r.created_by, r.updated_by])
+        .filter((id): id is string => Boolean(id))
+    )
+  );
   const [profileNamesById, forkSourcesById] = await Promise.all([
-    resolveProfileNames(creatorIds),
+    resolveProfileNames(userIds),
     resolveForkSources(forkedIds),
   ]);
 
@@ -1865,6 +1978,7 @@ export async function listKnowledgeItems(planId: string): Promise<KnowledgeItemD
     typeLabel: r.type_id ? (typeLabelById.get(r.type_id) ?? null) : null,
     sharedToSchool: r.shared_to_school,
     createdByName: r.created_by ? (profileNamesById.get(r.created_by) ?? "Unknown") : "Unknown",
+    updatedByName: r.updated_by ? (profileNamesById.get(r.updated_by) ?? "Unknown") : "Unknown",
     forkedFrom: r.forked_from_id ? (forkSourcesById.get(r.forked_from_id) ?? null) : null,
     createdAt: r.created_at,
   }));
@@ -1969,6 +2083,7 @@ export async function createKnowledgeItemRecord(
       description: input.description,
       shared_to_school: input.sharedToSchool,
       created_by: user?.id ?? null,
+      updated_by: user?.id ?? null,
     })
     .select("id")
     .single();
@@ -1986,6 +2101,9 @@ export async function updateKnowledgeItemRecord(
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { error } = await supabase
     .from("knowledge_items")
     .update({
@@ -1995,6 +2113,7 @@ export async function updateKnowledgeItemRecord(
       ...(updates.sharedToSchool !== undefined
         ? { shared_to_school: updates.sharedToSchool }
         : {}),
+      updated_by: user?.id ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -2047,6 +2166,7 @@ export async function forkKnowledgeItemRecord(
       shared_to_school: true,
       forked_from_id: sourceItemId,
       created_by: user?.id ?? null,
+      updated_by: user?.id ?? null,
     })
     .select("id")
     .single();

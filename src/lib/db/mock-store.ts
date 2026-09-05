@@ -10,10 +10,13 @@ import type {
   KbArticleData,
   KnowledgeItemData,
   KnowledgeLinkOption,
+  PageKey,
+  PageSettings,
   PublishedPlanSummary,
   SharedKnowledgeItemData,
   StageFieldSummary,
   TagData,
+  WorkspaceTabPositions,
 } from "@/lib/ccps/types";
 
 export const MOCK_USER_ID = "dev-user";
@@ -327,7 +330,7 @@ const stageFields: MockStageField[] = (
     internal_id: "1.3",
     stage: "PI",
     short_name: "Educational Argument",
-    full_prompt: "Make an educational argument",
+    full_prompt: "Make an educational argument for why this such a problem",
     helper_text: "Why is this problem the priority?",
     default_content: null,
     sort_order: 3,
@@ -462,18 +465,20 @@ const stageFields: MockStageField[] = (
 interface MockStage {
   key: string;
   label: string;
+  full_name: string;
+  description: string;
   sort_order: number;
 }
 
 // The mock stand-in for the global, admin-editable `stages` table.
 let stages: MockStage[] = [
-  { key: "PI", label: "1 Improvement", sort_order: 1 },
-  { key: "PC", label: "2A Causes", sort_order: 2 },
-  { key: "CV", label: "2B Validated Causes", sort_order: 3 },
-  { key: "SR", label: "3A Requirements", sort_order: 4 },
-  { key: "SS", label: "3B Solutions", sort_order: 5 },
-  { key: "IM", label: "4 Implement", sort_order: 6 },
-  { key: "EI", label: "5 Impact", sort_order: 7 },
+  { key: "PI", label: "PI", full_name: "Problem Identification", description: "", sort_order: 1 },
+  { key: "PC", label: "2A Causes", full_name: "", description: "", sort_order: 2 },
+  { key: "CV", label: "2B Validated Causes", full_name: "", description: "", sort_order: 3 },
+  { key: "SR", label: "3A Requirements", full_name: "", description: "", sort_order: 4 },
+  { key: "SS", label: "3B Solutions", full_name: "", description: "", sort_order: 5 },
+  { key: "IM", label: "4 Implement", full_name: "", description: "", sort_order: 6 },
+  { key: "EI", label: "5 Impact", full_name: "", description: "", sort_order: 7 },
 ];
 
 export function mockListStages() {
@@ -481,17 +486,19 @@ export function mockListStages() {
 }
 
 export function mockCreateStage(key: string, label: string, sortOrder: number) {
-  stages = [...stages, { key, label, sort_order: sortOrder }];
+  stages = [...stages, { key, label, full_name: "", description: "", sort_order: sortOrder }];
   return { key };
 }
 
 export function mockUpdateStage(
   key: string,
-  updates: { label?: string; sortOrder?: number }
+  updates: { label?: string; fullName?: string; description?: string; sortOrder?: number }
 ) {
   const stage = stages.find((s) => s.key === key);
   if (!stage) return;
   if (updates.label !== undefined) stage.label = updates.label;
+  if (updates.fullName !== undefined) stage.full_name = updates.fullName;
+  if (updates.description !== undefined) stage.description = updates.description;
   if (updates.sortOrder !== undefined) stage.sort_order = updates.sortOrder;
 }
 
@@ -499,20 +506,27 @@ export function mockUpdateStage(
 // separate from `stages` (see 0023_workspace_tab_positions.sql) so
 // "Plan Details"/"Summary" don't leak into the places that assume
 // `stages` is exactly the 7 real content stages.
-const workspaceTabPositions: { details: number; summary: number } = {
-  details: -2,
-  summary: -1,
+const workspaceTabPositions: WorkspaceTabPositions = {
+  details: { sortOrder: -2, label: "Details", fullName: "Plan Details", description: "" },
+  summary: { sortOrder: -1, label: "Summary", fullName: "Plan Summary", description: "" },
 };
 
-export function mockGetWorkspaceTabPositions() {
-  return { ...workspaceTabPositions };
+export function mockGetWorkspaceTabPositions(): WorkspaceTabPositions {
+  return {
+    details: { ...workspaceTabPositions.details },
+    summary: { ...workspaceTabPositions.summary },
+  };
 }
 
 export function mockUpdateWorkspaceTabPosition(
   key: "details" | "summary",
-  sortOrder: number
+  updates: { label?: string; fullName?: string; description?: string; sortOrder?: number }
 ) {
-  workspaceTabPositions[key] = sortOrder;
+  const position = workspaceTabPositions[key];
+  if (updates.label !== undefined) position.label = updates.label;
+  if (updates.fullName !== undefined) position.fullName = updates.fullName;
+  if (updates.description !== undefined) position.description = updates.description;
+  if (updates.sortOrder !== undefined) position.sortOrder = updates.sortOrder;
 }
 
 interface MockValidationOption {
@@ -627,6 +641,8 @@ export function mockGetPublicPlanBundle(token: string) {
     stages: mockListStages().map((s) => ({
       key: s.key,
       label: s.label,
+      full_name: s.full_name,
+      description: s.description,
       sort_order: s.sort_order,
       fields: mockGetStageFields(s.key as CcpsStage),
       responses: mockGetStageResponses(plan.id, s.key as CcpsStage),
@@ -864,6 +880,61 @@ export function mockUpdateDiagramHeadings(updates: Partial<DiagramHeadings>) {
   diagramHeadings = { ...diagramHeadings, ...updates };
 }
 
+// The mock stand-in for the global, admin-editable `page_settings` table —
+// see PageSettings' doc comment (lib/ccps/types.ts).
+const pageSettings = new Map<PageKey, PageSettings>([
+  [
+    "knowledge_base",
+    {
+      pageKey: "knowledge_base",
+      menuTitle: "Knowledge",
+      screenTitle: "School Knowledge Base",
+      description:
+        "A central repository for key units of knowledge including definitions, beliefs and sources of evidence that are important to your school's strategic problem solving processes",
+    },
+  ],
+  ["guide", { pageKey: "guide", menuTitle: "Guide", screenTitle: "Best Practice Guide", description: "" }],
+  [
+    "users",
+    {
+      pageKey: "users",
+      menuTitle: "Users",
+      screenTitle: "Users",
+      description: "Manage the schools users and permissions",
+    },
+  ],
+  [
+    "school_settings",
+    {
+      pageKey: "school_settings",
+      menuTitle: "Settings",
+      screenTitle: "School Settings",
+      description: "Configure key settings to align with your school's processes",
+    },
+  ],
+]);
+
+export function mockListPageSettings(): PageSettings[] {
+  return Array.from(pageSettings.values()).map((s) => ({ ...s }));
+}
+
+export function mockGetPageSetting(pageKey: PageKey): PageSettings {
+  const settings = pageSettings.get(pageKey);
+  if (!settings) throw new Error(`Unknown page key: ${pageKey}`);
+  return { ...settings };
+}
+
+export function mockUpdatePageSetting(
+  pageKey: PageKey,
+  updates: { menuTitle?: string; screenTitle?: string; description?: string }
+) {
+  const settings = pageSettings.get(pageKey);
+  if (!settings) return;
+  if (updates.menuTitle !== undefined) settings.menuTitle = updates.menuTitle;
+  if (updates.screenTitle !== undefined) settings.screenTitle = updates.screenTitle;
+  if (updates.description !== undefined) settings.description = updates.description;
+}
+
 // The mock stand-in for the global, admin-editable `requirement_types` table.
 let requirementTypes: MockLabeledOption[] = [
   { id: crypto.randomUUID(), label: "Resource", sort_order: 1 },
@@ -934,11 +1005,10 @@ export function mockDeleteImpactMeasureType(id: string) {
 
 // The mock stand-in for the global, admin-editable `knowledge_types` table.
 let knowledgeTypes: MockLabeledOption[] = [
-  { id: crypto.randomUUID(), label: "Terminology", sort_order: 1 },
+  { id: crypto.randomUUID(), label: "Policy", sort_order: 1 },
   { id: crypto.randomUUID(), label: "Evidence", sort_order: 2 },
-  { id: crypto.randomUUID(), label: "Policies", sort_order: 3 },
-  { id: crypto.randomUUID(), label: "Values", sort_order: 4 },
-  { id: crypto.randomUUID(), label: "Other", sort_order: 5 },
+  { id: crypto.randomUUID(), label: "Definition", sort_order: 3 },
+  { id: crypto.randomUUID(), label: "Other", sort_order: 4 },
 ];
 
 export function mockListKnowledgeTypes() {
@@ -1152,6 +1222,8 @@ export function mockGetExemplarDetail(publishedPlanId: string) {
     stages: mockListStages().map((s) => ({
       key: s.key,
       label: s.label,
+      full_name: s.full_name,
+      description: s.description,
       sort_order: s.sort_order,
       fields: [] as StageFieldSummary[],
       responses: responsesByStage[s.key as CcpsStage] ?? {},
@@ -1257,6 +1329,7 @@ interface MockKnowledgeItem {
   shared_to_school: boolean;
   forked_from_id: string | null;
   created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1304,6 +1377,7 @@ function toKnowledgeItemData(item: MockKnowledgeItem): KnowledgeItemData {
     typeLabel: mockKnowledgeTypeLabel(item.type_id),
     sharedToSchool: item.shared_to_school,
     createdByName: mockKnowledgeCreatorName(item.created_by),
+    updatedByName: mockKnowledgeCreatorName(item.updated_by),
     forkedFrom: mockKnowledgeForkSource(item.forked_from_id),
     createdAt: item.created_at,
   };
@@ -1374,6 +1448,7 @@ export function mockCreateKnowledgeItem(
     shared_to_school: input.sharedToSchool,
     forked_from_id: null,
     created_by: MOCK_USER_ID,
+    updated_by: MOCK_USER_ID,
     created_at: timestamp,
     updated_at: timestamp,
   });
@@ -1387,6 +1462,7 @@ export function mockUpdateKnowledgeItem(id: string, updates: Partial<MockKnowled
   if (updates.description !== undefined) item.description = updates.description;
   if (updates.typeId !== undefined) item.type_id = updates.typeId;
   if (updates.sharedToSchool !== undefined) item.shared_to_school = updates.sharedToSchool;
+  item.updated_by = MOCK_USER_ID;
   item.updated_at = now();
 }
 
@@ -1410,6 +1486,7 @@ export function mockForkKnowledgeItem(sourceItemId: string, planId: string, orgI
     shared_to_school: true,
     forked_from_id: sourceItemId,
     created_by: MOCK_USER_ID,
+    updated_by: MOCK_USER_ID,
     created_at: timestamp,
     updated_at: timestamp,
   });

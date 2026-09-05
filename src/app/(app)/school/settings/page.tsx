@@ -1,19 +1,18 @@
-import { getCurrentOrg } from "@/lib/org";
-import { listOrgMembers } from "@/lib/db";
-import { SchoolSettingsView } from "@/components/school/school-settings-view";
+import { getPageSetting } from "@/lib/db";
 
 export default async function SchoolSettingsPage() {
-  const { orgId, orgName, role } = await getCurrentOrg();
-  const members = await listOrgMembers(orgId);
+  const pageSettings = await getPageSetting("school_settings");
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">School settings</h1>
-        <p className="text-sm text-muted-foreground">{orgName}</p>
+        <h1 className="text-3xl font-bold tracking-tight">{pageSettings.screenTitle}</h1>
+        {pageSettings.description && (
+          <p className="text-sm text-muted-foreground">{pageSettings.description}</p>
+        )}
       </div>
 
-      <SchoolSettingsView members={members} isOwner={role === "owner"} />
+      <p className="text-sm text-muted-foreground">Nothing to configure yet.</p>
     </div>
   );
 }

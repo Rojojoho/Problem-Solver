@@ -205,9 +205,9 @@ export function PlanWorkspace({
   ].sort((a, b) => {
     const sortOrderOf = (t: { key: WorkspaceTab; kind: "details" | "summary" | "stage" }) =>
       t.kind === "details"
-        ? tabPositions.details
+        ? tabPositions.details.sortOrder
         : t.kind === "summary"
-          ? tabPositions.summary
+          ? tabPositions.summary.sortOrder
           : (stages.find((s) => s.key === t.key)?.sort_order ?? 0);
     return sortOrderOf(a) - sortOrderOf(b);
   });
@@ -223,58 +223,65 @@ export function PlanWorkspace({
         className={cn("min-w-0", showPanel && "lg:mr-[var(--panel-total)]")}
       >
         <Tabs value={stage} onValueChange={handleStageChange}>
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-semibold">{planName}</h1>
-            <div className="flex items-center gap-2">
-              <PublicShareDialog
-                planId={planId}
-                initialShareEnabled={shareEnabled}
-                initialShareToken={shareToken}
-              />
-              <ExportPlanTextButton planId={planId} planName={planName} />
-              <ExportPlanButton planId={planId} planName={planName} />
-              <PublishButton planId={planId} status={publishStatus} />
+          {/* Sticks just below the fixed TopNav (top-14 matches its h-14)
+              so the title/actions and stage tabs stay reachable while
+              scrolled deep into a long stage's content. The negative
+              margins/matching padding bleed it to the full page width so
+              scrolled content never peeks out at the edges underneath. */}
+          <div className="sticky top-14 z-30 -mx-4 bg-background px-4 pb-4 sm:-mx-6 sm:px-6">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h1 className="text-2xl font-semibold">{planName}</h1>
+              <div className="flex items-center gap-2">
+                <PublicShareDialog
+                  planId={planId}
+                  initialShareEnabled={shareEnabled}
+                  initialShareToken={shareToken}
+                />
+                <ExportPlanTextButton planId={planId} planName={planName} />
+                <ExportPlanButton planId={planId} planName={planName} />
+                <PublishButton planId={planId} status={publishStatus} />
+              </div>
             </div>
+            <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
+              {tabOrder.map((t) => {
+                if (t.kind === "details") {
+                  return (
+                    <TabsTrigger
+                      key="details"
+                      value="details"
+                      className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+                    >
+                      {tabPositions.details.label}
+                    </TabsTrigger>
+                  );
+                }
+                if (t.kind === "summary") {
+                  return (
+                    <TabsTrigger
+                      key="summary"
+                      value="summary"
+                      className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+                    >
+                      {summaryLoading && <Loader2 className="size-3 animate-spin" />}
+                      {tabPositions.summary.label}
+                    </TabsTrigger>
+                  );
+                }
+                const s = stages.find((st) => st.key === t.key);
+                if (!s) return null;
+                return (
+                  <TabsTrigger
+                    key={s.key}
+                    value={s.key}
+                    className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
+                  >
+                    {loadingStages[s.key] && <Loader2 className="size-3 animate-spin" />}
+                    {s.label}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
           </div>
-          <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
-            {tabOrder.map((t) => {
-              if (t.kind === "details") {
-                return (
-                  <TabsTrigger
-                    key="details"
-                    value="details"
-                    className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
-                  >
-                    Plan Details
-                  </TabsTrigger>
-                );
-              }
-              if (t.kind === "summary") {
-                return (
-                  <TabsTrigger
-                    key="summary"
-                    value="summary"
-                    className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
-                  >
-                    {summaryLoading && <Loader2 className="size-3 animate-spin" />}
-                    Summary
-                  </TabsTrigger>
-                );
-              }
-              const s = stages.find((st) => st.key === t.key);
-              if (!s) return null;
-              return (
-                <TabsTrigger
-                  key={s.key}
-                  value={s.key}
-                  className="whitespace-nowrap data-active:bg-primary data-active:text-primary-foreground"
-                >
-                  {loadingStages[s.key] && <Loader2 className="size-3 animate-spin" />}
-                  {s.label}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
 
           {tabOrder.map((t) => {
             if (t.kind === "details") {
@@ -308,7 +315,8 @@ export function PlanWorkspace({
                     <StageForm
                       planId={planId}
                       stage={s.key}
-                      stageLabel={s.label}
+                      stageLabel={s.full_name || s.label}
+                      stageDescription={s.description}
                       fields={bundle.fields}
                       initialResponses={bundle.responses}
                       validationOptions={bundle.validationOptions}
@@ -359,9 +367,9 @@ export function PlanWorkspace({
                 stage={stage}
                 stageLabel={
                   stage === "summary"
-                    ? "Summary"
+                    ? tabPositions.summary.label
                     : stage === "details"
-                      ? "Plan Details"
+                      ? tabPositions.details.label
                       : (stages.find((s) => s.key === stage)?.label ?? stage)
                 }
                 stageHasFields={stage !== "summary" && Boolean(bundles[stage]?.fields.length)}

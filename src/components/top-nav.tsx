@@ -4,7 +4,8 @@ import { ListChecks, ShieldCheck, BookOpen, Library, School, Users } from "lucid
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/sign-out-button";
 import { DEV_MOCK } from "@/lib/dev-mode";
-import { getCurrentUserId, isAdmin, getCurrentOrg } from "@/lib/db";
+import { getCurrentUserId, isAdmin, getCurrentOrg, listPageSettings } from "@/lib/db";
+import type { PageKey } from "@/lib/ccps/types";
 
 export async function TopNav() {
   const email = DEV_MOCK ? null : await getUserEmail();
@@ -23,6 +24,20 @@ export async function TopNav() {
     } catch {
       isOrgOwner = false;
     }
+  }
+
+  // Admin-configurable per Admin > Global Settings > Pages — falls back to
+  // the hardcoded defaults below if a row is ever missing so a broken
+  // config can't take out the nav.
+  const pageSettings = await listPageSettings();
+  const menuTitle: Record<PageKey, string> = {
+    knowledge_base: "Knowledge",
+    guide: "Guide",
+    users: "Users",
+    school_settings: "Settings",
+  };
+  for (const settings of pageSettings) {
+    menuTitle[settings.pageKey] = settings.menuTitle;
   }
 
   return (
@@ -47,23 +62,23 @@ export async function TopNav() {
             </Link>
             <Link href="/kb" className="flex items-center gap-1.5 hover:text-white">
               <BookOpen className="size-4" />
-              Guide
+              {menuTitle.guide}
             </Link>
             <Link href="/school/settings" className="flex items-center gap-1.5 hover:text-white">
               <School className="size-4" />
-              School
+              {menuTitle.school_settings}
             </Link>
             <Link
               href="/school/knowledge-base"
               className="flex items-center gap-1.5 hover:text-white"
             >
               <Library className="size-4" />
-              Knowledge Base
+              {menuTitle.knowledge_base}
             </Link>
             {isOrgOwner && (
               <Link href="/school/users" className="flex items-center gap-1.5 hover:text-white">
                 <Users className="size-4" />
-                Users
+                {menuTitle.users}
               </Link>
             )}
             {admin && (

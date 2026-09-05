@@ -132,6 +132,8 @@ export interface Database {
         Row: {
           key: string;
           label: string;
+          full_name: string;
+          description: string;
           sort_order: number;
           created_at: string;
         };
@@ -257,7 +259,13 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["stage_fields"]["Row"]>;
       };
       workspace_tab_positions: {
-        Row: { key: string; sort_order: number };
+        Row: {
+          key: string;
+          sort_order: number;
+          label: string;
+          full_name: string;
+          description: string;
+        };
         Insert: Database["public"]["Tables"]["workspace_tab_positions"]["Row"];
         Update: Partial<
           Database["public"]["Tables"]["workspace_tab_positions"]["Row"]
@@ -436,6 +444,7 @@ export interface Database {
           shared_to_school: boolean;
           forked_from_id: string | null;
           created_by: string | null;
+          updated_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -447,6 +456,23 @@ export interface Database {
           title: string;
         };
         Update: Partial<Database["public"]["Tables"]["knowledge_items"]["Row"]>;
+      };
+      page_settings: {
+        Row: {
+          page_key: string;
+          menu_title: string;
+          screen_title: string;
+          description: string;
+          updated_at: string;
+        };
+        Insert: Partial<
+          Database["public"]["Tables"]["page_settings"]["Row"]
+        > & {
+          page_key: string;
+          menu_title: string;
+          screen_title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["page_settings"]["Row"]>;
       };
     };
   };

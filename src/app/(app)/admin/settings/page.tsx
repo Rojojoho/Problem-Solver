@@ -5,19 +5,35 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Global Settings</h1>
         <p className="text-sm text-muted-foreground">
           App-wide configuration.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/admin/settings/pages">
+          <Card className="h-full transition-colors hover:border-foreground/30">
+            <CardHeader>
+              <CardTitle>Pages</CardTitle>
+              <CardDescription>
+                Manage the menu title, screen title, and description for
+                Knowledge Base, Guide, Users, and School Settings — plus
+                Knowledge types. Changes apply immediately across all
+                schools.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
         <Link href="/admin/settings/stages">
           <Card className="h-full transition-colors hover:border-foreground/30">
             <CardHeader>
               <CardTitle>Stages</CardTitle>
               <CardDescription>
-                Rename, reorder, or add the tabs shown on every plan.
+                Rename, reorder, or add stages, and manage each field&apos;s
+                title and subtitle. Changes apply immediately across all
+                plans.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -30,18 +46,6 @@ export default function AdminSettingsPage() {
               <CardDescription>
                 Manage the per-stage success-criteria checklist. Edits only
                 apply to plans created after the change.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href="/admin/settings/fields">
-          <Card className="h-full transition-colors hover:border-foreground/30">
-            <CardHeader>
-              <CardTitle>Stage fields</CardTitle>
-              <CardDescription>
-                Manage each stage&apos;s input fields. Edits only apply to plans
-                created after the change.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -78,19 +82,6 @@ export default function AdminSettingsPage() {
               <CardDescription>
                 Manage the types selectable per measure on Stage 5. Changes
                 apply immediately across all plans.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
-        <Link href="/admin/settings/knowledge-types">
-          <Card className="h-full transition-colors hover:border-foreground/30">
-            <CardHeader>
-              <CardTitle>Knowledge types</CardTitle>
-              <CardDescription>
-                Manage the types selectable per Knowledge item in every
-                plan&apos;s side panel. Changes apply immediately across all
-                plans.
               </CardDescription>
             </CardHeader>
           </Card>

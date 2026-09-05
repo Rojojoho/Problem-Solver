@@ -52,10 +52,17 @@ export interface StageFieldSummary {
 // The sort position of the "Plan Details" and "Summary" tabs, admin-edited
 // independently of the `stages` table (see 0023_workspace_tab_positions.sql
 // for why they aren't just rows in that table).
-export interface WorkspaceTabPositions {
-  details: number;
-  summary: number;
+// The sort position, tab name, full name, and description of the "Plan
+// Details"/"Summary" synthetic tabs — see 0023_workspace_tab_positions.sql
+// for why these live separately from `stages`.
+export interface WorkspaceTabPosition {
+  sortOrder: number;
+  label: string;
+  fullName: string;
+  description: string;
 }
+
+export type WorkspaceTabPositions = Record<"details" | "summary", WorkspaceTabPosition>;
 
 // Everything the public, no-login plan viewer needs — assembled once (either
 // by the `get_public_plan_bundle` Postgres function or its DEV_MOCK
@@ -64,6 +71,8 @@ export interface WorkspaceTabPositions {
 export interface PublicStageBundle {
   key: string;
   label: string;
+  full_name: string;
+  description: string;
   sort_order: number;
   fields: {
     field_key: string;
@@ -87,6 +96,8 @@ export interface PublicPlanBundle {
 export interface StageData {
   key: string;
   label: string;
+  full_name: string;
+  description: string;
   sort_order: number;
 }
 
@@ -294,6 +305,7 @@ export interface KnowledgeItemData {
   typeLabel: string | null;
   sharedToSchool: boolean;
   createdByName: string;
+  updatedByName: string;
   forkedFrom: { id: string; title: string; planName: string } | null;
   createdAt: string;
 }
@@ -320,4 +332,18 @@ export interface SharedKnowledgeItemData {
   typeLabel: string | null;
   sourcePlanId: string;
   sourcePlanName: string;
+}
+
+// Admin-configurable menu title / screen title / description for a fixed
+// set of school-facing sections — managed from
+// Admin > Global Settings > Pages (web/src/components/admin/pages-settings-editor.tsx).
+// Site-wide, not per-org: one shared row per key, read by TopNav and each
+// section's own page.
+export type PageKey = "knowledge_base" | "guide" | "users" | "school_settings";
+
+export interface PageSettings {
+  pageKey: PageKey;
+  menuTitle: string;
+  screenTitle: string;
+  description: string;
 }

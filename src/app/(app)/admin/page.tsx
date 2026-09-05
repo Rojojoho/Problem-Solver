@@ -50,7 +50,7 @@ export default function AdminPage() {
         <Link href="/admin/settings">
           <Card className="h-full transition-colors hover:border-foreground/30">
             <CardHeader>
-              <CardTitle>Settings</CardTitle>
+              <CardTitle>Global Settings</CardTitle>
               <CardDescription>
                 Manage checklist templates and app configuration.
               </CardDescription>

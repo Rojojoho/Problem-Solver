@@ -16,6 +16,8 @@ import {
   getChecklistState,
   toggleChecklistItemRecord,
   listStages,
+  listKnowledgeItems,
+  createKnowledgeItemRecord,
 } from "@/lib/db";
 import type { CcpsStage } from "@/lib/supabase/database.types";
 import type { PlanExport } from "@/app/(app)/plans/[id]/actions";
@@ -45,19 +47,25 @@ export async function deletePlans(planIds: string[]) {
 }
 
 // Copies a plan into a brand-new one in the same org: background, tags,
-// every stage's responses, and checklist *state* (plain progress tracking,
-// reasonable to carry over). Feedback comments and publish history are
-// deliberately left out — same exclusions exportPlan documents, since
-// those are conversational/review artifacts specific to the original plan
-// instance, not content that makes sense on a copy.
+// every stage's responses, checklist *state* (plain progress tracking,
+// reasonable to carry over), and the plan's own Knowledge items (each
+// re-created fresh on the copy via createKnowledgeItemRecord, not moved —
+// the original plan keeps its own items, and any Knowledge *links* in the
+// copied stage-response rows still point at the ids they always did, which
+// works whether that's the original plan's own items or another plan's
+// shared ones). Feedback comments and publish history are deliberately
+// left out — same exclusions exportPlan documents, since those are
+// conversational/review artifacts specific to the original plan instance,
+// not content that makes sense on a copy.
 export async function duplicatePlan(planId: string): Promise<{ id: string }> {
   const { orgId, userId } = await getCurrentOrg();
 
-  const [plan, tags, stages, checklistState] = await Promise.all([
+  const [plan, tags, stages, checklistState, knowledgeItems] = await Promise.all([
     getPlan(planId),
     getPlanTags(planId),
     listStages(),
     getChecklistState(planId),
+    listKnowledgeItems(planId),
   ]);
   if (!plan) throw new Error("Plan not found.");
 
@@ -78,6 +86,14 @@ export async function duplicatePlan(planId: string): Promise<{ id: string }> {
     ...Object.entries(checklistState)
       .filter(([, checked]) => checked)
       .map(([itemKey]) => toggleChecklistItemRecord(id, itemKey, true)),
+    ...knowledgeItems.map((item) =>
+      createKnowledgeItemRecord(id, orgId, {
+        title: item.title,
+        description: item.description,
+        typeId: item.typeId,
+        sharedToSchool: item.sharedToSchool,
+      })
+    ),
   ]);
 
   revalidatePath("/plans");

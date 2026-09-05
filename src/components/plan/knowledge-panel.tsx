@@ -10,7 +10,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -129,15 +128,8 @@ export function KnowledgePanel({ planId, items, knowledgeTypes }: KnowledgePanel
                     <span className="text-sm font-medium">{item.title}</span>
                     {item.typeLabel && <Badge variant="outline">{item.typeLabel}</Badge>}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Added by {item.createdByName}
-                    {!item.sharedToSchool && " · Not shared with school"}
-                  </p>
-                  {item.forkedFrom && (
-                    <p className="text-xs text-muted-foreground italic">
-                      Adapted from &quot;{item.forkedFrom.title}&quot; in{" "}
-                      {item.forkedFrom.planName}
-                    </p>
+                  {!item.sharedToSchool && (
+                    <p className="text-xs text-muted-foreground">Not shared with school</p>
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
@@ -225,7 +217,6 @@ function KnowledgeFields({
           id="knowledge-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Links (https://…) are shown as clickable."
           rows={4}
           className="mt-1"
         />
@@ -254,7 +245,7 @@ function KnowledgeFields({
       </div>
       <label className="flex items-center gap-2 text-sm">
         <Checkbox checked={shared} onCheckedChange={(checked) => setShared(checked === true)} />
-        Share with school (other plans can link to or adapt this)
+        Share with school
       </label>
     </>
   );
@@ -275,10 +266,6 @@ function AddKnowledgeDialog({
     <>
       <DialogHeader>
         <DialogTitle>Add Knowledge</DialogTitle>
-        <DialogDescription>
-          Record a definition or piece of evidence, or bring in something
-          already shared by another plan in your school.
-        </DialogDescription>
       </DialogHeader>
       <Tabs value={tab} onValueChange={(value) => setTab(value ?? tab)}>
         <TabsList variant="line" className="w-full">
@@ -415,6 +402,9 @@ function EditKnowledgeDialog({
         setShared={setShared}
         knowledgeTypes={knowledgeTypes}
       />
+      <p className="text-xs text-muted-foreground">
+        Created by {item.createdByName} · Last edited by {item.updatedByName}
+      </p>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone}>
           Cancel

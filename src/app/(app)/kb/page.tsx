@@ -1,19 +1,23 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { listKbArticles, listStages } from "@/lib/db";
+import { listKbArticles, listStages, getPageSetting } from "@/lib/db";
 import { stageLabelMap } from "@/lib/ccps/constants";
 
 export default async function KbPage() {
-  const [articles, stages] = await Promise.all([
+  const [articles, stages, pageSettings] = await Promise.all([
     listKbArticles(true),
     listStages(),
+    getPageSetting("guide"),
   ]);
   const stageLabels = stageLabelMap(stages);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Guide</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{pageSettings.screenTitle}</h1>
+        {pageSettings.description && (
+          <p className="text-sm text-muted-foreground">{pageSettings.description}</p>
+        )}
       </div>
 
       {!articles.length ? (

@@ -46,6 +46,7 @@ interface StageFormProps {
   planId: string;
   stage: CcpsStage;
   stageLabel: string;
+  stageDescription?: string;
   fields: StageFieldSummary[];
   initialResponses: Record<string, JSONContent>;
   validationOptions: ValidationOption[];
@@ -62,6 +63,7 @@ export function StageForm({
   planId,
   stage,
   stageLabel,
+  stageDescription,
   fields,
   initialResponses,
   validationOptions,
@@ -86,6 +88,9 @@ export function StageForm({
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold tracking-tight">{stageLabel}</h2>
+        {stageDescription && (
+          <p className="text-sm text-muted-foreground">{stageDescription}</p>
+        )}
         {isPending && <p className="text-sm text-muted-foreground">Saving…</p>}
       </div>
 

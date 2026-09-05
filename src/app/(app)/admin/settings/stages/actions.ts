@@ -32,20 +32,36 @@ export async function createStage(formData: FormData) {
   revalidatePath("/admin/settings/stages");
 }
 
-export async function updateStage(key: string, label: string, sortOrder: number) {
+export async function updateStage(
+  key: string,
+  updates: { label: string; fullName: string; description: string; sortOrder: number }
+) {
   await requireAdmin();
-  const trimmed = label.trim();
-  if (!trimmed) throw new Error("Label is required.");
+  const label = updates.label.trim();
+  if (!label) throw new Error("Tab name is required.");
 
-  await updateStageRecord(key, { label: trimmed, sortOrder });
+  await updateStageRecord(key, {
+    label,
+    fullName: updates.fullName.trim(),
+    description: updates.description.trim(),
+    sortOrder: updates.sortOrder,
+  });
   revalidatePath("/admin/settings/stages");
 }
 
 export async function updateWorkspaceTabPosition(
   key: "details" | "summary",
-  sortOrder: number
+  updates: { label: string; fullName: string; description: string; sortOrder: number }
 ) {
   await requireAdmin();
-  await updateWorkspaceTabPositionRecord(key, sortOrder);
+  const label = updates.label.trim();
+  if (!label) throw new Error("Tab name is required.");
+
+  await updateWorkspaceTabPositionRecord(key, {
+    label,
+    fullName: updates.fullName.trim(),
+    description: updates.description.trim(),
+    sortOrder: updates.sortOrder,
+  });
   revalidatePath("/admin/settings/stages");
 }

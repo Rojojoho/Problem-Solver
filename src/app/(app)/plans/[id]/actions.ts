@@ -60,6 +60,7 @@ import {
   getPlan,
   getPlanTags,
   listStages,
+  getWorkspaceTabPositions,
   listSharedKnowledgeItems,
   getKnowledgeLinkOptions as getKnowledgeLinkOptionsRecord,
   createKnowledgeItemRecord,
@@ -120,7 +121,11 @@ export async function exportPlanAsText(planId: string): Promise<string> {
   const plan = await getPlan(planId);
   if (!plan) throw new Error("Plan not found.");
 
-  const [stages, tags] = await Promise.all([listStages(), getPlanTags(planId)]);
+  const [stages, tags, tabPositions] = await Promise.all([
+    listStages(),
+    getPlanTags(planId),
+    getWorkspaceTabPositions(),
+  ]);
 
   const stageBundles = await Promise.all(
     stages.map(async (stage) => {
@@ -137,6 +142,7 @@ export async function exportPlanAsText(planId: string): Promise<string> {
     tags,
     background: plan.background ?? EMPTY_DOC,
     stages: stageBundles,
+    detailsLabel: tabPositions.details.label,
   });
 }
 
